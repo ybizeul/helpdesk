@@ -96,6 +96,26 @@ type contextKey string
 
 const claimsKey contextKey = "claims"
 
+func (h *handlers) getMe(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	claims := ctx.Value(claimsKey).(*jwtClaims)
+
+	oid, err := bson.ObjectIDFromHex(claims.Sub)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "INVALID_ID", "invalid user ID")
+		return
+	}
+
+	var user models.User
+	err = h.db.Users().FindOne(ctx, bson.M{"_id": oid}).Decode(&user)
+	if err != nil {
+		writeError(w, http.StatusNotFound, "USER_NOT_FOUND", "user not found")
+		return
+	}
+
+	writeJSON(w, http.StatusOK, user)
+}
+
 func (h *handlers) changePassword(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	claims := ctx.Value(claimsKey).(*jwtClaims)

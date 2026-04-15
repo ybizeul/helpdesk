@@ -1,8 +1,9 @@
-import { useState, useCallback, useRef } from 'react'
+import { useState, useCallback, useRef, useEffect } from 'react'
 import { Routes, Route, Navigate, useNavigate, useParams } from 'react-router-dom'
 import { AppShell, Box, Burger, Group, Text } from '@mantine/core'
 import { useDisclosure, useMediaQuery } from '@mantine/hooks'
 import { AppNavbar } from './components/AppNavbar'
+import { ProfileModal } from './components/ProfileModal'
 import { TicketListPage } from './pages/TicketListPage'
 import type { TicketListHandle } from './pages/TicketListPage'
 import { TicketDetailPage } from './pages/TicketDetailPage'
@@ -10,7 +11,7 @@ import { DashboardPage } from './pages/DashboardPage'
 import { SettingsPage } from './pages/SettingsPage'
 import { UsersPage } from './pages/UsersPage'
 import { LoginPage } from './pages/LoginPage'
-import { setAuthToken } from './api/client'
+import { setAuthToken, api } from './api/client'
 
 function TicketPanes() {
   const { id } = useParams<{ id: string }>()
@@ -108,22 +109,32 @@ function TicketPanes() {
 export default function App() {
   const [token, setToken] = useState<string | null>(() => localStorage.getItem('token'))
   const [navOpened, { toggle: toggleNav, close: closeNav }] = useDisclosure(false)
+  const [profileOpened, { open: openProfile, close: closeProfile }] = useDisclosure(false)
+  const [currentUser, setCurrentUser] = useState<any>(null)
   const isMobileHeader = useMediaQuery('(max-width: 48em)')
 
-  const handleLogin = useCallback((newToken: string, _user: any) => {
+  const handleLogin = useCallback((newToken: string, user: any) => {
     localStorage.setItem('token', newToken)
     setAuthToken(newToken)
     setToken(newToken)
+    setCurrentUser(user)
   }, [])
 
   const handleLogout = useCallback(() => {
     localStorage.removeItem('token')
     setAuthToken(null)
     setToken(null)
+    setCurrentUser(null)
   }, [])
 
   // Restore token on mount
   if (token) setAuthToken(token)
+
+  useEffect(() => {
+    if (token && !currentUser) {
+      api.me().then(setCurrentUser).catch(console.error)
+    }
+  }, [token])
 
   if (!token) {
     return <LoginPage onLogin={handleLogin} />
@@ -142,7 +153,7 @@ export default function App() {
         </Group>
       </AppShell.Header>
       <AppShell.Navbar>
-        <AppNavbar onLogout={handleLogout} onNavigate={closeNav} />
+        <AppNavbar onLogout={handleLogout} onNavigate={closeNav} user={currentUser} onOpenProfile={openProfile} />
       </AppShell.Navbar>
       <AppShell.Main>
         <Routes>
@@ -154,6 +165,7 @@ export default function App() {
           <Route path="/settings" element={<Box p="md"><SettingsPage /></Box>} />
         </Routes>
       </AppShell.Main>
+      <ProfileModal opened={profileOpened} onClose={closeProfile} user={currentUser} />
     </AppShell>
   )
 }

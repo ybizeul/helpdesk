@@ -66,6 +66,7 @@ export const api = {
   },
   stats: () => request<any>('/stats'),
   login: (email: string, password: string) => request<any>('/auth/login', { method: 'POST', body: JSON.stringify({ email, password }) }),
+  me: () => request<any>('/auth/me'),
   changePassword: (currentPassword: string, newPassword: string) => request<void>('/auth/password', { method: 'PUT', body: JSON.stringify({ current_password: currentPassword, new_password: newPassword }) }),
   passkeys: {
     list: () => request<any[]>('/auth/passkeys'),

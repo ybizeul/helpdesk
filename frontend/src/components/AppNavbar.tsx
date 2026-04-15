@@ -1,4 +1,4 @@
-import { NavLink, Stack, Text, Button } from '@mantine/core'
+import { NavLink, Stack, Text, Button, Avatar, Menu, Group, UnstyledButton } from '@mantine/core'
 import { useLocation, useNavigate } from 'react-router-dom'
 import {
   IconDashboard,
@@ -6,6 +6,7 @@ import {
   IconUsers,
   IconSettings,
   IconLogout,
+  IconUser,
 } from '@tabler/icons-react'
 
 const links = [
@@ -18,9 +19,11 @@ const links = [
 interface AppNavbarProps {
   onLogout?: () => void
   onNavigate?: () => void
+  user?: { id: string; name: string; email: string; role: string } | null
+  onOpenProfile?: () => void
 }
 
-export function AppNavbar({ onLogout, onNavigate }: AppNavbarProps) {
+export function AppNavbar({ onLogout, onNavigate, user, onOpenProfile }: AppNavbarProps) {
   const location = useLocation()
   const navigate = useNavigate()
 
@@ -29,12 +32,33 @@ export function AppNavbar({ onLogout, onNavigate }: AppNavbarProps) {
     onNavigate?.()
   }
 
+  const initials = user?.name
+    ? user.name.split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2)
+    : '?'
+
   return (
     <Stack gap={0} p="sm" justify="space-between" h="100%">
       <div>
-        <Text fw={700} size="lg" mb="md" px="sm">
-          Helpdesk
-        </Text>
+        <Group mb="md" px="sm" gap="sm">
+          <Menu shadow="md" width={200} position="bottom-start">
+            <Menu.Target>
+              <UnstyledButton>
+                <Avatar size="sm" radius="xl" color="blue">{initials}</Avatar>
+              </UnstyledButton>
+            </Menu.Target>
+            <Menu.Dropdown>
+              <Menu.Label>{user?.name || 'User'}</Menu.Label>
+              <Menu.Item leftSection={<IconUser size={14} />} onClick={onOpenProfile}>
+                Profile
+              </Menu.Item>
+              <Menu.Divider />
+              <Menu.Item leftSection={<IconLogout size={14} />} color="red" onClick={onLogout}>
+                Logout
+              </Menu.Item>
+            </Menu.Dropdown>
+          </Menu>
+          <Text fw={700} size="lg">Helpdesk</Text>
+        </Group>
         {links.map((link) => (
           <NavLink
             key={link.to}
@@ -46,11 +70,6 @@ export function AppNavbar({ onLogout, onNavigate }: AppNavbarProps) {
           />
         ))}
       </div>
-      {onLogout && (
-        <Button variant="subtle" color="gray" leftSection={<IconLogout size={16} />} onClick={onLogout} fullWidth>
-          Logout
-        </Button>
-      )}
     </Stack>
   )
 }

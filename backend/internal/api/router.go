@@ -53,6 +53,7 @@ func NewRouter(db *store.DB) http.Handler {
 	// Auth
 	mux.HandleFunc("POST /api/v1/auth/login", h.login)
 	mux.HandleFunc("PUT /api/v1/auth/password", h.changePassword)
+	mux.HandleFunc("GET /api/v1/auth/me", h.getMe)
 
 	// Passkeys
 	mux.HandleFunc("GET /api/v1/auth/passkeys", h.listPasskeys)
