@@ -12,7 +12,7 @@ before:
 builds:
   - id: helpdesk
     dir: backend
-    main: ./cmd/helpdesk/
+    main: ./cmd/helpdesk
     binary: helpdesk
     env:
       - CGO_ENABLED=0
