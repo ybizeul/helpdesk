@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef, useCallback } from 'react'
 import { Title, Table, Badge, Group, Text, Checkbox, Button, Tooltip, Menu, ActionIcon } from '@mantine/core'
 import { IconTrash, IconEye, IconEyeOff, IconCircle, IconRefresh, IconArrowMerge } from '@tabler/icons-react'
 import { notifications } from '@mantine/notifications'
@@ -19,6 +19,18 @@ function formatDate(d: string | Date): string {
   return date.toLocaleDateString()
 }
 
+function notifyNewTickets(newTickets: any[]) {
+  if (localStorage.getItem('notifications_enabled') !== 'true') return
+  if (typeof Notification === 'undefined' || Notification.permission !== 'granted') return
+  for (const t of newTickets) {
+    new Notification(`New ticket #${t.number}`, {
+      body: `${t.subject}\nFrom: ${t.requester?.email || 'unknown'}`,
+      icon: '/favicon.svg',
+      tag: `ticket-${t.id}`,
+    })
+  }
+}
+
 interface TicketListPageProps {
   activeTicketId?: string | null
   onSelectTicket?: (id: string) => void
@@ -27,10 +39,18 @@ interface TicketListPageProps {
 export function TicketListPage({ activeTicketId, onSelectTicket }: TicketListPageProps = {}) {
   const [tickets, setTickets] = useState<any[]>([])
   const [selected, setSelected] = useState<Set<string>>(new Set())
+  const knownIdsRef = useRef<Set<string> | null>(null)
 
-  const loadTickets = () => {
-    api.tickets.list({}).then(setTickets).catch(console.error)
-  }
+  const loadTickets = useCallback(() => {
+    api.tickets.list({}).then((data) => {
+      if (knownIdsRef.current !== null) {
+        const newTickets = data.filter((t: any) => t.unread && !knownIdsRef.current!.has(t.id))
+        if (newTickets.length > 0) notifyNewTickets(newTickets)
+      }
+      knownIdsRef.current = new Set(data.map((t: any) => t.id))
+      setTickets(data)
+    }).catch(console.error)
+  }, [])
 
   useEffect(() => {
     loadTickets()

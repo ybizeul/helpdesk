@@ -105,6 +105,7 @@ export function SettingsPage() {
           <Tabs.Tab value="email">Email (IMAP/SMTP)</Tabs.Tab>
           <Tabs.Tab value="signature">Signature</Tabs.Tab>
           <Tabs.Tab value="llm">LLM</Tabs.Tab>
+          <Tabs.Tab value="notifications">Notifications</Tabs.Tab>
         </Tabs.List>
 
         <Tabs.Panel value="email" pt="md">
@@ -215,6 +216,39 @@ export function SettingsPage() {
             <Group>
               <Button onClick={saveLLM}>Save LLM Settings</Button>
             </Group>
+          </Stack>
+        </Tabs.Panel>
+
+        <Tabs.Panel value="notifications" pt="md">
+          <Stack maw={500}>
+            <Text size="sm" c="dimmed">Receive browser notifications when new tickets arrive.</Text>
+            <Switch
+              label="Enable desktop notifications"
+              checked={localStorage.getItem('notifications_enabled') === 'true'}
+              onChange={async (e) => {
+                if (e.currentTarget.checked) {
+                  if (!('Notification' in window)) {
+                    notifications.show({ title: 'Not supported', message: 'Your browser does not support notifications', color: 'red' })
+                    return
+                  }
+                  const permission = await Notification.requestPermission()
+                  if (permission === 'granted') {
+                    localStorage.setItem('notifications_enabled', 'true')
+                    notifications.show({ title: 'Enabled', message: 'Desktop notifications enabled', color: 'green' })
+                  } else {
+                    notifications.show({ title: 'Denied', message: 'Notification permission was denied by the browser', color: 'red' })
+                  }
+                } else {
+                  localStorage.setItem('notifications_enabled', 'false')
+                  notifications.show({ title: 'Disabled', message: 'Desktop notifications disabled', color: 'gray' })
+                }
+                // Force re-render
+                setSettings({ ...settings })
+              }}
+            />
+            {typeof Notification !== 'undefined' && Notification.permission === 'denied' && (
+              <Text size="sm" c="red">Notifications are blocked by your browser. Please allow them in your browser settings.</Text>
+            )}
           </Stack>
         </Tabs.Panel>
       </Tabs>
