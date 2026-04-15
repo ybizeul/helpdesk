@@ -119,7 +119,7 @@ func FetchEmails(ctx context.Context, cfg models.EmailSettings, db TicketStore) 
 
 		var from, subject, messageID string
 		var inReplyTo []string
-		var cc []string
+		var to, cc []string
 		var date time.Time
 		var rawBody []byte
 
@@ -137,6 +137,9 @@ func FetchEmails(ctx context.Context, cfg models.EmailSettings, db TicketStore) 
 				if len(data.Envelope.From) > 0 {
 					a := data.Envelope.From[0]
 					from = fmt.Sprintf("%s@%s", a.Mailbox, a.Host)
+				}
+				for _, a := range data.Envelope.To {
+					to = append(to, fmt.Sprintf("%s@%s", a.Mailbox, a.Host))
 				}
 				for _, a := range data.Envelope.Cc {
 					cc = append(cc, fmt.Sprintf("%s@%s", a.Mailbox, a.Host))
@@ -176,6 +179,7 @@ func FetchEmails(ctx context.Context, cfg models.EmailSettings, db TicketStore) 
 		newMsg := models.Message{
 			MessageID:   messageID,
 			From:        from,
+			To:          to,
 			Subject:     subject,
 			Cc:          cc,
 			Body:        parsed.Text,

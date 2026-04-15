@@ -276,6 +276,16 @@ func (h *handlers) replyTicket(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	msg.CreatedAt = time.Now()
+	msg.To = []string{ticket.Requester.Email}
+	msg.Subject = fmt.Sprintf("Re: [#%d] %s", ticket.Number, ticket.Subject)
+
+	// Load settings to get the sender address
+	var settings models.Settings
+	if err := h.db.Settings().FindOne(ctx, bson.M{"_id": "global"}).Decode(&settings); err == nil && settings.Email.SMTPFrom != "" {
+		msg.From = settings.Email.SMTPFrom
+	} else {
+		msg.From = "agent"
+	}
 
 	_, err = h.db.Tickets().UpdateByID(ctx, oid, bson.M{
 		"$push": bson.M{"messages": msg},
@@ -287,8 +297,7 @@ func (h *handlers) replyTicket(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Send email via SMTP
-	var settings models.Settings
-	if err := h.db.Settings().FindOne(ctx, bson.M{"_id": "global"}).Decode(&settings); err == nil && settings.Email.SMTPHost != "" {
+	if settings.Email.SMTPHost != "" {
 		subject := fmt.Sprintf("Re: [#%d] %s", ticket.Number, ticket.Subject)
 		replyHeaders := buildReplyHeaders(ticket)
 		cc := collectCc(ticket, settings.Email)
@@ -518,6 +527,10 @@ func (h *handlers) reparseEmails(w http.ResponseWriter, r *http.Request) {
 			}
 			if parsed.Subject != "" && msg.Subject == "" {
 				ticket.Messages[i].Subject = parsed.Subject
+				changed = true
+			}
+			if len(parsed.To) > 0 && len(msg.To) == 0 {
+				ticket.Messages[i].To = parsed.To
 				changed = true
 			}
 			if len(parsed.Cc) > 0 && len(msg.Cc) == 0 {

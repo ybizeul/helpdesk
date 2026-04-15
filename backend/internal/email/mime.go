@@ -32,6 +32,7 @@ type ParsedBody struct {
 	Text         string
 	HTML         string
 	Subject      string
+	To           []string
 	Cc           []string
 	Attachments  []Attachment
 	ThreadTopic  string
@@ -60,6 +61,16 @@ func ParseMIMEBody(raw []byte) ParsedBody {
 
 	if topic := entity.Header.Get("Thread-Topic"); topic != "" {
 		result.ThreadTopic = topic
+	}
+
+	// Parse To header
+	if to := entity.Header.Get("To"); to != "" {
+		for _, addr := range strings.Split(to, ",") {
+			addr = strings.TrimSpace(addr)
+			if addr != "" {
+				result.To = append(result.To, addr)
+			}
+		}
 	}
 
 	// Parse Cc header

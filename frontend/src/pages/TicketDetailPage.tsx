@@ -1,10 +1,11 @@
 import { useEffect, useState, useMemo, useCallback } from 'react'
 import { useParams } from 'react-router-dom'
-import { Title, Text, Paper, Badge, Stack, Group, Divider, Box, ActionIcon, Tooltip, Alert, Button as MButton } from '@mantine/core'
+import { Title, Text, Paper, Badge, Stack, Group, Divider, Box, ActionIcon, Tooltip, Alert, Button as MButton, Modal } from '@mantine/core'
 import { IconLock, IconLockOpen, IconRefresh, IconSend, IconPaperclip, IconArrowLeft } from '@tabler/icons-react'
 import { api } from '../api/client'
 import { ReplyEditor } from '../components/ReplyEditor'
 import { notifications } from '@mantine/notifications'
+import { useDisclosure } from '@mantine/hooks'
 
 const statusColors: Record<string, string> = {
   open: 'blue',
@@ -34,9 +35,17 @@ function openImageWindow(src: string) {
   window.open(URL.createObjectURL(blob), '_blank')
 }
 
-function MessageBody({ msg }: { msg: any }) {
+function stripSignature(html: string): string {
+  // Remove signature block starting with <p>--</p> or plain -- separator
+  return html.replace(/<p>--<\/p>[\s\S]*$/, '').replace(/\n--\n[\s\S]*$/, '')
+}
+
+function MessageBody({ msg, isOutgoing }: { msg: any; isOutgoing?: boolean }) {
   if (msg.html) {
-    const safe = useMemo(() => sanitizeHtml(msg.html), [msg.html])
+    const safe = useMemo(() => {
+      const html = sanitizeHtml(msg.html)
+      return isOutgoing ? stripSignature(html) : html
+    }, [msg.html, isOutgoing])
     const refCallback = useCallback((node: HTMLDivElement | null) => {
       if (!node) return
       node.querySelectorAll('img').forEach((img) => {
@@ -57,7 +66,7 @@ function MessageBody({ msg }: { msg: any }) {
   }
   return (
     <Text style={{ whiteSpace: 'pre-wrap', fontFamily: 'monospace' }} size="sm">
-      {msg.body}
+      {isOutgoing ? msg.body.replace(/\n--\n[\s\S]*$/, '') : msg.body}
     </Text>
   )
 }
@@ -76,16 +85,19 @@ export function TicketDetailPage({ ticketId: propId, onBack }: TicketDetailPageP
   const { id: paramId } = useParams<{ id: string }>()
   const id = propId || paramId
   const [ticket, setTicket] = useState<any>(null)
+  const [settings, setSettings] = useState<any>(null)
   const [signature, setSignature] = useState<string>('')
+  const [resendOpened, { open: openResend, close: closeResend }] = useDisclosure(false)
+  const [resendIdx, setResendIdx] = useState<number | null>(null)
 
   useEffect(() => {
     if (id) api.tickets.get(id).then(setTicket).catch(console.error)
-    api.settings.get().then((s: any) => setSignature(s?.signature || '')).catch(() => {})
+    api.settings.get().then((s: any) => { setSettings(s); setSignature(s?.signature || '') }).catch(() => {})
   }, [id])
 
   const handleSend = async (html: string, text: string) => {
     if (!id) return
-    const result = await api.tickets.reply(id, { from: 'agent', body: text, html })
+    const result = await api.tickets.reply(id, { body: text, html })
     if (result.send_error) {
       notifications.show({ title: 'Send failed', message: result.send_error, color: 'red' })
     } else {
@@ -96,7 +108,7 @@ export function TicketDetailPage({ ticketId: propId, onBack }: TicketDetailPageP
 
   const handleSendAndClose = async (html: string, text: string) => {
     if (!id) return
-    const result = await api.tickets.reply(id, { from: 'agent', body: text, html })
+    const result = await api.tickets.reply(id, { body: text, html })
     await api.tickets.setStatus(id, 'closed')
     if (result.send_error) {
       notifications.show({ title: 'Send failed', message: result.send_error, color: 'red' })
@@ -154,43 +166,40 @@ export function TicketDetailPage({ ticketId: propId, onBack }: TicketDetailPageP
       </Text>
 
       <Stack gap="md">
-        {ticket.messages?.map((msg: any, i: number) => (
-          <Paper key={i} withBorder p="md" radius="md">
-            <Box mb="sm" p="xs" style={{ background: 'var(--mantine-color-gray-0)', borderRadius: 4 }}>
-              {msg.subject && (
-                <Text size="sm" mb={4}><Text span fw={600}>Subject:</Text> {msg.subject}</Text>
+        {ticket.messages?.map((msg: any, i: number) => ({ msg, i })).reverse().map(({ msg, i }: { msg: any; i: number }) => {
+          const smtpFrom = settings?.email?.smtp_from
+          const isOutgoing = msg.from === 'agent' || (smtpFrom && msg.from === smtpFrom)
+          const displayFrom = msg.from === 'agent' ? smtpFrom || 'agent' : msg.from
+          return (
+          <Paper key={i} withBorder p={0} radius="md" style={{ overflow: 'hidden' }}>
+            <Box p="xs" style={{ background: 'var(--mantine-color-gray-1)', position: 'relative' }}>
+              <Text size="xs" c="dimmed" style={{ position: 'absolute', top: 8, right: 8 }}>{formatDate(msg.created_at)}</Text>
+              {isOutgoing && !msg.send_error && (
+                <Tooltip label="Re-send">
+                  <ActionIcon
+                    variant="default"
+                    style={{ position: 'absolute', bottom: 8, right: 8 }}
+                    onClick={() => { setResendIdx(i); openResend() }}
+                  >
+                    <IconSend size={14} />
+                  </ActionIcon>
+                </Tooltip>
               )}
-              <Group justify="space-between">
-                <Group gap="xs">
-                  <Text size="sm"><Text span fw={600}>From:</Text> {msg.from}</Text>
-                  {msg.send_error && <Badge color="red" size="sm" variant="light">Unsent</Badge>}
-                </Group>
-                <Group gap="xs">
-                  {msg.from === 'agent' && !msg.send_error && (
-                    <Tooltip label="Re-send">
-                      <ActionIcon
-                        variant="subtle"
-                        color="gray"
-                        size="sm"
-                        onClick={async () => {
-                          try {
-                            await api.tickets.retrySend(id!, i)
-                            notifications.show({ title: 'Message sent', message: 'Email delivered successfully', color: 'green' })
-                          } catch { /* refresh will show error */ }
-                          api.tickets.get(id!).then(setTicket)
-                        }}
-                      >
-                        <IconSend size={14} />
-                      </ActionIcon>
-                    </Tooltip>
-                  )}
-                  <Text size="xs" c="dimmed">{formatDate(msg.created_at)}</Text>
-                </Group>
+              {msg.subject && (
+                <Text size="sm" mb={2}><Text span fw={600}>Subject:</Text> {msg.subject}</Text>
+              )}
+              <Group gap="xs" mb={2}>
+                <Text size="sm"><Text span fw={600}>From:</Text> <Text span c={msg.from === 'agent' ? 'dimmed' : undefined}>{displayFrom}</Text></Text>
+                {msg.send_error && <Badge color="red" size="sm" variant="light">Unsent</Badge>}
               </Group>
+              {msg.to?.length > 0 && (
+                <Text size="sm" mb={2}><Text span fw={600}>To:</Text> {msg.to.join(', ')}</Text>
+              )}
               {msg.cc?.length > 0 && (
-                <Text size="sm" mt={4}><Text span fw={600}>Cc:</Text> {msg.cc.join(', ')}</Text>
+                <Text size="sm" mb={2}><Text span fw={600}>Cc:</Text> {msg.cc.join(', ')}</Text>
               )}
             </Box>
+            <Box p="md">
             {msg.send_error && (
               <Alert color="red" variant="light" mb="sm" p="xs">
                 <Group justify="space-between" align="center">
@@ -233,7 +242,7 @@ export function TicketDetailPage({ ticketId: propId, onBack }: TicketDetailPageP
                 )}
               </Group>
             )}
-            <MessageBody msg={msg} />
+            <MessageBody msg={msg} isOutgoing={isOutgoing} />
             {msg.attachments?.some((att: any) => att.content_type?.startsWith('image/')) && (
               <Stack gap="xs" mt="sm">
                 {msg.attachments.map((att: any, j: number) =>
@@ -251,13 +260,31 @@ export function TicketDetailPage({ ticketId: propId, onBack }: TicketDetailPageP
                 )}
               </Stack>
             )}
+            </Box>
           </Paper>
-        ))}
+        )})}
       </Stack>
 
       <Divider my="lg" />
       <ReplyEditor onSend={handleSend} onSendAndClose={ticket.status !== 'closed' ? handleSendAndClose : undefined} signature={signature} />
       </Box>
+
+      <Modal opened={resendOpened} onClose={closeResend} title="Re-send message" centered size="sm">
+        <Text size="sm" mb="md">Are you sure you want to re-send this message?</Text>
+        <Group justify="flex-end" gap="sm">
+          <MButton variant="default" onClick={closeResend}>Cancel</MButton>
+          <MButton color="blue" onClick={async () => {
+            closeResend()
+            if (resendIdx !== null) {
+              try {
+                await api.tickets.retrySend(id!, resendIdx)
+                notifications.show({ title: 'Message sent', message: 'Email delivered successfully', color: 'green' })
+              } catch { /* refresh will show error */ }
+              api.tickets.get(id!).then(setTicket)
+            }
+          }}>Re-send</MButton>
+        </Group>
+      </Modal>
     </Box>
   )
 }
