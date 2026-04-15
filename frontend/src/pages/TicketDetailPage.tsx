@@ -174,9 +174,6 @@ export function TicketDetailPage({ ticketId: propId, onBack }: TicketDetailPageP
         </Group>
       </Group>
       <Box style={{ flex: 1, overflowY: 'auto', minHeight: 0, padding: 'var(--mantine-spacing-md)', paddingTop: 'var(--mantine-spacing-sm)' }}>
-      <Text c="dimmed" mb="lg">
-        From: {ticket.requester?.name} ({ticket.requester?.email}) · Priority: {ticket.priority}
-      </Text>
 
       <Stack gap="md">
         {ticket.messages?.map((msg: any, i: number) => ({ msg, i })).reverse().map(({ msg, i }: { msg: any; i: number }, renderIdx: number) => {
