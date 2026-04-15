@@ -1,6 +1,6 @@
-import { useEffect, useState, useMemo, useCallback } from 'react'
+import React, { useEffect, useState, useMemo, useCallback } from 'react'
 import { useParams } from 'react-router-dom'
-import { Title, Text, Paper, Badge, Stack, Group, Divider, Box, ActionIcon, Tooltip, Alert, Button as MButton, Modal } from '@mantine/core'
+import { Title, Text, Paper, Badge, Stack, Group, Box, ActionIcon, Tooltip, Alert, Button as MButton, Modal } from '@mantine/core'
 import { IconLock, IconLockOpen, IconRefresh, IconSend, IconPaperclip, IconArrowLeft } from '@tabler/icons-react'
 import { api } from '../api/client'
 import { ReplyEditor } from '../components/ReplyEditor'
@@ -166,12 +166,12 @@ export function TicketDetailPage({ ticketId: propId, onBack }: TicketDetailPageP
       </Text>
 
       <Stack gap="md">
-        {ticket.messages?.map((msg: any, i: number) => ({ msg, i })).reverse().map(({ msg, i }: { msg: any; i: number }) => {
+        {ticket.messages?.map((msg: any, i: number) => ({ msg, i })).reverse().map(({ msg, i }: { msg: any; i: number }, renderIdx: number) => {
           const smtpFrom = settings?.email?.smtp_from
           const isOutgoing = msg.from === 'agent' || (smtpFrom && msg.from === smtpFrom)
           const displayFrom = msg.from === 'agent' ? smtpFrom || 'agent' : msg.from
-          return (
-          <Paper key={i} withBorder p={0} radius="md" style={{ overflow: 'hidden' }}>
+          return (<React.Fragment key={i}>
+          <Paper withBorder p={0} radius="md" style={{ overflow: 'hidden' }}>
             <Box p="xs" style={{ background: 'var(--mantine-color-gray-1)', position: 'relative' }}>
               <Text size="xs" c="dimmed" style={{ position: 'absolute', top: 8, right: 8 }}>{formatDate(msg.created_at)}</Text>
               {isOutgoing && !msg.send_error && (
@@ -262,11 +262,12 @@ export function TicketDetailPage({ ticketId: propId, onBack }: TicketDetailPageP
             )}
             </Box>
           </Paper>
-        )})}
+          {renderIdx === 0 && (
+            <ReplyEditor onSend={handleSend} onSendAndClose={ticket.status !== 'closed' ? handleSendAndClose : undefined} signature={signature} />
+          )}
+        </React.Fragment>)})}
       </Stack>
 
-      <Divider my="lg" />
-      <ReplyEditor onSend={handleSend} onSendAndClose={ticket.status !== 'closed' ? handleSendAndClose : undefined} signature={signature} />
       </Box>
 
       <Modal opened={resendOpened} onClose={closeResend} title="Re-send message" centered size="sm">
