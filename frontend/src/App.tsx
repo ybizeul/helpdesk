@@ -165,7 +165,7 @@ export default function App() {
           <Route path="/settings" element={<Box p="md"><SettingsPage /></Box>} />
         </Routes>
       </AppShell.Main>
-      <ProfileModal opened={profileOpened} onClose={closeProfile} user={currentUser} />
+      <ProfileModal opened={profileOpened} onClose={closeProfile} user={currentUser} onAvatarChange={(avatar) => setCurrentUser((u: any) => u ? { ...u, avatar } : u)} />
     </AppShell>
   )
 }

@@ -19,7 +19,7 @@ const links = [
 interface AppNavbarProps {
   onLogout?: () => void
   onNavigate?: () => void
-  user?: { id: string; name: string; email: string; role: string } | null
+  user?: { id: string; name: string; email: string; role: string; avatar?: string } | null
   onOpenProfile?: () => void
 }
 
@@ -43,7 +43,7 @@ export function AppNavbar({ onLogout, onNavigate, user, onOpenProfile }: AppNavb
           <Menu shadow="md" width={200} position="bottom-start">
             <Menu.Target>
               <UnstyledButton>
-                <Avatar size="sm" radius="xl" color="blue">{initials}</Avatar>
+                <Avatar size="sm" radius="xl" color="blue" src={user?.avatar || null}>{user?.avatar ? null : initials}</Avatar>
               </UnstyledButton>
             </Menu.Target>
             <Menu.Dropdown>

@@ -183,10 +183,11 @@ export function TicketDetailPage({ ticketId: propId, onBack, onTicketUpdate }: T
             <Avatar
               radius="xl"
               color={isOwned ? hashColor(ticket.owner_id) : 'gray'}
+              src={isOwned && ownerUser?.avatar ? ownerUser.avatar : null}
               style={{ cursor: isOwned ? 'default' : 'pointer' }}
               onClick={isOwned ? undefined : handleClaim}
             >
-              {isOwned ? getInitials(ownerUser?.name || '?') : 'U'}
+              {isOwned && ownerUser?.avatar ? null : (isOwned ? getInitials(ownerUser?.name || '?') : 'U')}
             </Avatar>
           </Tooltip>
           <Title order={2}>#{ticket.number} {ticket.subject}</Title>

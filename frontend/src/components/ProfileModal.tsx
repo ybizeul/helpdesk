@@ -1,17 +1,37 @@
-import { useEffect, useState } from 'react'
-import { Modal, Tabs, Stack, TextInput, PasswordInput, Button, Group, Text, Table, ActionIcon, Tooltip, Switch } from '@mantine/core'
+import { useEffect, useState, useRef, useCallback } from 'react'
+import { Modal, Tabs, Stack, TextInput, PasswordInput, Button, Group, Text, Table, ActionIcon, Tooltip, Switch, Avatar, UnstyledButton } from '@mantine/core'
 import { notifications } from '@mantine/notifications'
-import { IconTrash } from '@tabler/icons-react'
+import { IconTrash, IconCamera } from '@tabler/icons-react'
 import { startRegistration } from '@simplewebauthn/browser'
 import { api } from '../api/client'
+
+function resizeImage(dataUrl: string, maxSize: number): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const img = new Image()
+    img.onload = () => {
+      const scale = Math.min(maxSize / img.width, maxSize / img.height, 1)
+      const w = Math.round(img.width * scale)
+      const h = Math.round(img.height * scale)
+      const canvas = document.createElement('canvas')
+      canvas.width = w
+      canvas.height = h
+      const ctx = canvas.getContext('2d')!
+      ctx.drawImage(img, 0, 0, w, h)
+      resolve(canvas.toDataURL('image/png'))
+    }
+    img.onerror = reject
+    img.src = dataUrl
+  })
+}
 
 interface ProfileModalProps {
   opened: boolean
   onClose: () => void
-  user: { id: string; name: string; email: string; role: string } | null
+  user: { id: string; name: string; email: string; role: string; avatar?: string } | null
+  onAvatarChange?: (avatar: string) => void
 }
 
-export function ProfileModal({ opened, onClose, user }: ProfileModalProps) {
+export function ProfileModal({ opened, onClose, user, onAvatarChange }: ProfileModalProps) {
   const [currentPassword, setCurrentPassword] = useState('')
   const [newPassword, setNewPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
@@ -23,6 +43,35 @@ export function ProfileModal({ opened, onClose, user }: ProfileModalProps) {
   const supportsPasskey = typeof window !== 'undefined' && !!window.PublicKeyCredential
 
   const [, forceUpdate] = useState(0)
+
+  const fileInputRef = useRef<HTMLInputElement>(null)
+
+  const handleImageFile = useCallback(async (file: File) => {
+    if (!file.type.startsWith('image/')) return
+    const reader = new FileReader()
+    reader.onload = async () => {
+      try {
+        const resized = await resizeImage(reader.result as string, 70)
+        await api.updateAvatar(resized)
+        onAvatarChange?.(resized)
+        notifications.show({ title: 'Success', message: 'Profile picture updated', color: 'green' })
+      } catch (e: any) {
+        notifications.show({ title: 'Error', message: e.message, color: 'red' })
+      }
+    }
+    reader.readAsDataURL(file)
+  }, [onAvatarChange])
+
+  const handlePaste = useCallback((e: React.ClipboardEvent) => {
+    const items = e.clipboardData?.items
+    if (!items) return
+    for (const item of items) {
+      if (item.type.startsWith('image/')) {
+        const file = item.getAsFile()
+        if (file) { handleImageFile(file); break }
+      }
+    }
+  }, [handleImageFile])
 
   useEffect(() => {
     if (!opened) return
@@ -52,6 +101,7 @@ export function ProfileModal({ opened, onClose, user }: ProfileModalProps) {
 
   return (
     <Modal opened={opened} onClose={onClose} title="Profile" size="lg">
+      <div onPaste={handlePaste}>
       <Tabs defaultValue="account">
         <Tabs.List>
           <Tabs.Tab value="account">Account</Tabs.Tab>
@@ -60,8 +110,33 @@ export function ProfileModal({ opened, onClose, user }: ProfileModalProps) {
 
         <Tabs.Panel value="account" pt="md">
           <Stack>
-            <TextInput label="Name" value={user?.name || ''} disabled />
-            <TextInput label="Email" value={user?.email || ''} disabled />
+            <Group>
+              <Tooltip label="Click to change picture, or paste from clipboard" withArrow>
+                <UnstyledButton onClick={() => fileInputRef.current?.click()}>
+                  <Avatar
+                    size={70}
+                    radius="xl"
+                    src={user?.avatar || null}
+                    color="blue"
+                    style={{ cursor: 'pointer', position: 'relative' }}
+                  >
+                    {user?.avatar ? null : (user?.name?.split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2) || '?')}
+                    <IconCamera size={20} style={{ position: 'absolute', bottom: 0, right: 0, background: 'var(--mantine-color-blue-6)', borderRadius: '50%', padding: 2, color: 'white' }} />
+                  </Avatar>
+                </UnstyledButton>
+              </Tooltip>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/*"
+                style={{ display: 'none' }}
+                onChange={(e) => { const f = e.target.files?.[0]; if (f) handleImageFile(f); e.target.value = '' }}
+              />
+              <div>
+                <Text fw={500}>{user?.name}</Text>
+                <Text size="sm" c="dimmed">{user?.email}</Text>
+              </div>
+            </Group>
 
             <Text fw={500} mt="md">Change password</Text>
             <PasswordInput label="Current password" value={currentPassword} onChange={(e) => setCurrentPassword(e.currentTarget.value)} />
@@ -175,6 +250,7 @@ export function ProfileModal({ opened, onClose, user }: ProfileModalProps) {
           </Stack>
         </Tabs.Panel>
       </Tabs>
+      </div>
     </Modal>
   )
 }

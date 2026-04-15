@@ -163,6 +163,43 @@ func (h *handlers) changePassword(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNoContent)
 }
 
+func (h *handlers) updateAvatar(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	claims := ctx.Value(claimsKey).(*jwtClaims)
+
+	var body struct {
+		Avatar string `json:"avatar"`
+	}
+	if err := readJSON(r, &body); err != nil {
+		writeError(w, http.StatusBadRequest, "INVALID_JSON", err.Error())
+		return
+	}
+
+	// Limit avatar data URL to 100 KB
+	if len(body.Avatar) > 100*1024 {
+		writeError(w, http.StatusBadRequest, "AVATAR_TOO_LARGE", "avatar must be under 100KB")
+		return
+	}
+
+	oid, err := bson.ObjectIDFromHex(claims.Sub)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "INVALID_ID", "invalid user ID")
+		return
+	}
+
+	update := bson.M{"$set": bson.M{"avatar": body.Avatar}}
+	if body.Avatar == "" {
+		update = bson.M{"$unset": bson.M{"avatar": ""}}
+	}
+
+	_, err = h.db.Users().UpdateByID(ctx, oid, update)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "DB_ERROR", err.Error())
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
+}
+
 func authMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// Skip auth for login and passkey login endpoints

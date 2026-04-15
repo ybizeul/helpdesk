@@ -192,8 +192,8 @@ export const TicketListPage = forwardRef<TicketListHandle, TicketListPageProps>(
               >
                 <Group justify="space-between" gap="xs" wrap="nowrap">
                   {(() => { const owner = t.owner_id ? usersMap[t.owner_id] : null; return (
-                    <Avatar size="sm" radius="xl" color={owner ? hashColor(owner.id) : 'gray'} style={{ flexShrink: 0 }}>
-                      {owner ? getInitials(owner.name) : 'U'}
+                    <Avatar size="sm" radius="xl" color={owner ? hashColor(owner.id) : 'gray'} src={owner?.avatar || null} style={{ flexShrink: 0 }}>
+                      {owner?.avatar ? null : (owner ? getInitials(owner.name) : 'U')}
                     </Avatar>
                   ) })()}
                   <Box style={{ minWidth: 0, flex: 1 }}>
@@ -235,8 +235,8 @@ export const TicketListPage = forwardRef<TicketListHandle, TicketListPageProps>(
                 <Table.Td onClick={e => e.stopPropagation()}><Checkbox size="xs" checked={selected.has(t.id)} onChange={() => toggleSelect(t.id)} /></Table.Td>
                 <Table.Td onClick={handleClick}>{(() => { const owner = t.owner_id ? usersMap[t.owner_id] : null; return (
                   <Tooltip label={owner ? owner.name : 'Unassigned'} withArrow>
-                    <Avatar size="sm" radius="xl" color={owner ? hashColor(owner.id) : 'gray'}>
-                      {owner ? getInitials(owner.name) : 'U'}
+                    <Avatar size="sm" radius="xl" color={owner ? hashColor(owner.id) : 'gray'} src={owner?.avatar || null}>
+                      {owner?.avatar ? null : (owner ? getInitials(owner.name) : 'U')}
                     </Avatar>
                   </Tooltip>
                 ) })()}</Table.Td>
