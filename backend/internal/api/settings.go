@@ -2,6 +2,7 @@ package api
 
 import (
 	"net/http"
+	"os"
 	"time"
 
 	"github.com/helpdesk/backend/internal/email"
@@ -17,10 +18,20 @@ func (h *handlers) getSettings(w http.ResponseWriter, r *http.Request) {
 	var s models.Settings
 	err := h.db.Settings().FindOne(ctx, bson.M{"_id": "global"}).Decode(&s)
 	if err != nil {
-		writeJSON(w, http.StatusOK, models.Settings{ID: "global"})
-		return
+		s = models.Settings{ID: "global"}
 	}
-	writeJSON(w, http.StatusOK, s)
+
+	resp := map[string]any{
+		"id":              s.ID,
+		"email":           s.Email,
+		"llm":             s.LLM,
+		"auth":            s.Auth,
+		"signature":       s.Signature,
+		"last_fetched_at": s.LastFetchedAt,
+		"updated_at":      s.UpdatedAt,
+		"debug":           os.Getenv("DEBUG") != "",
+	}
+	writeJSON(w, http.StatusOK, resp)
 }
 
 func (h *handlers) updateEmailSettings(w http.ResponseWriter, r *http.Request) {

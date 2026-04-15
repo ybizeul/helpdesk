@@ -31,6 +31,7 @@ type Attachment struct {
 type ParsedBody struct {
 	Text         string
 	HTML         string
+	Subject      string
 	Cc           []string
 	Attachments  []Attachment
 	ThreadTopic  string
@@ -47,6 +48,15 @@ func ParseMIMEBody(raw []byte) ParsedBody {
 
 	var result ParsedBody
 	cidMap := make(map[string]string) // cid -> data URI
+
+	if subj := entity.Header.Get("Subject"); subj != "" {
+		dec := new(mime.WordDecoder)
+		if decoded, err := dec.DecodeHeader(subj); err == nil {
+			result.Subject = decoded
+		} else {
+			result.Subject = subj
+		}
+	}
 
 	if topic := entity.Header.Get("Thread-Topic"); topic != "" {
 		result.ThreadTopic = topic

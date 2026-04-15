@@ -43,6 +43,7 @@ type MessageAttachment struct {
 type Message struct {
 	MessageID   string              `bson:"message_id,omitempty" json:"message_id,omitempty"`
 	From        string              `bson:"from" json:"from"`
+	Subject     string              `bson:"subject,omitempty" json:"subject,omitempty"`
 	Cc          []string            `bson:"cc,omitempty" json:"cc,omitempty"`
 	Body        string              `bson:"body" json:"body"`
 	HTML        string              `bson:"html,omitempty" json:"html,omitempty"`

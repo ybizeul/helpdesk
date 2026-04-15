@@ -36,7 +36,10 @@ function TicketPanes() {
   }
 
   // Desktop: ticket list on top, detail below with draggable splitter
-  const [topHeight, setTopHeight] = useState(50) // percentage
+  const [topHeight, setTopHeight] = useState(() => {
+    const saved = localStorage.getItem('pane_split')
+    return saved ? Number(saved) : 50
+  })
   const dragging = useRef(false)
   const containerRef = useRef<HTMLDivElement>(null)
 
@@ -55,6 +58,7 @@ function TicketPanes() {
       dragging.current = false
       document.removeEventListener('mousemove', onMouseMove)
       document.removeEventListener('mouseup', onMouseUp)
+      setTopHeight(prev => { localStorage.setItem('pane_split', String(prev)); return prev })
     }
 
     document.addEventListener('mousemove', onMouseMove)

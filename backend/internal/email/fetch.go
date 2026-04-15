@@ -176,6 +176,7 @@ func FetchEmails(ctx context.Context, cfg models.EmailSettings, db TicketStore) 
 		newMsg := models.Message{
 			MessageID:   messageID,
 			From:        from,
+			Subject:     subject,
 			Cc:          cc,
 			Body:        parsed.Text,
 			HTML:        parsed.HTML,

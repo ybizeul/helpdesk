@@ -106,6 +106,7 @@ export function SettingsPage() {
           <Tabs.Tab value="signature">Signature</Tabs.Tab>
           <Tabs.Tab value="llm">LLM</Tabs.Tab>
           <Tabs.Tab value="notifications">Notifications</Tabs.Tab>
+          {settings?.debug && <Tabs.Tab value="tools">Tools</Tabs.Tab>}
         </Tabs.List>
 
         <Tabs.Panel value="email" pt="md">
@@ -251,6 +252,27 @@ export function SettingsPage() {
             )}
           </Stack>
         </Tabs.Panel>
+
+        {settings?.debug && (
+          <Tabs.Panel value="tools" pt="md">
+            <Stack maw={500}>
+              <Text size="sm" c="dimmed">Debug tools (visible because DEBUG environment variable is set).</Text>
+              <Button
+                variant="light"
+                onClick={async () => {
+                  try {
+                    await api.email.reparse()
+                    notifications.show({ title: 'Re-parse complete', message: 'All emails have been re-parsed', color: 'green' })
+                  } catch (e: any) {
+                    notifications.show({ title: 'Re-parse failed', message: e.message, color: 'red' })
+                  }
+                }}
+              >
+                Re-parse all emails
+              </Button>
+            </Stack>
+          </Tabs.Panel>
+        )}
       </Tabs>
     </>
   )

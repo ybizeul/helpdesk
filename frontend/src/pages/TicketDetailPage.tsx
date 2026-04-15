@@ -157,6 +157,9 @@ export function TicketDetailPage({ ticketId: propId, onBack }: TicketDetailPageP
         {ticket.messages?.map((msg: any, i: number) => (
           <Paper key={i} withBorder p="md" radius="md">
             <Box mb="sm" p="xs" style={{ background: 'var(--mantine-color-gray-0)', borderRadius: 4 }}>
+              {msg.subject && (
+                <Text size="sm" mb={4}><Text span fw={600}>Subject:</Text> {msg.subject}</Text>
+              )}
               <Group justify="space-between">
                 <Group gap="xs">
                   <Text size="sm"><Text span fw={600}>From:</Text> {msg.from}</Text>

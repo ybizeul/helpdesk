@@ -516,6 +516,10 @@ func (h *handlers) reparseEmails(w http.ResponseWriter, r *http.Request) {
 				ticket.Messages[i].HTML = parsed.HTML
 				changed = true
 			}
+			if parsed.Subject != "" && msg.Subject == "" {
+				ticket.Messages[i].Subject = parsed.Subject
+				changed = true
+			}
 			if len(parsed.Cc) > 0 && len(msg.Cc) == 0 {
 				ticket.Messages[i].Cc = parsed.Cc
 				changed = true
@@ -546,7 +550,12 @@ func (h *handlers) reparseEmails(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 
-		_, err := h.db.Tickets().UpdateByID(ctx, ticket.ID, bson.M{
+		oid, err := bson.ObjectIDFromHex(ticket.ID)
+		if err != nil {
+			slog.Error("reparse: invalid ticket ID", "id", ticket.ID, "error", err)
+			continue
+		}
+		_, err = h.db.Tickets().UpdateByID(ctx, oid, bson.M{
 			"$set": bson.M{
 				"messages":     ticket.Messages,
 				"thread_topic": ticket.ThreadTopic,

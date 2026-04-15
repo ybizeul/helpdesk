@@ -60,6 +60,7 @@ export const api = {
   email: {
     mailboxes: (config: any) => request<any[]>('/email/mailboxes', { method: 'POST', body: JSON.stringify(config) }),
     fetch: () => request<any>('/email/fetch', { method: 'POST' }),
+    reparse: () => request<any>('/email/reparse', { method: 'POST' }),
   },
   stats: () => request<any>('/stats'),
   login: (email: string, password: string) => request<any>('/auth/login', { method: 'POST', body: JSON.stringify({ email, password }) }),
