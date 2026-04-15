@@ -4,6 +4,7 @@ import { AppShell, Box, Burger, Group, Text } from '@mantine/core'
 import { useDisclosure, useMediaQuery } from '@mantine/hooks'
 import { AppNavbar } from './components/AppNavbar'
 import { TicketListPage } from './pages/TicketListPage'
+import type { TicketListHandle } from './pages/TicketListPage'
 import { TicketDetailPage } from './pages/TicketDetailPage'
 import { DashboardPage } from './pages/DashboardPage'
 import { SettingsPage } from './pages/SettingsPage'
@@ -15,6 +16,8 @@ function TicketPanes() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
   const isMobile = useMediaQuery('(max-width: 768px)')
+  const listRef = useRef<TicketListHandle>(null)
+  const refreshList = useCallback(() => listRef.current?.refresh(), [])
 
   // Hooks must be called unconditionally (before any early return)
   const [topHeight, setTopHeight] = useState(() => {
@@ -51,7 +54,7 @@ function TicketPanes() {
     if (id) {
       return (
         <Box style={{ height: 'calc(100vh - 32px)', position: 'relative' }}>
-          <TicketDetailPage ticketId={id} onBack={() => navigate('/tickets')} />
+          <TicketDetailPage ticketId={id} onBack={() => navigate('/tickets')} onTicketUpdate={refreshList} />
         </Box>
       )
     }
@@ -72,6 +75,7 @@ function TicketPanes() {
     <Box ref={containerRef} style={{ display: 'flex', flexDirection: 'column', height: '100vh' }}>
       <Box style={{ height: showDetail ? `${topHeight}%` : '100%', padding: 'var(--mantine-spacing-md)', paddingBottom: showDetail ? 0 : undefined, display: 'flex', flexDirection: 'column', minHeight: 0, overflow: 'hidden' }}>
         <TicketListPage
+          ref={listRef}
           activeTicketId={id || null}
           onSelectTicket={(ticketId) => navigate(`/tickets/${ticketId}`)}
         />
@@ -93,7 +97,7 @@ function TicketPanes() {
             <div style={{ height: 1, width: '100%', background: 'var(--mantine-color-default-border)', transition: 'background 150ms' }} />
           </Box>
           <Box style={{ flex: 1, padding: 'var(--mantine-spacing-md)', minHeight: 0, display: 'flex', flexDirection: 'column', position: 'relative' }}>
-            <TicketDetailPage ticketId={id} />
+            <TicketDetailPage ticketId={id} onTicketUpdate={refreshList} />
           </Box>
         </>
       )}

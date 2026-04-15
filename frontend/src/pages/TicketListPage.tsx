@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef, useCallback } from 'react'
+import { useEffect, useState, useRef, useCallback, useImperativeHandle, forwardRef } from 'react'
 import { Title, Table, Badge, Group, Text, Checkbox, Button, Tooltip, Menu, ActionIcon, Stack, Box } from '@mantine/core'
 import { IconTrash, IconEye, IconEyeOff, IconCircle, IconRefresh, IconArrowMerge } from '@tabler/icons-react'
 import { useMediaQuery } from '@mantine/hooks'
@@ -45,7 +45,11 @@ interface TicketListPageProps {
   onSelectTicket?: (id: string) => void
 }
 
-export function TicketListPage({ activeTicketId, onSelectTicket }: TicketListPageProps = {}) {
+export interface TicketListHandle {
+  refresh: () => void
+}
+
+export const TicketListPage = forwardRef<TicketListHandle, TicketListPageProps>(function TicketListPage({ activeTicketId, onSelectTicket }, ref) {
   const [tickets, setTickets] = useState<any[]>([])
   const [selected, setSelected] = useState<Set<string>>(new Set())
   const knownIdsRef = useRef<Set<string> | null>(null)
@@ -61,6 +65,8 @@ export function TicketListPage({ activeTicketId, onSelectTicket }: TicketListPag
       setTickets(data)
     }).catch(console.error)
   }, [])
+
+  useImperativeHandle(ref, () => ({ refresh: loadTickets }), [loadTickets])
 
   useEffect(() => {
     loadTickets()
@@ -221,4 +227,4 @@ export function TicketListPage({ activeTicketId, onSelectTicket }: TicketListPag
       </Box>
     </Box>
   )
-}
+})

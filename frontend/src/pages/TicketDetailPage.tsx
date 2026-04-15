@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useMemo, useCallback } from 'react'
 import { useParams } from 'react-router-dom'
-import { Title, Text, Paper, Badge, Stack, Group, Box, ActionIcon, Tooltip, Alert, Button as MButton, Modal } from '@mantine/core'
-import { IconLock, IconLockOpen, IconRefresh, IconSend, IconPaperclip, IconArrowLeft, IconUserCheck } from '@tabler/icons-react'
+import { Title, Text, Paper, Badge, Stack, Group, Box, ActionIcon, Tooltip, Alert, Button as MButton, Modal, Menu } from '@mantine/core'
+import { IconRefresh, IconSend, IconPaperclip, IconArrowLeft, IconUserCheck } from '@tabler/icons-react'
 import { api } from '../api/client'
 import { ReplyEditor } from '../components/ReplyEditor'
 import { notifications } from '@mantine/notifications'
@@ -88,9 +88,10 @@ function getCurrentUserId(): string | null {
 interface TicketDetailPageProps {
   ticketId?: string
   onBack?: () => void
+  onTicketUpdate?: () => void
 }
 
-export function TicketDetailPage({ ticketId: propId, onBack }: TicketDetailPageProps = {}) {
+export function TicketDetailPage({ ticketId: propId, onBack, onTicketUpdate }: TicketDetailPageProps = {}) {
   const { id: paramId } = useParams<{ id: string }>()
   const id = propId || paramId
   const [ticket, setTicket] = useState<any>(null)
@@ -115,6 +116,7 @@ export function TicketDetailPage({ ticketId: propId, onBack }: TicketDetailPageP
       notifications.show({ title: 'Reply sent', message: 'Email delivered successfully', color: 'green' })
     }
     api.tickets.get(id).then(setTicket)
+    onTicketUpdate?.()
   }
 
   const handleSendAndClose = async (html: string, text: string) => {
@@ -127,18 +129,14 @@ export function TicketDetailPage({ ticketId: propId, onBack }: TicketDetailPageP
       notifications.show({ title: 'Reply sent & case closed', message: 'Email delivered successfully', color: 'green' })
     }
     api.tickets.get(id).then(setTicket)
+    onTicketUpdate?.()
   }
 
-  const handleClose = async () => {
+  const handleSetStatus = async (status: string) => {
     if (!id) return
-    await api.tickets.setStatus(id, 'closed')
+    await api.tickets.setStatus(id, status)
     api.tickets.get(id).then(setTicket)
-  }
-
-  const handleReopen = async () => {
-    if (!id) return
-    await api.tickets.setStatus(id, 'active')
-    api.tickets.get(id).then(setTicket)
+    onTicketUpdate?.()
   }
 
   const replyCc = useMemo(() => {
@@ -166,6 +164,7 @@ export function TicketDetailPage({ ticketId: propId, onBack }: TicketDetailPageP
     if (!id) return
     await api.tickets.claim(id)
     api.tickets.get(id).then(setTicket)
+    onTicketUpdate?.()
   }
 
   return (
@@ -189,20 +188,18 @@ export function TicketDetailPage({ ticketId: propId, onBack }: TicketDetailPageP
               </ActionIcon>
             </Tooltip>
           )}
-          <Badge color={statusColors[ticket.status] || 'gray'} size="lg">{ticket.status}</Badge>
-          {ticket.status === 'closed' ? (
-            <Tooltip label="Re-activate case">
-              <ActionIcon variant="light" color="green" onClick={handleReopen}>
-                <IconLockOpen size={18} />
-              </ActionIcon>
-            </Tooltip>
-          ) : (
-            <Tooltip label="Close case">
-              <ActionIcon variant="light" color="gray" onClick={handleClose}>
-                <IconLock size={18} />
-              </ActionIcon>
-            </Tooltip>
-          )}
+          <Menu shadow="md" width={160}>
+            <Menu.Target>
+              <Badge color={statusColors[ticket.status] || 'gray'} size="lg" style={{ cursor: 'pointer' }}>{ticket.status}</Badge>
+            </Menu.Target>
+            <Menu.Dropdown>
+              {(['unassigned', 'active', 'waiting', 'closed'] as const).map(s => (
+                <Menu.Item key={s} disabled={ticket.status === s} leftSection={<Badge color={statusColors[s]} size="xs" circle />} onClick={() => handleSetStatus(s)}>
+                  {s.charAt(0).toUpperCase() + s.slice(1)}
+                </Menu.Item>
+              ))}
+            </Menu.Dropdown>
+          </Menu>
         </Group>
       </Group>
       <Box style={{ flex: 1, overflowY: 'auto', minHeight: 0, padding: 'var(--mantine-spacing-md)', paddingTop: 'var(--mantine-spacing-sm)' }}>
