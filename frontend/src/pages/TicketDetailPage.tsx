@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo } from 'react'
+import { useEffect, useState, useMemo, useCallback } from 'react'
 import { useParams } from 'react-router-dom'
 import { Title, Text, Paper, Badge, Stack, Group, Divider, Box, ActionIcon, Tooltip, Alert, Button as MButton } from '@mantine/core'
 import { IconLock, IconLockOpen, IconRefresh, IconSend, IconPaperclip } from '@tabler/icons-react'
@@ -29,13 +29,30 @@ function sanitizeHtml(html: string): string {
     .replace(/\s+on\w+\s*=\s*("[^"]*"|'[^']*'|[^\s>]*)/gi, '')
 }
 
+function openImageWindow(src: string) {
+  const html = `<!DOCTYPE html><html><head><title>Image</title><style>body{margin:0;display:flex;justify-content:center;align-items:center;min-height:100vh;background:#222}img{max-width:100%;max-height:100vh;object-fit:contain}</style></head><body><img src="${src.replace(/"/g, '&quot;')}"></body></html>`
+  const blob = new Blob([html], { type: 'text/html' })
+  window.open(URL.createObjectURL(blob), '_blank')
+}
+
 function MessageBody({ msg }: { msg: any }) {
   if (msg.html) {
     const safe = useMemo(() => sanitizeHtml(msg.html), [msg.html])
+    const refCallback = useCallback((node: HTMLDivElement | null) => {
+      if (!node) return
+      node.querySelectorAll('img').forEach((img) => {
+        img.style.maxWidth = '800px'
+        img.style.cursor = 'pointer'
+        img.onclick = (e) => {
+          e.preventDefault()
+          openImageWindow(img.src)
+        }
+      })
+    }, [safe])
     return (
       <Box style={{ overflow: 'auto' }}>
         <style>{`.MsoNormal { margin: 0 !important; } pre, code { background-color: #f5f5f5; border-radius: 4px; } code { padding: 2px 4px; font-size: 0.9em; } pre { padding: 12px; overflow-x: auto; } pre code { padding: 0; background: none; }`}</style>
-        <div dangerouslySetInnerHTML={{ __html: safe }} />
+        <div ref={refCallback} dangerouslySetInnerHTML={{ __html: safe }} />
       </Box>
     )
   }
@@ -209,7 +226,8 @@ export function TicketDetailPage() {
                       <img
                         src={attachmentUrl(ticket.id, i, j)}
                         alt={att.filename}
-                        style={{ maxWidth: '100%', borderRadius: 4 }}
+                        style={{ maxWidth: 800, borderRadius: 4, cursor: 'pointer' }}
+                        onClick={() => openImageWindow(attachmentUrl(ticket.id, i, j))}
                       />
                       <Text size="xs" c="dimmed">{att.filename}</Text>
                     </Box>
