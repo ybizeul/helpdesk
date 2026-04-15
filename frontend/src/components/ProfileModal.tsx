@@ -5,6 +5,10 @@ import { IconTrash, IconCamera } from '@tabler/icons-react'
 import { startRegistration } from '@simplewebauthn/browser'
 import { api } from '../api/client'
 
+function canUseDesktopNotifications(): boolean {
+  return typeof window !== 'undefined' && 'Notification' in window && window.isSecureContext
+}
+
 function resizeImage(dataUrl: string, maxSize: number): Promise<string> {
   return new Promise((resolve, reject) => {
     const img = new Image()
@@ -226,15 +230,32 @@ export function ProfileModal({ opened, onClose, user, onAvatarChange }: ProfileM
               checked={localStorage.getItem('notifications_enabled') === 'true'}
               onChange={async (e) => {
                 if (e.currentTarget.checked) {
-                  if (!('Notification' in window)) {
-                    notifications.show({ title: 'Not supported', message: 'Your browser does not support notifications', color: 'red' })
+                  if (!canUseDesktopNotifications()) {
+                    notifications.show({
+                      title: 'Not supported',
+                      message: 'Desktop notifications require a supported browser and a secure context (https or localhost).',
+                      color: 'red'
+                    })
                     return
                   }
-                  const permission = await Notification.requestPermission()
+                  const permission = Notification.permission === 'granted'
+                    ? 'granted'
+                    : await Notification.requestPermission()
                   if (permission === 'granted') {
                     localStorage.setItem('notifications_enabled', 'true')
                     notifications.show({ title: 'Enabled', message: 'Desktop notifications enabled', color: 'green' })
+                    try {
+                      const n = new Notification('Helpdesk notifications enabled', { body: 'You will be notified when new cases arrive.' })
+                      setTimeout(() => n.close(), 2500)
+                    } catch {
+                      notifications.show({
+                        title: 'Browser limitation',
+                        message: 'Permission is granted but this browser did not display a test notification.',
+                        color: 'yellow'
+                      })
+                    }
                   } else {
+                    localStorage.setItem('notifications_enabled', 'false')
                     notifications.show({ title: 'Denied', message: 'Notification permission was denied by the browser', color: 'red' })
                   }
                 } else {

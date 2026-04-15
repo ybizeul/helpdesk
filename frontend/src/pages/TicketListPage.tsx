@@ -42,15 +42,38 @@ function formatDate(d: string | Date): string {
   return date.toLocaleDateString()
 }
 
+function showInAppTicketNotifications(newTickets: any[]) {
+  for (const t of newTickets) {
+    notifications.show({
+      title: `New case #${t.number}`,
+      message: `${t.subject} - ${t.requester?.email || 'unknown'}`,
+      color: 'blue',
+      autoClose: 8000,
+    })
+  }
+}
+
 function notifyNewTickets(newTickets: any[]) {
   if (localStorage.getItem('notifications_enabled') !== 'true') return
-  if (typeof Notification === 'undefined' || Notification.permission !== 'granted') return
+  if (typeof Notification === 'undefined' || !window.isSecureContext || Notification.permission !== 'granted') {
+    showInAppTicketNotifications(newTickets)
+    return
+  }
+
+  let nativeFailed = false
   for (const t of newTickets) {
-    new Notification(`New case #${t.number}`, {
-      body: `${t.subject}\nFrom: ${t.requester?.email || 'unknown'}`,
-      icon: '/favicon.svg',
-      tag: `ticket-${t.id}`,
-    })
+    try {
+      new Notification(`New case #${t.number}`, {
+        body: `${t.subject}\nFrom: ${t.requester?.email || 'unknown'}`,
+        tag: `ticket-${t.id}`,
+      })
+    } catch {
+      nativeFailed = true
+    }
+  }
+
+  if (nativeFailed) {
+    showInAppTicketNotifications(newTickets)
   }
 }
 
