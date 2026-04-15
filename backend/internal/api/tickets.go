@@ -91,17 +91,18 @@ func (h *handlers) listTickets(w http.ResponseWriter, r *http.Request) {
 		filter["assignee_id"] = a
 	}
 
-	// Use aggregation to sort: unread first, then open before waiting, then by date
+	// Use aggregation to sort: unread first, then active before waiting, then by date
 	pipeline := mongo.Pipeline{
 		{{Key: "$match", Value: filter}},
 		{{Key: "$addFields", Value: bson.M{
 			"_status_order": bson.M{"$switch": bson.M{
 				"branches": bson.A{
-					bson.M{"case": bson.M{"$eq": bson.A{"$status", "open"}}, "then": 0},
-					bson.M{"case": bson.M{"$eq": bson.A{"$status", "waiting"}}, "then": 1},
-					bson.M{"case": bson.M{"$eq": bson.A{"$status", "closed"}}, "then": 2},
+					bson.M{"case": bson.M{"$eq": bson.A{"$status", "unassigned"}}, "then": 0},
+					bson.M{"case": bson.M{"$eq": bson.A{"$status", "active"}}, "then": 1},
+					bson.M{"case": bson.M{"$eq": bson.A{"$status", "waiting"}}, "then": 2},
+					bson.M{"case": bson.M{"$eq": bson.A{"$status", "closed"}}, "then": 3},
 				},
-				"default": 3,
+				"default": 4,
 			}},
 		}}},
 		{{Key: "$sort", Value: bson.D{
@@ -140,7 +141,7 @@ func (h *handlers) createTicket(w http.ResponseWriter, r *http.Request) {
 
 	now := time.Now()
 	t.ID = ""
-	t.Status = models.TicketStatusOpen
+	t.Status = models.TicketStatusUnassigned
 	t.CreatedAt = now
 	t.UpdatedAt = now
 	if t.Messages == nil {
@@ -293,6 +294,9 @@ func (h *handlers) replyTicket(w http.ResponseWriter, r *http.Request) {
 	if ticket.OwnerID == "" {
 		setFields["owner_id"] = claims.Sub
 	}
+	if ticket.Status == models.TicketStatusUnassigned {
+		setFields["status"] = models.TicketStatusActive
+	}
 
 	_, err = h.db.Tickets().UpdateByID(ctx, oid, bson.M{
 		"$push": bson.M{"messages": msg},
@@ -439,8 +443,14 @@ func (h *handlers) claimTicket(w http.ResponseWriter, r *http.Request) {
 
 	claims := ctx.Value(claimsKey).(*jwtClaims)
 
+	updateFields := bson.M{"owner_id": claims.Sub, "updated_at": time.Now()}
+	// If unassigned, transition to active
+	var ticket models.Ticket
+	if err := h.db.Tickets().FindOne(ctx, bson.M{"_id": oid}).Decode(&ticket); err == nil && ticket.Status == models.TicketStatusUnassigned {
+		updateFields["status"] = models.TicketStatusActive
+	}
 	result, err := h.db.Tickets().UpdateByID(ctx, oid, bson.M{
-		"$set": bson.M{"owner_id": claims.Sub, "updated_at": time.Now()},
+		"$set": updateFields,
 	})
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "DB_ERROR", err.Error())

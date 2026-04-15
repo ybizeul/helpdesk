@@ -276,7 +276,7 @@ func FetchEmails(ctx context.Context, cfg models.EmailSettings, db TicketStore) 
 			oid, _ := bson.ObjectIDFromHex(existingTicket.ID)
 			_, err := db.Tickets().UpdateByID(ctx, oid, bson.M{
 				"$push": bson.M{"messages": newMsg},
-				"$set":  bson.M{"updated_at": now, "status": models.TicketStatusOpen, "unread": true},
+				"$set":  bson.M{"updated_at": now, "status": models.TicketStatusUnassigned, "unread": true},
 			})
 			if err != nil {
 				slog.Error("failed to update ticket", "id", existingTicket.ID, "error", err)
@@ -309,7 +309,7 @@ func FetchEmails(ctx context.Context, cfg models.EmailSettings, db TicketStore) 
 			ticket := models.Ticket{
 				Number:        num,
 				Subject:       subject,
-				Status:        models.TicketStatusOpen,
+				Status:        models.TicketStatusUnassigned,
 				Priority:      models.PriorityNormal,
 				Requester:     models.Requester{Email: from},
 				Messages:      []models.Message{newMsg},

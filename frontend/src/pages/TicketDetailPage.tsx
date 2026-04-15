@@ -8,9 +8,10 @@ import { notifications } from '@mantine/notifications'
 import { useDisclosure } from '@mantine/hooks'
 
 const statusColors: Record<string, string> = {
-  open: 'blue',
-  waiting: 'yellow',
-  closed: 'gray',
+  unassigned: 'gray',
+  active: 'orange',
+  waiting: 'green',
+  closed: 'dark',
 }
 
 function formatDate(d: string | Date): string {
@@ -136,7 +137,7 @@ export function TicketDetailPage({ ticketId: propId, onBack }: TicketDetailPageP
 
   const handleReopen = async () => {
     if (!id) return
-    await api.tickets.setStatus(id, 'open')
+    await api.tickets.setStatus(id, 'active')
     api.tickets.get(id).then(setTicket)
   }
 
@@ -190,7 +191,7 @@ export function TicketDetailPage({ ticketId: propId, onBack }: TicketDetailPageP
           )}
           <Badge color={statusColors[ticket.status] || 'gray'} size="lg">{ticket.status}</Badge>
           {ticket.status === 'closed' ? (
-            <Tooltip label="Re-open case">
+            <Tooltip label="Re-activate case">
               <ActionIcon variant="light" color="green" onClick={handleReopen}>
                 <IconLockOpen size={18} />
               </ActionIcon>

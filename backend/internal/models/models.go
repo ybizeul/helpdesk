@@ -7,9 +7,10 @@ import (
 type TicketStatus string
 
 const (
-	TicketStatusOpen    TicketStatus = "open"
-	TicketStatusWaiting TicketStatus = "waiting"
-	TicketStatusClosed  TicketStatus = "closed"
+	TicketStatusUnassigned TicketStatus = "unassigned"
+	TicketStatusActive     TicketStatus = "active"
+	TicketStatusWaiting    TicketStatus = "waiting"
+	TicketStatusClosed     TicketStatus = "closed"
 )
 
 type TicketPriority string

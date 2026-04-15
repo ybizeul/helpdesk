@@ -130,15 +130,17 @@ func (h *handlers) getStats(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 
 	total, _ := h.db.Tickets().CountDocuments(ctx, bson.M{})
-	open, _ := h.db.Tickets().CountDocuments(ctx, bson.M{"status": "open"})
+	unassigned, _ := h.db.Tickets().CountDocuments(ctx, bson.M{"status": "unassigned"})
+	active, _ := h.db.Tickets().CountDocuments(ctx, bson.M{"status": "active"})
 	waiting, _ := h.db.Tickets().CountDocuments(ctx, bson.M{"status": "waiting"})
 	closed, _ := h.db.Tickets().CountDocuments(ctx, bson.M{"status": "closed"})
 
 	writeJSON(w, http.StatusOK, map[string]int64{
-		"total":   total,
-		"open":    open,
-		"waiting": waiting,
-		"closed":  closed,
+		"total":      total,
+		"unassigned": unassigned,
+		"active":     active,
+		"waiting":    waiting,
+		"closed":     closed,
 	})
 }
 

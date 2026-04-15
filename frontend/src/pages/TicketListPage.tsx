@@ -6,13 +6,15 @@ import { notifications } from '@mantine/notifications'
 import { api } from '../api/client'
 
 const statusColors: Record<string, string> = {
-  open: 'blue',
-  waiting: 'yellow',
-  closed: 'gray',
+  unassigned: 'gray',
+  active: 'orange',
+  waiting: 'green',
+  closed: 'dark',
 }
 
 const statusShort: Record<string, string> = {
-  open: 'O',
+  unassigned: 'U',
+  active: 'A',
   waiting: 'W',
   closed: 'C',
 }
@@ -135,9 +137,10 @@ export function TicketListPage({ activeTicketId, onSelectTicket }: TicketListPag
                   <Button variant="light" size="xs" leftSection={<IconCircle size={14} />}>Status</Button>
                 </Menu.Target>
                 <Menu.Dropdown>
-                  <Menu.Item leftSection={<Badge color="blue" size="xs" circle />} onClick={() => bulkAction('set_status', { status: 'open' })}>Open</Menu.Item>
-                  <Menu.Item leftSection={<Badge color="yellow" size="xs" circle />} onClick={() => bulkAction('set_status', { status: 'waiting' })}>Waiting</Menu.Item>
-                  <Menu.Item leftSection={<Badge color="gray" size="xs" circle />} onClick={() => bulkAction('set_status', { status: 'closed' })}>Closed</Menu.Item>
+                  <Menu.Item leftSection={<Badge color="gray" size="xs" circle />} onClick={() => bulkAction('set_status', { status: 'unassigned' })}>Unassigned</Menu.Item>
+                  <Menu.Item leftSection={<Badge color="orange" size="xs" circle />} onClick={() => bulkAction('set_status', { status: 'active' })}>Active</Menu.Item>
+                  <Menu.Item leftSection={<Badge color="green" size="xs" circle />} onClick={() => bulkAction('set_status', { status: 'waiting' })}>Waiting</Menu.Item>
+                  <Menu.Item leftSection={<Badge color="dark" size="xs" circle />} onClick={() => bulkAction('set_status', { status: 'closed' })}>Closed</Menu.Item>
                 </Menu.Dropdown>
               </Menu>
             </>
