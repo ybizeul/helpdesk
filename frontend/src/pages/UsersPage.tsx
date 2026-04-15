@@ -10,6 +10,7 @@ const emptyOIDCForm = {
   oidc_issuer: '',
   oidc_client_id: '',
   oidc_client_secret: '',
+  oidc_admin_group: '',
 }
 
 export function UsersPage() {
@@ -199,6 +200,13 @@ export function UsersPage() {
             label="Client Secret"
             value={oidc?.oidc_client_secret || ''}
             onChange={(e) => setOIDC({ ...oidc, oidc_client_secret: e.currentTarget.value })}
+          />
+          <TextInput
+            label="Admin Group Name"
+            description="Users in this OIDC group are assigned the admin role. All others default to agent."
+            placeholder="helpdesk-admins"
+            value={oidc?.oidc_admin_group || ''}
+            onChange={(e) => setOIDC({ ...oidc, oidc_admin_group: e.currentTarget.value })}
           />
 
           <Stack gap={4}>

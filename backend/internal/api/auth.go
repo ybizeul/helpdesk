@@ -96,6 +96,14 @@ type contextKey string
 
 const claimsKey contextKey = "claims"
 
+func requireAdmin(r *http.Request) bool {
+	claims, ok := r.Context().Value(claimsKey).(*jwtClaims)
+	if !ok || claims == nil {
+		return false
+	}
+	return claims.Role == string(models.RoleAdmin)
+}
+
 func (h *handlers) getMe(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	claims := ctx.Value(claimsKey).(*jwtClaims)

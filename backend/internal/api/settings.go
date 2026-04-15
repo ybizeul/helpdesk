@@ -15,6 +15,11 @@ import (
 const oidcCallbackAPIEndpoint = "/api/v1/auth/oidc/callback"
 
 func (h *handlers) getSettings(w http.ResponseWriter, r *http.Request) {
+	if !requireAdmin(r) {
+		writeError(w, http.StatusForbidden, "FORBIDDEN", "admin role required")
+		return
+	}
+
 	ctx := r.Context()
 
 	var s models.Settings
@@ -37,6 +42,11 @@ func (h *handlers) getSettings(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *handlers) updateEmailSettings(w http.ResponseWriter, r *http.Request) {
+	if !requireAdmin(r) {
+		writeError(w, http.StatusForbidden, "FORBIDDEN", "admin role required")
+		return
+	}
+
 	ctx := r.Context()
 
 	var email models.EmailSettings
@@ -58,6 +68,11 @@ func (h *handlers) updateEmailSettings(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *handlers) updateLLMSettings(w http.ResponseWriter, r *http.Request) {
+	if !requireAdmin(r) {
+		writeError(w, http.StatusForbidden, "FORBIDDEN", "admin role required")
+		return
+	}
+
 	ctx := r.Context()
 
 	var llm models.LLMSettings
@@ -79,6 +94,11 @@ func (h *handlers) updateLLMSettings(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *handlers) updateAuthSettings(w http.ResponseWriter, r *http.Request) {
+	if !requireAdmin(r) {
+		writeError(w, http.StatusForbidden, "FORBIDDEN", "admin role required")
+		return
+	}
+
 	ctx := r.Context()
 
 	var auth models.AuthSettings
@@ -100,12 +120,22 @@ func (h *handlers) updateAuthSettings(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *handlers) getOIDCCallbackInfo(w http.ResponseWriter, r *http.Request) {
+	if !requireAdmin(r) {
+		writeError(w, http.StatusForbidden, "FORBIDDEN", "admin role required")
+		return
+	}
+
 	writeJSON(w, http.StatusOK, map[string]string{
 		"callback_endpoint": oidcCallbackAPIEndpoint,
 	})
 }
 
 func (h *handlers) updateSignature(w http.ResponseWriter, r *http.Request) {
+	if !requireAdmin(r) {
+		writeError(w, http.StatusForbidden, "FORBIDDEN", "admin role required")
+		return
+	}
+
 	ctx := r.Context()
 
 	var body struct {

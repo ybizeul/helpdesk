@@ -26,6 +26,21 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
   return res.json()
 }
 
+async function requestWithout401Reload<T>(path: string, options?: RequestInit): Promise<T> {
+  const headers: Record<string, string> = { 'Content-Type': 'application/json' }
+  if (authToken) headers['Authorization'] = `Bearer ${authToken}`
+  const res = await fetch(`${API_BASE}${path}`, {
+    headers,
+    ...options,
+  })
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}))
+    throw new Error(body?.error?.message || res.statusText)
+  }
+  if (res.status === 204) return undefined as T
+  return res.json()
+}
+
 // Tickets
 export const api = {
   tickets: {
@@ -68,7 +83,7 @@ export const api = {
   stats: () => request<any>('/stats'),
   login: (email: string, password: string) => request<any>('/auth/login', { method: 'POST', body: JSON.stringify({ email, password }) }),
   oidc: {
-    status: () => request<{ enabled: boolean }>('/auth/oidc/status'),
+    status: () => requestWithout401Reload<{ enabled: boolean }>('/auth/oidc/status'),
     startUrl: (redirect = '/') => `${API_BASE}/auth/oidc/start?` + new URLSearchParams({ redirect }).toString(),
   },
   me: () => request<any>('/auth/me'),

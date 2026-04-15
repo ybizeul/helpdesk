@@ -13,6 +13,15 @@ import { UsersPage } from './pages/UsersPage'
 import { LoginPage } from './pages/LoginPage'
 import { setAuthToken, api } from './api/client'
 
+function getInitialToken(): string | null {
+  if (typeof window === 'undefined') return null
+  const fromStorage = localStorage.getItem('token')
+  if (fromStorage) return fromStorage
+
+  const url = new URL(window.location.href)
+  return url.searchParams.get('token')
+}
+
 function TicketPanes() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
@@ -107,11 +116,12 @@ function TicketPanes() {
 }
 
 export default function App() {
-  const [token, setToken] = useState<string | null>(() => localStorage.getItem('token'))
+  const [token, setToken] = useState<string | null>(getInitialToken)
   const [navOpened, { toggle: toggleNav, close: closeNav }] = useDisclosure(false)
   const [profileOpened, { open: openProfile, close: closeProfile }] = useDisclosure(false)
   const [currentUser, setCurrentUser] = useState<any>(null)
   const isMobileHeader = useMediaQuery('(max-width: 48em)')
+  const isAdmin = currentUser?.role === 'admin'
 
   useEffect(() => {
     const url = new URL(window.location.href)
@@ -174,8 +184,8 @@ export default function App() {
           <Route path="/dashboard" element={<Box p="md"><DashboardPage /></Box>} />
           <Route path="/tickets" element={<TicketPanes />} />
           <Route path="/tickets/:id" element={<TicketPanes />} />
-          <Route path="/users" element={<Box p="md"><UsersPage /></Box>} />
-          <Route path="/settings" element={<Box p="md"><SettingsPage /></Box>} />
+          <Route path="/users" element={isAdmin ? <Box p="md"><UsersPage /></Box> : <Navigate to="/tickets" replace />} />
+          <Route path="/settings" element={isAdmin ? <Box p="md"><SettingsPage /></Box> : <Navigate to="/tickets" replace />} />
         </Routes>
       </AppShell.Main>
       <ProfileModal opened={profileOpened} onClose={closeProfile} user={currentUser} onAvatarChange={(avatar) => setCurrentUser((u: any) => u ? { ...u, avatar } : u)} />

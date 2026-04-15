@@ -31,6 +31,11 @@ func (h *handlers) listUsers(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *handlers) createUser(w http.ResponseWriter, r *http.Request) {
+	if !requireAdmin(r) {
+		writeError(w, http.StatusForbidden, "FORBIDDEN", "admin role required")
+		return
+	}
+
 	ctx := r.Context()
 
 	var body struct {
@@ -84,6 +89,11 @@ func (h *handlers) getUser(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *handlers) updateUser(w http.ResponseWriter, r *http.Request) {
+	if !requireAdmin(r) {
+		writeError(w, http.StatusForbidden, "FORBIDDEN", "admin role required")
+		return
+	}
+
 	ctx := r.Context()
 	id := r.PathValue("id")
 
@@ -120,6 +130,11 @@ func (h *handlers) updateUser(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *handlers) deleteUser(w http.ResponseWriter, r *http.Request) {
+	if !requireAdmin(r) {
+		writeError(w, http.StatusForbidden, "FORBIDDEN", "admin role required")
+		return
+	}
+
 	ctx := r.Context()
 	id := r.PathValue("id")
 

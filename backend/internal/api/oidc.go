@@ -174,7 +174,7 @@ func (h *handlers) oidcStart(w http.ResponseWriter, r *http.Request) {
 			TokenURL: doc.TokenEndpoint,
 		},
 		RedirectURL: redirectURI,
-		Scopes:      []string{coreoidc.ScopeOpenID, "profile", "email"},
+		Scopes:      []string{coreoidc.ScopeOpenID, "profile", "email", "groups"},
 	}
 
 	http.Redirect(w, r, oauthCfg.AuthCodeURL(state), http.StatusFound)
@@ -258,7 +258,7 @@ func (h *handlers) oidcCallback(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	user, err := h.findOrCreateOIDCUser(ctx, info, s.Auth.GroupRoleMappings)
+	user, err := h.findOrCreateOIDCUser(ctx, info, s.Auth.OIDCAdminGroup)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "OIDC_USER_ERROR", err.Error())
 		return
@@ -302,20 +302,22 @@ func mapClaimsToOIDCUserInfo(claims map[string]any, out *oidcUserInfo) error {
 	return nil
 }
 
-func mapOIDCGroupsToRole(groups []string, mappings map[string]string) models.UserRole {
+func mapOIDCGroupsToRole(groups []string, adminGroup string) models.UserRole {
+	adminGroup = strings.ToLower(strings.TrimSpace(adminGroup))
+	if adminGroup == "" {
+		return models.RoleAgent
+	}
+
 	for _, g := range groups {
-		mapped := strings.ToLower(strings.TrimSpace(mappings[g]))
-		if mapped == string(models.RoleAdmin) {
+		if strings.ToLower(strings.TrimSpace(g)) == adminGroup {
 			return models.RoleAdmin
 		}
-		if mapped == string(models.RoleAgent) {
-			return models.RoleAgent
-		}
 	}
+
 	return models.RoleAgent
 }
 
-func (h *handlers) findOrCreateOIDCUser(ctx context.Context, info oidcUserInfo, mappings map[string]string) (models.User, error) {
+func (h *handlers) findOrCreateOIDCUser(ctx context.Context, info oidcUserInfo, adminGroup string) (models.User, error) {
 	var user models.User
 	err := h.db.Users().FindOne(ctx, bson.M{"email": info.Email}).Decode(&user)
 	if err == nil {
@@ -325,7 +327,7 @@ func (h *handlers) findOrCreateOIDCUser(ctx context.Context, info oidcUserInfo, 
 		return models.User{}, err
 	}
 
-	role := mapOIDCGroupsToRole(info.Groups, mappings)
+	role := mapOIDCGroupsToRole(info.Groups, adminGroup)
 	if role == "" {
 		role = models.RoleAgent
 	}

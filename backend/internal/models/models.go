@@ -139,6 +139,7 @@ type AuthSettings struct {
 	OIDCIssuer        string            `bson:"oidc_issuer,omitempty" json:"oidc_issuer,omitempty"`
 	OIDCClientID      string            `bson:"oidc_client_id,omitempty" json:"oidc_client_id,omitempty"`
 	OIDCClientSecret  string            `bson:"oidc_client_secret,omitempty" json:"oidc_client_secret,omitempty"`
+	OIDCAdminGroup    string            `bson:"oidc_admin_group,omitempty" json:"oidc_admin_group,omitempty"`
 	GroupRoleMappings map[string]string `bson:"group_role_mappings,omitempty" json:"group_role_mappings,omitempty"`
 }
 

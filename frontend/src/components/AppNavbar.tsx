@@ -26,6 +26,8 @@ interface AppNavbarProps {
 export function AppNavbar({ onLogout, onNavigate, user, onOpenProfile }: AppNavbarProps) {
   const location = useLocation()
   const navigate = useNavigate()
+  const isAdmin = user?.role === 'admin'
+  const visibleLinks = isAdmin ? links : links.filter((link) => link.to !== '/users' && link.to !== '/settings')
 
   const handleNav = (to: string) => {
     navigate(to)
@@ -59,7 +61,7 @@ export function AppNavbar({ onLogout, onNavigate, user, onOpenProfile }: AppNavb
           </Menu>
           <Text fw={700} size="lg">Helpdesk</Text>
         </Group>
-        {links.map((link) => (
+        {visibleLinks.map((link) => (
           <NavLink
             key={link.to}
             label={link.label}
