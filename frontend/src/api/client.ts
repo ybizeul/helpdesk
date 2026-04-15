@@ -54,6 +54,7 @@ export const api = {
   },
   settings: {
     get: () => request<any>('/settings'),
+    getOIDCCallbackInfo: () => request<{ callback_endpoint: string }>('/settings/auth/oidc-callback'),
     updateEmail: (data: any) => request<void>('/settings/email', { method: 'PUT', body: JSON.stringify(data) }),
     updateLLM: (data: any) => request<void>('/settings/llm', { method: 'PUT', body: JSON.stringify(data) }),
     updateAuth: (data: any) => request<void>('/settings/auth', { method: 'PUT', body: JSON.stringify(data) }),

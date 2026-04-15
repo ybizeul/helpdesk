@@ -1,10 +1,16 @@
 import { useEffect, useState } from 'react'
-import { Title, Table, Badge, Text, Stack, PasswordInput, Button, Group, Modal, TextInput, Select, ActionIcon } from '@mantine/core'
+import { Title, Table, Badge, Text, Stack, PasswordInput, Button, Group, Modal, TextInput, Select, ActionIcon, Paper, Switch, Divider, Code } from '@mantine/core'
 import { notifications } from '@mantine/notifications'
 import { IconEdit, IconTrash, IconPlus } from '@tabler/icons-react'
 import { api } from '../api/client'
 
 const emptyForm = { name: '', email: '', role: 'agent', password: '' }
+const emptyOIDCForm = {
+  oidc_enabled: false,
+  oidc_issuer: '',
+  oidc_client_id: '',
+  oidc_client_secret: '',
+}
 
 export function UsersPage() {
   const [users, setUsers] = useState<any[]>([])
@@ -19,9 +25,30 @@ export function UsersPage() {
   const [deleteTarget, setDeleteTarget] = useState<any | null>(null)
   const [deleting, setDeleting] = useState(false)
 
+  // OIDC settings state
+  const [oidc, setOIDC] = useState<any>(emptyOIDCForm)
+  const [oidcCallbackEndpoint, setOIDCCallbackEndpoint] = useState('')
+  const [oidcSaving, setOIDCSaving] = useState(false)
+
   const loadUsers = () => api.users.list().then(setUsers).catch(console.error)
 
-  useEffect(() => { loadUsers() }, [])
+  const loadOIDC = async () => {
+    try {
+      const [settings, callbackInfo] = await Promise.all([
+        api.settings.get(),
+        api.settings.getOIDCCallbackInfo(),
+      ])
+      setOIDC({ ...emptyOIDCForm, ...(settings?.auth || {}) })
+      setOIDCCallbackEndpoint(callbackInfo?.callback_endpoint || '')
+    } catch (err) {
+      console.error(err)
+    }
+  }
+
+  useEffect(() => {
+    loadUsers()
+    loadOIDC()
+  }, [])
 
   const adminCount = users.filter((u) => u.role === 'admin').length
 
@@ -86,6 +113,20 @@ export function UsersPage() {
     }
   }
 
+  const saveOIDC = async () => {
+    setOIDCSaving(true)
+    try {
+      await api.settings.updateAuth(oidc)
+      notifications.show({ title: 'OIDC settings updated', message: 'Authentication configuration has been saved', color: 'green' })
+    } catch (err: any) {
+      notifications.show({ title: 'Error', message: err.message || 'Failed to save OIDC settings', color: 'red' })
+    } finally {
+      setOIDCSaving(false)
+    }
+  }
+
+  const callbackURL = oidcCallbackEndpoint ? new URL(oidcCallbackEndpoint, window.location.origin).toString() : ''
+
   return (
     <>
       <Group justify="space-between" mb="lg">
@@ -126,6 +167,51 @@ export function UsersPage() {
           )}
         </Table.Tbody>
       </Table>
+
+      <Paper withBorder p="lg" mt="xl" radius="md">
+        <Stack>
+          <Group justify="space-between" align="flex-start">
+            <div>
+              <Title order={3}>OIDC Authentication</Title>
+              <Text size="sm" c="dimmed">Configure OpenID Connect login for your helpdesk users.</Text>
+            </div>
+            <Switch
+              label="Enabled"
+              checked={!!oidc?.oidc_enabled}
+              onChange={(e) => setOIDC({ ...oidc, oidc_enabled: e.currentTarget.checked })}
+            />
+          </Group>
+
+          <Divider />
+
+          <TextInput
+            label="OIDC Endpoint"
+            placeholder="https://idp.example.com/.well-known/openid-configuration"
+            value={oidc?.oidc_issuer || ''}
+            onChange={(e) => setOIDC({ ...oidc, oidc_issuer: e.currentTarget.value })}
+          />
+          <TextInput
+            label="Client ID"
+            value={oidc?.oidc_client_id || ''}
+            onChange={(e) => setOIDC({ ...oidc, oidc_client_id: e.currentTarget.value })}
+          />
+          <PasswordInput
+            label="Client Secret"
+            value={oidc?.oidc_client_secret || ''}
+            onChange={(e) => setOIDC({ ...oidc, oidc_client_secret: e.currentTarget.value })}
+          />
+
+          <Stack gap={4}>
+            <Text size="sm" fw={500}>Callback URL</Text>
+            <Code block>{callbackURL || 'Unavailable'}</Code>
+            <Text size="xs" c="dimmed">Computed from browser URL + backend callback endpoint.</Text>
+          </Stack>
+
+          <Group justify="flex-end">
+            <Button onClick={saveOIDC} loading={oidcSaving}>Save OIDC Settings</Button>
+          </Group>
+        </Stack>
+      </Paper>
 
       {/* Create / Edit modal */}
       <Modal opened={modalOpen} onClose={() => setModalOpen(false)} title={editingId ? 'Edit user' : 'Create user'}>

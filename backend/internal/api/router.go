@@ -44,6 +44,7 @@ func NewRouter(db *store.DB) http.Handler {
 
 	// Settings
 	mux.HandleFunc("GET /api/v1/settings", h.getSettings)
+	mux.HandleFunc("GET /api/v1/settings/auth/oidc-callback", h.getOIDCCallbackInfo)
 	mux.HandleFunc("PUT /api/v1/settings/email", h.updateEmailSettings)
 	mux.HandleFunc("PUT /api/v1/settings/llm", h.updateLLMSettings)
 	mux.HandleFunc("PUT /api/v1/settings/auth", h.updateAuthSettings)

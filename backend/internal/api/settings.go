@@ -12,6 +12,8 @@ import (
 	"go.mongodb.org/mongo-driver/v2/mongo/options"
 )
 
+const oidcCallbackAPIEndpoint = "/api/v1/auth/oidc/callback"
+
 func (h *handlers) getSettings(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 
@@ -95,6 +97,12 @@ func (h *handlers) updateAuthSettings(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	w.WriteHeader(http.StatusNoContent)
+}
+
+func (h *handlers) getOIDCCallbackInfo(w http.ResponseWriter, r *http.Request) {
+	writeJSON(w, http.StatusOK, map[string]string{
+		"callback_endpoint": oidcCallbackAPIEndpoint,
+	})
 }
 
 func (h *handlers) updateSignature(w http.ResponseWriter, r *http.Request) {
