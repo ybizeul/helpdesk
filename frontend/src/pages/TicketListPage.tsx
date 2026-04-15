@@ -1,5 +1,5 @@
 import { useEffect, useState, useRef, useCallback, useImperativeHandle, forwardRef } from 'react'
-import { Title, Table, Badge, Group, Text, Checkbox, Button, Tooltip, Menu, ActionIcon, Stack, Box } from '@mantine/core'
+import { Title, Table, Badge, Group, Text, Checkbox, Button, Tooltip, Menu, ActionIcon, Stack, Box, Avatar } from '@mantine/core'
 import { IconTrash, IconEye, IconEyeOff, IconCircle, IconRefresh, IconArrowMerge } from '@tabler/icons-react'
 import { useMediaQuery } from '@mantine/hooks'
 import { notifications } from '@mantine/notifications'
@@ -17,6 +17,20 @@ const statusShort: Record<string, string> = {
   active: 'A',
   waiting: 'W',
   closed: 'C',
+}
+
+const avatarColors = ['red', 'pink', 'grape', 'violet', 'indigo', 'blue', 'cyan', 'teal', 'green', 'lime', 'yellow', 'orange']
+
+function hashColor(str: string): string {
+  let hash = 0
+  for (let i = 0; i < str.length; i++) hash = ((hash << 5) - hash + str.charCodeAt(i)) | 0
+  return avatarColors[Math.abs(hash) % avatarColors.length]
+}
+
+function getInitials(name: string): string {
+  const parts = name.trim().split(/\s+/)
+  if (parts.length >= 2) return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase()
+  return name.slice(0, 2).toUpperCase()
 }
 
 function formatDate(d: string | Date): string {
@@ -52,6 +66,7 @@ export interface TicketListHandle {
 export const TicketListPage = forwardRef<TicketListHandle, TicketListPageProps>(function TicketListPage({ activeTicketId, onSelectTicket }, ref) {
   const [tickets, setTickets] = useState<any[]>([])
   const [selected, setSelected] = useState<Set<string>>(new Set())
+  const [usersMap, setUsersMap] = useState<Record<string, any>>({})
   const knownIdsRef = useRef<Set<string> | null>(null)
   const isMobile = useMediaQuery('(max-width: 768px)')
 
@@ -70,6 +85,11 @@ export const TicketListPage = forwardRef<TicketListHandle, TicketListPageProps>(
 
   useEffect(() => {
     loadTickets()
+    api.users.list().then((users) => {
+      const map: Record<string, any> = {}
+      for (const u of users) map[u.id] = u
+      setUsersMap(map)
+    }).catch(console.error)
     const interval = setInterval(loadTickets, 60_000)
     return () => clearInterval(interval)
   }, [])
@@ -171,6 +191,11 @@ export const TicketListPage = forwardRef<TicketListHandle, TicketListPageProps>(
                 }}
               >
                 <Group justify="space-between" gap="xs" wrap="nowrap">
+                  {(() => { const owner = t.owner_id ? usersMap[t.owner_id] : null; return (
+                    <Avatar size="sm" radius="xl" color={owner ? hashColor(owner.id) : 'gray'} style={{ flexShrink: 0 }}>
+                      {owner ? getInitials(owner.name) : 'U'}
+                    </Avatar>
+                  ) })()}
                   <Box style={{ minWidth: 0, flex: 1 }}>
                     <Text size="sm" fw={t.unread ? 700 : 400} truncate>#{t.number} {t.subject}</Text>
                     <Text size="xs" c="dimmed" truncate>{t.requester?.email}</Text>
@@ -192,6 +217,7 @@ export const TicketListPage = forwardRef<TicketListHandle, TicketListPageProps>(
         <Table.Thead>
           <Table.Tr>
             <Table.Th w={40}><Checkbox size="xs" checked={tickets.length > 0 && selected.size === tickets.length} indeterminate={selected.size > 0 && selected.size < tickets.length} onChange={toggleAll} /></Table.Th>
+            <Table.Th w={40}>Owner</Table.Th>
             <Table.Th>#</Table.Th>
             <Table.Th>Subject</Table.Th>
             <Table.Th>Requester</Table.Th>
@@ -207,6 +233,13 @@ export const TicketListPage = forwardRef<TicketListHandle, TicketListPageProps>(
             return (
               <Table.Tr key={t.id} style={{ cursor: 'pointer', fontWeight: t.unread ? 700 : 400, background: isActive ? 'var(--mantine-primary-color-light)' : undefined }}>
                 <Table.Td onClick={e => e.stopPropagation()}><Checkbox size="xs" checked={selected.has(t.id)} onChange={() => toggleSelect(t.id)} /></Table.Td>
+                <Table.Td onClick={handleClick}>{(() => { const owner = t.owner_id ? usersMap[t.owner_id] : null; return (
+                  <Tooltip label={owner ? owner.name : 'Unassigned'} withArrow>
+                    <Avatar size="sm" radius="xl" color={owner ? hashColor(owner.id) : 'gray'}>
+                      {owner ? getInitials(owner.name) : 'U'}
+                    </Avatar>
+                  </Tooltip>
+                ) })()}</Table.Td>
                 <Table.Td onClick={handleClick}>{t.number}</Table.Td>
                 <Table.Td onClick={handleClick}>{t.subject}</Table.Td>
                 <Table.Td onClick={handleClick}>{t.requester?.email}</Table.Td>
@@ -218,7 +251,7 @@ export const TicketListPage = forwardRef<TicketListHandle, TicketListPageProps>(
           })}
           {tickets.length === 0 && (
             <Table.Tr>
-              <Table.Td colSpan={7}><Text c="dimmed" ta="center">No cases found</Text></Table.Td>
+              <Table.Td colSpan={8}><Text c="dimmed" ta="center">No cases found</Text></Table.Td>
             </Table.Tr>
           )}
         </Table.Tbody>
