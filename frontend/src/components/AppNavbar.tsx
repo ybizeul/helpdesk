@@ -10,7 +10,7 @@ import {
 
 const links = [
   { label: 'Dashboard', icon: IconDashboard, to: '/dashboard' },
-  { label: 'Tickets', icon: IconTicket, to: '/tickets' },
+  { label: 'Cases', icon: IconTicket, to: '/tickets' },
   { label: 'Users', icon: IconUsers, to: '/users' },
   { label: 'Settings', icon: IconSettings, to: '/settings' },
 ]

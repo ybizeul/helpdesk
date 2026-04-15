@@ -30,7 +30,7 @@ function notifyNewTickets(newTickets: any[]) {
   if (localStorage.getItem('notifications_enabled') !== 'true') return
   if (typeof Notification === 'undefined' || Notification.permission !== 'granted') return
   for (const t of newTickets) {
-    new Notification(`New ticket #${t.number}`, {
+    new Notification(`New case #${t.number}`, {
       body: `${t.subject}\nFrom: ${t.requester?.email || 'unknown'}`,
       icon: '/favicon.svg',
       tag: `ticket-${t.id}`,
@@ -87,7 +87,7 @@ export function TicketListPage({ activeTicketId, onSelectTicket }: TicketListPag
       setSelected(new Set())
       loadTickets()
       const labels: Record<string, string> = { delete: 'Deleted', mark_read: 'Marked as read', mark_unread: 'Marked as unread', set_status: `Status changed` }
-      notifications.show({ title: labels[action] || action, message: `${ids.length} ticket(s)`, color: 'green' })
+      notifications.show({ title: labels[action] || action, message: `${ids.length} case(s)`, color: 'green' })
     } catch (e: any) {
       notifications.show({ title: 'Error', message: e.message, color: 'red' })
     }
@@ -97,7 +97,7 @@ export function TicketListPage({ activeTicketId, onSelectTicket }: TicketListPag
     <Box style={{ display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0 }}>
       <Group justify="space-between" style={{ flexShrink: 0, paddingBottom: 'var(--mantine-spacing-xs)', borderBottom: '1px solid var(--mantine-color-gray-2)' }}>
         <Group gap="xs">
-          <Title order={2}>Tickets</Title>
+          <Title order={2}>Cases</Title>
           <Tooltip label="Refresh">
             <ActionIcon variant="white" size="sm" onClick={loadTickets}><IconRefresh size={14} /></ActionIcon>
           </Tooltip>
@@ -113,14 +113,14 @@ export function TicketListPage({ activeTicketId, onSelectTicket }: TicketListPag
                 <Button variant="light" size="xs" leftSection={<IconEyeOff size={14} />} onClick={() => bulkAction('mark_unread')}>Unread</Button>
               </Tooltip>
               {selected.size >= 2 && (
-                <Tooltip label="Merge selected tickets">
+                <Tooltip label="Merge selected cases">
                   <Button variant="light" color="violet" size="xs" leftSection={<IconArrowMerge size={14} />} onClick={async () => {
                     const ids = Array.from(selected)
                     try {
                       const result = await api.tickets.merge(ids)
                       setSelected(new Set())
                       loadTickets()
-                      notifications.show({ title: 'Tickets merged', message: `Merged ${ids.length} tickets into #${result.ticket_number}`, color: 'green' })
+                      notifications.show({ title: 'Cases merged', message: `Merged ${ids.length} cases into #${result.ticket_number}`, color: 'green' })
                     } catch (e: any) {
                       notifications.show({ title: 'Merge failed', message: e.message, color: 'red' })
                     }
@@ -175,7 +175,7 @@ export function TicketListPage({ activeTicketId, onSelectTicket }: TicketListPag
             )
           })}
           {tickets.length === 0 && (
-            <Text c="dimmed" ta="center" py="md">No tickets found</Text>
+            <Text c="dimmed" ta="center" py="md">No cases found</Text>
           )}
         </Stack>
       ) : (
@@ -209,7 +209,7 @@ export function TicketListPage({ activeTicketId, onSelectTicket }: TicketListPag
           })}
           {tickets.length === 0 && (
             <Table.Tr>
-              <Table.Td colSpan={7}><Text c="dimmed" ta="center">No tickets found</Text></Table.Td>
+              <Table.Td colSpan={7}><Text c="dimmed" ta="center">No cases found</Text></Table.Td>
             </Table.Tr>
           )}
         </Table.Tbody>

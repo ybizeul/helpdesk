@@ -123,7 +123,7 @@ export function TicketDetailPage({ ticketId: propId, onBack }: TicketDetailPageP
     if (result.send_error) {
       notifications.show({ title: 'Send failed', message: result.send_error, color: 'red' })
     } else {
-      notifications.show({ title: 'Reply sent & ticket closed', message: 'Email delivered successfully', color: 'green' })
+      notifications.show({ title: 'Reply sent & case closed', message: 'Email delivered successfully', color: 'green' })
     }
     api.tickets.get(id).then(setTicket)
   }
@@ -190,13 +190,13 @@ export function TicketDetailPage({ ticketId: propId, onBack }: TicketDetailPageP
           )}
           <Badge color={statusColors[ticket.status] || 'gray'} size="lg">{ticket.status}</Badge>
           {ticket.status === 'closed' ? (
-            <Tooltip label="Re-open ticket">
+            <Tooltip label="Re-open case">
               <ActionIcon variant="light" color="green" onClick={handleReopen}>
                 <IconLockOpen size={18} />
               </ActionIcon>
             </Tooltip>
           ) : (
-            <Tooltip label="Close ticket">
+            <Tooltip label="Close case">
               <ActionIcon variant="light" color="gray" onClick={handleClose}>
                 <IconLock size={18} />
               </ActionIcon>

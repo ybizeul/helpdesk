@@ -222,7 +222,7 @@ export function SettingsPage() {
 
         <Tabs.Panel value="notifications" pt="md">
           <Stack maw={500}>
-            <Text size="sm" c="dimmed">Receive browser notifications when new tickets arrive.</Text>
+            <Text size="sm" c="dimmed">Receive browser notifications when new cases arrive.</Text>
             <Switch
               label="Enable desktop notifications"
               checked={localStorage.getItem('notifications_enabled') === 'true'}
