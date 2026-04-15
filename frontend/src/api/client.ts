@@ -42,6 +42,7 @@ export const api = {
     reply: (id: string, msg: any) => request<any>(`/tickets/${id}/reply`, { method: 'POST', body: JSON.stringify(msg) }),
     retrySend: (id: string, messageIndex: number) => request<any>(`/tickets/${id}/retry-send`, { method: 'POST', body: JSON.stringify({ message_index: messageIndex }) }),
     assign: (id: string, assigneeId: string) => request<void>(`/tickets/${id}/assign`, { method: 'PUT', body: JSON.stringify({ assignee_id: assigneeId }) }),
+    claim: (id: string) => request<void>(`/tickets/${id}/claim`, { method: 'PUT' }),
     setStatus: (id: string, status: string) => request<void>(`/tickets/${id}/status`, { method: 'PUT', body: JSON.stringify({ status }) }),
   },
   users: {
@@ -49,6 +50,7 @@ export const api = {
     get: (id: string) => request<any>(`/users/${id}`),
     create: (data: any) => request<any>('/users', { method: 'POST', body: JSON.stringify(data) }),
     update: (id: string, data: any) => request<void>(`/users/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
+    delete: (id: string) => request<void>(`/users/${id}`, { method: 'DELETE' }),
   },
   settings: {
     get: () => request<any>('/settings'),
@@ -64,4 +66,5 @@ export const api = {
   },
   stats: () => request<any>('/stats'),
   login: (email: string, password: string) => request<any>('/auth/login', { method: 'POST', body: JSON.stringify({ email, password }) }),
+  changePassword: (currentPassword: string, newPassword: string) => request<void>('/auth/password', { method: 'PUT', body: JSON.stringify({ current_password: currentPassword, new_password: newPassword }) }),
 }

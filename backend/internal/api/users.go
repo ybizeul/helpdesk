@@ -118,3 +118,44 @@ func (h *handlers) updateUser(w http.ResponseWriter, r *http.Request) {
 	}
 	w.WriteHeader(http.StatusNoContent)
 }
+
+func (h *handlers) deleteUser(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	id := r.PathValue("id")
+
+	oid, err := bson.ObjectIDFromHex(id)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "INVALID_ID", "invalid user ID format")
+		return
+	}
+
+	// Fetch the user to check their role before deleting.
+	var u models.User
+	if err := h.db.Users().FindOne(ctx, bson.M{"_id": oid}).Decode(&u); err != nil {
+		writeError(w, http.StatusNotFound, "USER_NOT_FOUND", "user not found")
+		return
+	}
+
+	// Prevent deleting the last admin.
+	if u.Role == models.RoleAdmin {
+		adminCount, err := h.db.Users().CountDocuments(ctx, bson.M{"role": models.RoleAdmin})
+		if err != nil {
+			writeError(w, http.StatusInternalServerError, "DB_ERROR", err.Error())
+			return
+		}
+		if adminCount <= 1 {
+			writeError(w, http.StatusForbidden, "LAST_ADMIN", "cannot delete the last admin user")
+			return
+		}
+	}
+
+	if _, err := h.db.Users().DeleteOne(ctx, bson.M{"_id": oid}); err != nil {
+		writeError(w, http.StatusInternalServerError, "DB_ERROR", err.Error())
+		return
+	}
+
+	// Nullify owner_id on any tickets owned by this user.
+	h.db.Tickets().UpdateMany(ctx, bson.M{"owner_id": id}, bson.M{"$unset": bson.M{"owner_id": ""}})
+
+	w.WriteHeader(http.StatusNoContent)
+}

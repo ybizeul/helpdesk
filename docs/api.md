@@ -41,8 +41,7 @@ an area to configure OIDC and map groups to roles.
 | GET    | /users                 | List users                |
 | POST   | /users                 | Create user               |
 | GET    | /users/:id             | Get user                  |
-| PUT    | /users/:id             | Update user               |
-
+| PUT    | /users/:id             | Update user               || DELETE | /users/:id             | Delete user               |
 ### Email
 
 | Method | Path                   | Description               |

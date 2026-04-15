@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useMemo, useCallback } from 'react'
 import { useParams } from 'react-router-dom'
 import { Title, Text, Paper, Badge, Stack, Group, Box, ActionIcon, Tooltip, Alert, Button as MButton, Modal } from '@mantine/core'
-import { IconLock, IconLockOpen, IconRefresh, IconSend, IconPaperclip, IconArrowLeft } from '@tabler/icons-react'
+import { IconLock, IconLockOpen, IconRefresh, IconSend, IconPaperclip, IconArrowLeft, IconUserCheck } from '@tabler/icons-react'
 import { api } from '../api/client'
 import { ReplyEditor } from '../components/ReplyEditor'
 import { notifications } from '@mantine/notifications'
@@ -75,6 +75,15 @@ function attachmentUrl(ticketId: string, msgIdx: number, attIdx: number): string
   return `/api/v1/tickets/${ticketId}/messages/${msgIdx}/attachments/${attIdx}?token=${encodeURIComponent(token)}`
 }
 
+function getCurrentUserId(): string | null {
+  try {
+    const token = localStorage.getItem('token')
+    if (!token) return null
+    const payload = JSON.parse(atob(token.split('.')[1]))
+    return payload.sub || null
+  } catch { return null }
+}
+
 interface TicketDetailPageProps {
   ticketId?: string
   onBack?: () => void
@@ -84,6 +93,7 @@ export function TicketDetailPage({ ticketId: propId, onBack }: TicketDetailPageP
   const { id: paramId } = useParams<{ id: string }>()
   const id = propId || paramId
   const [ticket, setTicket] = useState<any>(null)
+  const [users, setUsers] = useState<any[]>([])
   const [settings, setSettings] = useState<any>(null)
   const [signature, setSignature] = useState<string>('')
   const [resendOpened, { open: openResend, close: closeResend }] = useDisclosure(false)
@@ -91,6 +101,7 @@ export function TicketDetailPage({ ticketId: propId, onBack }: TicketDetailPageP
 
   useEffect(() => {
     if (id) api.tickets.get(id).then(setTicket).catch(console.error)
+    api.users.list().then(setUsers).catch(() => {})
     api.settings.get().then((s: any) => { setSettings(s); setSignature(s?.signature || '') }).catch(() => {})
   }, [id])
 
@@ -145,6 +156,17 @@ export function TicketDetailPage({ ticketId: propId, onBack }: TicketDetailPageP
 
   if (!ticket) return <Text>Loading...</Text>
 
+  const currentUserId = getCurrentUserId()
+  const ownerUser = users.find((u: any) => u.id === ticket.owner_id)
+  const isOwned = !!ticket.owner_id
+  const isOwnedByMe = ticket.owner_id === currentUserId
+
+  const handleClaim = async () => {
+    if (!id) return
+    await api.tickets.claim(id)
+    api.tickets.get(id).then(setTicket)
+  }
+
   return (
     <Box style={{ display: 'flex', flexDirection: 'column', position: 'absolute', inset: 0 }}>
       <Group justify="space-between" style={{ flexShrink: 0, padding: 'var(--mantine-spacing-md)', paddingBottom: 'var(--mantine-spacing-xs)', boxShadow: '0 2px 8px rgba(0,0,0,0.15)', zIndex: 1 }}>
@@ -157,6 +179,15 @@ export function TicketDetailPage({ ticketId: propId, onBack }: TicketDetailPageP
           <Title order={2}>#{ticket.number} {ticket.subject}</Title>
         </Group>
         <Group gap="sm">
+          {isOwned ? (
+            <Badge variant="light" color={isOwnedByMe ? 'green' : 'blue'} size="lg">{ownerUser?.name || 'Unknown'}</Badge>
+          ) : (
+            <Tooltip label="Assign to me">
+              <ActionIcon variant="light" color="blue" onClick={handleClaim}>
+                <IconUserCheck size={18} />
+              </ActionIcon>
+            </Tooltip>
+          )}
           <Badge color={statusColors[ticket.status] || 'gray'} size="lg">{ticket.status}</Badge>
           {ticket.status === 'closed' ? (
             <Tooltip label="Re-open ticket">

@@ -11,6 +11,10 @@ import (
 	"net/http"
 	"strings"
 	"time"
+
+	"github.com/helpdesk/backend/internal/models"
+	"github.com/helpdesk/backend/internal/store"
+	"go.mongodb.org/mongo-driver/v2/bson"
 )
 
 var jwtSecret []byte
@@ -91,6 +95,53 @@ func verifyToken(tokenStr string) (*jwtClaims, error) {
 type contextKey string
 
 const claimsKey contextKey = "claims"
+
+func (h *handlers) changePassword(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	claims := ctx.Value(claimsKey).(*jwtClaims)
+
+	var body struct {
+		CurrentPassword string `json:"current_password"`
+		NewPassword     string `json:"new_password"`
+	}
+	if err := readJSON(r, &body); err != nil {
+		writeError(w, http.StatusBadRequest, "INVALID_JSON", err.Error())
+		return
+	}
+	if body.CurrentPassword == "" || body.NewPassword == "" {
+		writeError(w, http.StatusBadRequest, "MISSING_FIELDS", "current_password and new_password are required")
+		return
+	}
+	if len(body.NewPassword) < 8 {
+		writeError(w, http.StatusBadRequest, "PASSWORD_TOO_SHORT", "new password must be at least 8 characters")
+		return
+	}
+
+	oid, err := bson.ObjectIDFromHex(claims.Sub)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "INVALID_ID", "invalid user ID")
+		return
+	}
+
+	var user models.User
+	err = h.db.Users().FindOne(ctx, bson.M{"_id": oid}).Decode(&user)
+	if err != nil {
+		writeError(w, http.StatusNotFound, "USER_NOT_FOUND", "user not found")
+		return
+	}
+
+	if !store.VerifyPassword(body.CurrentPassword, user.PasswordHash) {
+		writeError(w, http.StatusForbidden, "WRONG_PASSWORD", "current password is incorrect")
+		return
+	}
+
+	_, err = h.db.Users().UpdateByID(ctx, oid, bson.M{"$set": bson.M{"password_hash": store.HashPassword(body.NewPassword)}})
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "DB_ERROR", err.Error())
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
+}
 
 func authMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

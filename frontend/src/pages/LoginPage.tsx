@@ -27,8 +27,8 @@ export function LoginPage({ onLogin }: LoginPageProps) {
   }
 
   return (
-    <Center h="100vh">
-      <Paper withBorder shadow="md" p="xl" radius="md" w={400}>
+    <Center h="100vh" px="md">
+      <Paper withBorder shadow="md" p="xl" radius="md" w={400} maw="100%">
         <Title order={2} ta="center" mb="lg">Helpdesk</Title>
         <form onSubmit={handleSubmit}>
           <Stack>

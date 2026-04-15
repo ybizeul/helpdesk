@@ -21,6 +21,7 @@ func NewRouter(db *store.DB) http.Handler {
 	mux.HandleFunc("POST /api/v1/tickets/{id}/reply", h.replyTicket)
 	mux.HandleFunc("POST /api/v1/tickets/{id}/retry-send", h.retrySend)
 	mux.HandleFunc("PUT /api/v1/tickets/{id}/assign", h.assignTicket)
+	mux.HandleFunc("PUT /api/v1/tickets/{id}/claim", h.claimTicket)
 	mux.HandleFunc("PUT /api/v1/tickets/{id}/status", h.changeTicketStatus)
 	mux.HandleFunc("GET /api/v1/tickets/{id}/messages/{msgIdx}/attachments/{attIdx}", h.downloadAttachment)
 	mux.HandleFunc("POST /api/v1/tickets/bulk", h.bulkTicketAction)
@@ -31,6 +32,7 @@ func NewRouter(db *store.DB) http.Handler {
 	mux.HandleFunc("POST /api/v1/users", h.createUser)
 	mux.HandleFunc("GET /api/v1/users/{id}", h.getUser)
 	mux.HandleFunc("PUT /api/v1/users/{id}", h.updateUser)
+	mux.HandleFunc("DELETE /api/v1/users/{id}", h.deleteUser)
 
 	// Email
 	mux.HandleFunc("GET /api/v1/email/status", h.emailStatus)
@@ -50,6 +52,7 @@ func NewRouter(db *store.DB) http.Handler {
 
 	// Auth
 	mux.HandleFunc("POST /api/v1/auth/login", h.login)
+	mux.HandleFunc("PUT /api/v1/auth/password", h.changePassword)
 
 	return authMiddleware(mux)
 }

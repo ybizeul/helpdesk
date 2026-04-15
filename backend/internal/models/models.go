@@ -61,6 +61,7 @@ type Ticket struct {
 	Status        TicketStatus   `bson:"status" json:"status"`
 	Priority      TicketPriority `bson:"priority" json:"priority"`
 	AssigneeID    string         `bson:"assignee_id,omitempty" json:"assignee_id,omitempty"`
+	OwnerID       string         `bson:"owner_id,omitempty" json:"owner_id,omitempty"`
 	Requester     Requester      `bson:"requester" json:"requester"`
 	Messages      []Message      `bson:"messages" json:"messages"`
 	Tags          []string       `bson:"tags,omitempty" json:"tags,omitempty"`

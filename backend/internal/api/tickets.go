@@ -287,9 +287,16 @@ func (h *handlers) replyTicket(w http.ResponseWriter, r *http.Request) {
 		msg.From = "agent"
 	}
 
+	// Set owner to the replying user if not already set
+	claims := ctx.Value(claimsKey).(*jwtClaims)
+	setFields := bson.M{"updated_at": time.Now(), "status": models.TicketStatusWaiting}
+	if ticket.OwnerID == "" {
+		setFields["owner_id"] = claims.Sub
+	}
+
 	_, err = h.db.Tickets().UpdateByID(ctx, oid, bson.M{
 		"$push": bson.M{"messages": msg},
-		"$set":  bson.M{"updated_at": time.Now(), "status": models.TicketStatusWaiting},
+		"$set":  setFields,
 	})
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "DB_ERROR", err.Error())
@@ -408,6 +415,32 @@ func (h *handlers) assignTicket(w http.ResponseWriter, r *http.Request) {
 
 	result, err := h.db.Tickets().UpdateByID(ctx, oid, bson.M{
 		"$set": bson.M{"assignee_id": body.AssigneeID, "updated_at": time.Now()},
+	})
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "DB_ERROR", err.Error())
+		return
+	}
+	if result.MatchedCount == 0 {
+		writeError(w, http.StatusNotFound, "TICKET_NOT_FOUND", "ticket not found")
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
+}
+
+func (h *handlers) claimTicket(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	id := r.PathValue("id")
+
+	oid, err := bson.ObjectIDFromHex(id)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "INVALID_ID", "invalid ticket ID format")
+		return
+	}
+
+	claims := ctx.Value(claimsKey).(*jwtClaims)
+
+	result, err := h.db.Tickets().UpdateByID(ctx, oid, bson.M{
+		"$set": bson.M{"owner_id": claims.Sub, "updated_at": time.Now()},
 	})
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "DB_ERROR", err.Error())
