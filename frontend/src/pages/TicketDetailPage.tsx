@@ -210,7 +210,7 @@ export function TicketDetailPage({ ticketId: propId, onBack, onTicketUpdate }: T
 
       <Stack gap="md">
         <Paper withBorder p={0} radius="md" style={{ overflow: 'hidden', marginBottom: 'var(--mantine-spacing-md)' }}>
-          <Box p="xs" style={{ background: 'var(--mantine-color-gray-1)' }}>
+          <Box p="xs" style={{ background: 'var(--mantine-color-default-hover)' }}>
             <Text size="sm" mb={2}><Text span fw={600}>Subject:</Text> Re: [#{ticket.number}] {ticket.subject}</Text>
             <Text size="sm" mb={2}><Text span fw={600}>To:</Text> {ticket.requester?.email}</Text>
             {replyCc.length > 0 && (
@@ -225,7 +225,7 @@ export function TicketDetailPage({ ticketId: propId, onBack, onTicketUpdate }: T
           const displayFrom = msg.from === 'agent' ? smtpFrom || 'agent' : msg.from
           return (<React.Fragment key={i}>
           <Paper withBorder p={0} radius="md" style={{ overflow: 'hidden' }}>
-            <Box p="xs" style={{ background: 'var(--mantine-color-gray-1)', position: 'relative' }}>
+            <Box p="xs" style={{ background: 'var(--mantine-color-default-hover)', position: 'relative' }}>
               <Text size="xs" c="dimmed" style={{ position: 'absolute', top: 8, right: 8 }}>{formatDate(msg.created_at)}</Text>
               {isOutgoing && !msg.send_error && (
                 <Tooltip label="Re-send">
