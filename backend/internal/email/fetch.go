@@ -7,6 +7,8 @@ import (
 	"io"
 	"log/slog"
 	"net"
+	"regexp"
+	"strconv"
 	"time"
 
 	"github.com/emersion/go-imap/v2"
@@ -27,6 +29,7 @@ type TicketStore interface {
 	Tickets() *mongo.Collection
 	Settings() *mongo.Collection
 	NextTicketNumber(ctx context.Context) (int, error)
+	EnsureCounterAtLeast(ctx context.Context, val int) error
 }
 
 func FetchEmails(ctx context.Context, cfg models.EmailSettings, db TicketStore) (*FetchResult, error) {
@@ -271,10 +274,26 @@ func FetchEmails(ctx context.Context, cfg models.EmailSettings, db TicketStore) 
 			result.Updated++
 		} else {
 			// Create a new ticket
-			num, numErr := db.NextTicketNumber(ctx)
-			if numErr != nil {
-				slog.Error("failed to get ticket number", "error", numErr)
-				continue
+			// Check if the subject contains a ticket number like [#1234]
+			var num int
+			if extracted := extractTicketNumber(subject); extracted > 0 {
+				// Only use it if no ticket with that number exists
+				count, _ := db.Tickets().CountDocuments(ctx, bson.M{"number": extracted})
+				if count == 0 {
+					num = extracted
+					// Advance counter so future tickets don't collide
+					if err := db.EnsureCounterAtLeast(ctx, num+1); err != nil {
+						slog.Error("failed to advance ticket counter", "error", err)
+					}
+				}
+			}
+			if num == 0 {
+				var numErr error
+				num, numErr = db.NextTicketNumber(ctx)
+				if numErr != nil {
+					slog.Error("failed to get ticket number", "error", numErr)
+					continue
+				}
 			}
 			ticket := models.Ticket{
 				Number:        num,
@@ -359,6 +378,21 @@ func stripRePrefix(subject string) string {
 		}
 		s = trimmed
 	}
+}
+
+var ticketNumberRe = regexp.MustCompile(`\[#(\d+)\]`)
+
+// extractTicketNumber returns the ticket number found in a subject like "[#1042] Some subject", or 0.
+func extractTicketNumber(subject string) int {
+	m := ticketNumberRe.FindStringSubmatch(subject)
+	if m == nil {
+		return 0
+	}
+	n, err := strconv.Atoi(m[1])
+	if err != nil {
+		return 0
+	}
+	return n
 }
 
 func connect(cfg models.EmailSettings) (*imapclient.Client, error) {

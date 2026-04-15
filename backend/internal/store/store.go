@@ -75,6 +75,17 @@ func (db *DB) InitTicketCounter(ctx context.Context, startAt int) error {
 	return err
 }
 
+// EnsureCounterAtLeast advances the ticket counter so that it is at least val.
+// This prevents future auto-assigned numbers from colliding with a manually chosen number.
+func (db *DB) EnsureCounterAtLeast(ctx context.Context, val int) error {
+	_, err := db.Counters().UpdateOne(
+		ctx,
+		bson.M{"_id": "ticket_number", "seq": bson.M{"$lt": val}},
+		bson.M{"$set": bson.M{"seq": val}},
+	)
+	return err
+}
+
 // BackfillTicketNumbers assigns numbers to any tickets that don't have one yet.
 func (db *DB) BackfillTicketNumbers(ctx context.Context) error {
 	cur, err := db.Tickets().Find(ctx, bson.M{
