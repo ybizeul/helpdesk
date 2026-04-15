@@ -1,6 +1,7 @@
 import { useState, useCallback } from 'react'
 import { Routes, Route, Navigate, useNavigate, useParams } from 'react-router-dom'
-import { AppShell, Box } from '@mantine/core'
+import { AppShell, Box, Burger, Group, Text } from '@mantine/core'
+import { useDisclosure, useMediaQuery } from '@mantine/hooks'
 import { AppNavbar } from './components/AppNavbar'
 import { TicketListPage } from './pages/TicketListPage'
 import { TicketDetailPage } from './pages/TicketDetailPage'
@@ -13,7 +14,28 @@ import { setAuthToken } from './api/client'
 function TicketPanes() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
+  const isMobile = useMediaQuery('(max-width: 768px)')
 
+  // Mobile: show one pane at a time
+  if (isMobile) {
+    if (id) {
+      return (
+        <Box style={{ height: 'calc(100vh - 32px)', overflowY: 'auto', padding: 'var(--mantine-spacing-md)' }}>
+          <TicketDetailPage ticketId={id} onBack={() => navigate('/tickets')} />
+        </Box>
+      )
+    }
+    return (
+      <Box style={{ height: 'calc(100vh - 32px)', overflowY: 'auto', padding: 'var(--mantine-spacing-md)' }}>
+        <TicketListPage
+          activeTicketId={null}
+          onSelectTicket={(ticketId) => navigate(`/tickets/${ticketId}`)}
+        />
+      </Box>
+    )
+  }
+
+  // Desktop: side-by-side panes
   return (
     <Box style={{ display: 'flex', height: 'calc(100vh - 32px)', gap: 0 }}>
       <Box
@@ -43,6 +65,8 @@ function TicketPanes() {
 
 export default function App() {
   const [token, setToken] = useState<string | null>(() => localStorage.getItem('token'))
+  const [navOpened, { toggle: toggleNav, close: closeNav }] = useDisclosure(false)
+  const isMobileHeader = useMediaQuery('(max-width: 48em)')
 
   const handleLogin = useCallback((newToken: string, _user: any) => {
     localStorage.setItem('token', newToken)
@@ -65,11 +89,18 @@ export default function App() {
 
   return (
     <AppShell
-      navbar={{ width: 220, breakpoint: 'sm' }}
+      header={{ height: 50, collapsed: !isMobileHeader }}
+      navbar={{ width: 220, breakpoint: 'sm', collapsed: { mobile: !navOpened } }}
       padding={0}
     >
+      <AppShell.Header>
+        <Group h="100%" px="md">
+          <Burger opened={navOpened} onClick={toggleNav} size="sm" />
+          <Text fw={700} size="lg">Helpdesk</Text>
+        </Group>
+      </AppShell.Header>
       <AppShell.Navbar>
-        <AppNavbar onLogout={handleLogout} />
+        <AppNavbar onLogout={handleLogout} onNavigate={closeNav} />
       </AppShell.Navbar>
       <AppShell.Main>
         <Routes>

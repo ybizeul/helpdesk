@@ -17,11 +17,17 @@ const links = [
 
 interface AppNavbarProps {
   onLogout?: () => void
+  onNavigate?: () => void
 }
 
-export function AppNavbar({ onLogout }: AppNavbarProps) {
+export function AppNavbar({ onLogout, onNavigate }: AppNavbarProps) {
   const location = useLocation()
   const navigate = useNavigate()
+
+  const handleNav = (to: string) => {
+    navigate(to)
+    onNavigate?.()
+  }
 
   return (
     <Stack gap={0} p="sm" justify="space-between" h="100%">
@@ -35,7 +41,7 @@ export function AppNavbar({ onLogout }: AppNavbarProps) {
             label={link.label}
             leftSection={<link.icon size={18} />}
             active={location.pathname.startsWith(link.to)}
-            onClick={() => navigate(link.to)}
+            onClick={() => handleNav(link.to)}
             style={{ borderRadius: 'var(--mantine-radius-sm)' }}
           />
         ))}

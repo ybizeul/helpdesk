@@ -1,6 +1,7 @@
 import { useEffect, useState, useRef, useCallback } from 'react'
-import { Title, Table, Badge, Group, Text, Checkbox, Button, Tooltip, Menu, ActionIcon } from '@mantine/core'
+import { Title, Table, Badge, Group, Text, Checkbox, Button, Tooltip, Menu, ActionIcon, Stack, Box } from '@mantine/core'
 import { IconTrash, IconEye, IconEyeOff, IconCircle, IconRefresh, IconArrowMerge } from '@tabler/icons-react'
+import { useMediaQuery } from '@mantine/hooks'
 import { notifications } from '@mantine/notifications'
 import { api } from '../api/client'
 
@@ -8,6 +9,12 @@ const statusColors: Record<string, string> = {
   open: 'blue',
   waiting: 'yellow',
   closed: 'gray',
+}
+
+const statusShort: Record<string, string> = {
+  open: 'O',
+  waiting: 'W',
+  closed: 'C',
 }
 
 function formatDate(d: string | Date): string {
@@ -40,6 +47,7 @@ export function TicketListPage({ activeTicketId, onSelectTicket }: TicketListPag
   const [tickets, setTickets] = useState<any[]>([])
   const [selected, setSelected] = useState<Set<string>>(new Set())
   const knownIdsRef = useRef<Set<string> | null>(null)
+  const isMobile = useMediaQuery('(max-width: 768px)')
 
   const loadTickets = useCallback(() => {
     api.tickets.list({}).then((data) => {
@@ -136,6 +144,40 @@ export function TicketListPage({ activeTicketId, onSelectTicket }: TicketListPag
           )}
         </Group>
       </Group>
+      {isMobile ? (
+        <Stack gap={0}>
+          {tickets.map((t) => {
+            const isActive = activeTicketId === t.id
+            const handleClick = () => onSelectTicket?.(t.id)
+            return (
+              <Box
+                key={t.id}
+                onClick={handleClick}
+                style={{
+                  cursor: 'pointer',
+                  padding: 'var(--mantine-spacing-xs) var(--mantine-spacing-sm)',
+                  background: isActive ? 'var(--mantine-color-blue-0)' : undefined,
+                  borderBottom: '1px solid var(--mantine-color-gray-2)',
+                }}
+              >
+                <Group justify="space-between" gap="xs" wrap="nowrap">
+                  <Box style={{ minWidth: 0, flex: 1 }}>
+                    <Text size="sm" fw={t.unread ? 700 : 400} truncate>#{t.number} {t.subject}</Text>
+                    <Text size="xs" c="dimmed" truncate>{t.requester?.email}</Text>
+                  </Box>
+                  <Group gap={6} wrap="nowrap" style={{ flexShrink: 0 }}>
+                    <Badge size="xs" color={statusColors[t.status] || 'gray'}>{statusShort[t.status] || t.status[0]?.toUpperCase()}</Badge>
+                    <Text size="xs" c="dimmed">{formatDate(t.updated_at)}</Text>
+                  </Group>
+                </Group>
+              </Box>
+            )
+          })}
+          {tickets.length === 0 && (
+            <Text c="dimmed" ta="center" py="md">No tickets found</Text>
+          )}
+        </Stack>
+      ) : (
       <Table striped highlightOnHover fz="xs">
         <Table.Thead>
           <Table.Tr>
@@ -171,6 +213,7 @@ export function TicketListPage({ activeTicketId, onSelectTicket }: TicketListPag
           )}
         </Table.Tbody>
       </Table>
+      )}
     </>
   )
 }

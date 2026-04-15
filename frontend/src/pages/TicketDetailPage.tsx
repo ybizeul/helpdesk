@@ -1,7 +1,7 @@
 import { useEffect, useState, useMemo, useCallback } from 'react'
 import { useParams } from 'react-router-dom'
 import { Title, Text, Paper, Badge, Stack, Group, Divider, Box, ActionIcon, Tooltip, Alert, Button as MButton } from '@mantine/core'
-import { IconLock, IconLockOpen, IconRefresh, IconSend, IconPaperclip } from '@tabler/icons-react'
+import { IconLock, IconLockOpen, IconRefresh, IconSend, IconPaperclip, IconArrowLeft } from '@tabler/icons-react'
 import { api } from '../api/client'
 import { ReplyEditor } from '../components/ReplyEditor'
 import { notifications } from '@mantine/notifications'
@@ -69,9 +69,10 @@ function attachmentUrl(ticketId: string, msgIdx: number, attIdx: number): string
 
 interface TicketDetailPageProps {
   ticketId?: string
+  onBack?: () => void
 }
 
-export function TicketDetailPage({ ticketId: propId }: TicketDetailPageProps = {}) {
+export function TicketDetailPage({ ticketId: propId, onBack }: TicketDetailPageProps = {}) {
   const { id: paramId } = useParams<{ id: string }>()
   const id = propId || paramId
   const [ticket, setTicket] = useState<any>(null)
@@ -122,7 +123,14 @@ export function TicketDetailPage({ ticketId: propId }: TicketDetailPageProps = {
   return (
     <>
       <Group justify="space-between" mb="md">
-        <Title order={2}>#{ticket.number} {ticket.subject}</Title>
+        <Group gap="xs">
+          {onBack && (
+            <ActionIcon variant="subtle" onClick={onBack}>
+              <IconArrowLeft size={18} />
+            </ActionIcon>
+          )}
+          <Title order={2}>#{ticket.number} {ticket.subject}</Title>
+        </Group>
         <Group gap="sm">
           <Badge color={statusColors[ticket.status] || 'gray'} size="lg">{ticket.status}</Badge>
           {ticket.status === 'closed' ? (
