@@ -176,8 +176,8 @@ export const TicketListPage = forwardRef<TicketListHandle, TicketListPageProps>(
                     <Text size="xs" c="dimmed" truncate>{t.requester?.email}</Text>
                   </Box>
                   <Group gap={6} wrap="nowrap" style={{ flexShrink: 0 }}>
-                    <Badge size="xs" color={statusColors[t.status] || 'gray'}>{statusShort[t.status] || t.status[0]?.toUpperCase()}</Badge>
                     <Text size="xs" c="dimmed">{formatDate(t.updated_at)}</Text>
+                    <Badge size="xs" color={statusColors[t.status] || 'gray'}>{statusShort[t.status] || t.status[0]?.toUpperCase()}</Badge>
                   </Group>
                 </Group>
               </Box>
