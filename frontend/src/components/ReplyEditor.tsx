@@ -5,6 +5,7 @@ import Link from '@tiptap/extension-link'
 import Image from '@tiptap/extension-image'
 import Placeholder from '@tiptap/extension-placeholder'
 import { RichTextEditor } from '@mantine/tiptap'
+import { Button, Group } from '@mantine/core'
 import '@mantine/tiptap/styles.css'
 
 const MAX_IMAGE_SIZE = 900
@@ -137,38 +138,16 @@ export function ReplyEditor({ onSend, onSendAndClose, signature }: ReplyEditorPr
         </RichTextEditor.Toolbar>
         <RichTextEditor.Content />
       </RichTextEditor>
-      <div style={{ marginTop: 8, display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
+      <Group justify="flex-end" mt="xs">
         {onSendAndClose && (
-          <button
-            onClick={handleSendAndClose}
-            style={{
-              padding: '8px 16px',
-              background: 'var(--mantine-color-gray-filled)',
-              color: 'white',
-              border: 'none',
-              borderRadius: 4,
-              cursor: 'pointer',
-              fontWeight: 500,
-            }}
-          >
+          <Button variant="default" onClick={handleSendAndClose}>
             Send Reply &amp; Close
-          </button>
+          </Button>
         )}
-        <button
-          onClick={handleSend}
-          style={{
-            padding: '8px 16px',
-            background: 'var(--mantine-color-blue-filled)',
-            color: 'white',
-            border: 'none',
-            borderRadius: 4,
-            cursor: 'pointer',
-            fontWeight: 500,
-          }}
-        >
+        <Button onClick={handleSend}>
           Send Reply
-        </button>
-      </div>
+        </Button>
+      </Group>
     </div>
   )
 }
