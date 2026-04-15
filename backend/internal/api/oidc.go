@@ -329,18 +329,29 @@ func mapOIDCGroupsToRole(groups []string, adminGroup string) models.UserRole {
 }
 
 func (h *handlers) findOrCreateOIDCUser(ctx context.Context, info oidcUserInfo, adminGroup string) (models.User, error) {
+	role := mapOIDCGroupsToRole(info.Groups, adminGroup)
+	if role == "" {
+		role = models.RoleAgent
+	}
+
 	var user models.User
 	err := h.db.Users().FindOne(ctx, bson.M{"email": info.Email}).Decode(&user)
 	if err == nil {
+		if user.Role != role {
+			oid, convErr := bson.ObjectIDFromHex(user.ID)
+			if convErr != nil {
+				return models.User{}, convErr
+			}
+			_, updateErr := h.db.Users().UpdateByID(ctx, oid, bson.M{"$set": bson.M{"role": role}})
+			if updateErr != nil {
+				return models.User{}, updateErr
+			}
+			user.Role = role
+		}
 		return user, nil
 	}
 	if !errors.Is(err, mongo.ErrNoDocuments) {
 		return models.User{}, err
-	}
-
-	role := mapOIDCGroupsToRole(info.Groups, adminGroup)
-	if role == "" {
-		role = models.RoleAgent
 	}
 
 	generatedPwd := "oidc-" + time.Now().UTC().Format("20060102150405")
