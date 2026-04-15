@@ -173,7 +173,7 @@ export function TicketDetailPage({ ticketId: propId, onBack }: TicketDetailPageP
           )}
         </Group>
       </Group>
-      <Box style={{ flex: 1, overflowY: 'auto', minHeight: 0, padding: 'var(--mantine-spacing-md)', paddingTop: 'var(--mantine-spacing-sm)', paddingBottom: 0 }}>
+      <Box style={{ flex: 1, overflowY: 'auto', minHeight: 0, padding: 'var(--mantine-spacing-md)', paddingTop: 'var(--mantine-spacing-sm)' }}>
       <Text c="dimmed" mb="lg">
         From: {ticket.requester?.name} ({ticket.requester?.email}) · Priority: {ticket.priority}
       </Text>
