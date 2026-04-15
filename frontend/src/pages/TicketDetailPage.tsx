@@ -49,7 +49,7 @@ function MessageBody({ msg }: { msg: any }) {
       })
     }, [safe])
     return (
-      <Box style={{ overflow: 'auto' }}>
+      <Box>
         <style>{`.MsoNormal { margin: 0 !important; } pre, code { background-color: #f5f5f5; border-radius: 4px; } code { padding: 2px 4px; font-size: 0.9em; } pre { padding: 12px; overflow-x: auto; } pre code { padding: 0; background: none; }`}</style>
         <div ref={refCallback} dangerouslySetInnerHTML={{ __html: safe }} />
       </Box>
