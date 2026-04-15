@@ -86,30 +86,6 @@ export function UsersPage() {
     }
   }
 
-  const handleChangePassword = async (e: React.FormEvent) => {
-    e.preventDefault()
-    if (newPassword !== confirmPassword) {
-      notifications.show({ title: 'Error', message: 'New passwords do not match', color: 'red' })
-      return
-    }
-    if (newPassword.length < 8) {
-      notifications.show({ title: 'Error', message: 'Password must be at least 8 characters', color: 'red' })
-      return
-    }
-    setLoading(true)
-    try {
-      await api.changePassword(currentPassword, newPassword)
-      notifications.show({ title: 'Password changed', message: 'Your password has been updated', color: 'green' })
-      setCurrentPassword('')
-      setNewPassword('')
-      setConfirmPassword('')
-    } catch (err: any) {
-      notifications.show({ title: 'Error', message: err.message || 'Failed to change password', color: 'red' })
-    } finally {
-      setLoading(false)
-    }
-  }
-
   return (
     <>
       <Group justify="space-between" mb="lg">

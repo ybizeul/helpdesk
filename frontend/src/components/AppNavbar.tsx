@@ -1,4 +1,4 @@
-import { NavLink, Stack, Text, Button, Avatar, Menu, Group, UnstyledButton } from '@mantine/core'
+import { NavLink, Stack, Text, Avatar, Menu, Group, UnstyledButton } from '@mantine/core'
 import { useLocation, useNavigate } from 'react-router-dom'
 import {
   IconDashboard,
