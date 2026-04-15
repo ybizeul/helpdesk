@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Title, Tabs, TextInput, NumberInput, Switch, Button, Stack, Group, PasswordInput, Modal, NavLink, Text, Loader, Fieldset } from '@mantine/core'
+import { Title, Tabs, TextInput, NumberInput, Switch, Button, Stack, Group, PasswordInput, Modal, NavLink, Text, Loader, Fieldset, Code } from '@mantine/core'
 import { notifications } from '@mantine/notifications'
 import { IconFolder } from '@tabler/icons-react'
 import { useEditor } from '@tiptap/react'
@@ -13,6 +13,7 @@ import { api } from '../api/client'
 
 export function SettingsPage() {
   const [settings, setSettings] = useState<any>(null)
+  const [toolResponse, setToolResponse] = useState<string | null>(null)
   const [mailboxes, setMailboxes] = useState<any[]>([])
   const [browseOpen, setBrowseOpen] = useState(false)
   const [browseLoading, setBrowseLoading] = useState(false)
@@ -237,16 +238,22 @@ export function SettingsPage() {
               <Button
                 variant="light"
                 onClick={async () => {
+                  setToolResponse(null)
                   try {
-                    await api.email.reparse()
+                    const result = await api.email.reparse()
+                    setToolResponse(JSON.stringify(result, null, 2))
                     notifications.show({ title: 'Re-parse complete', message: 'All emails have been re-parsed', color: 'green' })
                   } catch (e: any) {
+                    setToolResponse(e.message)
                     notifications.show({ title: 'Re-parse failed', message: e.message, color: 'red' })
                   }
                 }}
               >
                 Re-parse all emails
               </Button>
+              {toolResponse !== null && (
+                <Code block style={{ maxHeight: 300, overflow: 'auto' }}>{toolResponse}</Code>
+              )}
             </Stack>
           </Tabs.Panel>
         )}
