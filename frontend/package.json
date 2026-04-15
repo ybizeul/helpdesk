@@ -14,6 +14,7 @@
     "@mantine/hooks": "^9.0.2",
     "@mantine/notifications": "^9.0.2",
     "@mantine/tiptap": "^9.0.2",
+    "@simplewebauthn/browser": "^13.3.0",
     "@tabler/icons-react": "^3.41.1",
     "@tiptap/extension-image": "^3.22.3",
     "@tiptap/extension-link": "^3.22.3",

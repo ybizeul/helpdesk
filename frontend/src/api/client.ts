@@ -67,4 +67,12 @@ export const api = {
   stats: () => request<any>('/stats'),
   login: (email: string, password: string) => request<any>('/auth/login', { method: 'POST', body: JSON.stringify({ email, password }) }),
   changePassword: (currentPassword: string, newPassword: string) => request<void>('/auth/password', { method: 'PUT', body: JSON.stringify({ current_password: currentPassword, new_password: newPassword }) }),
+  passkeys: {
+    list: () => request<any[]>('/auth/passkeys'),
+    delete: (id: string) => request<void>(`/auth/passkeys/${id}`, { method: 'DELETE' }),
+    beginRegistration: () => request<any>('/auth/passkeys/register/begin', { method: 'POST' }),
+    finishRegistration: (sessionId: string, name: string, response: any) => request<any>('/auth/passkeys/register/finish', { method: 'POST', body: JSON.stringify({ session_id: sessionId, name, response }) }),
+    beginLogin: () => request<any>('/auth/passkeys/login/begin', { method: 'POST' }),
+    finishLogin: (sessionId: string, response: any) => request<any>('/auth/passkeys/login/finish', { method: 'POST', body: JSON.stringify({ session_id: sessionId, response }) }),
+  },
 }

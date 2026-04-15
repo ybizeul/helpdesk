@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react'
-import { Title, Tabs, TextInput, NumberInput, Switch, Button, Stack, Group, PasswordInput, Modal, NavLink, Text, Loader } from '@mantine/core'
+import { Title, Tabs, TextInput, NumberInput, Switch, Button, Stack, Group, PasswordInput, Modal, NavLink, Text, Loader, Table, ActionIcon, Tooltip } from '@mantine/core'
 import { notifications } from '@mantine/notifications'
-import { IconFolder } from '@tabler/icons-react'
+import { IconFolder, IconTrash } from '@tabler/icons-react'
+import { startRegistration } from '@simplewebauthn/browser'
 import { useEditor } from '@tiptap/react'
 import StarterKit from '@tiptap/starter-kit'
 import Underline from '@tiptap/extension-underline'
@@ -17,6 +18,10 @@ export function SettingsPage() {
   const [browseOpen, setBrowseOpen] = useState(false)
   const [browseLoading, setBrowseLoading] = useState(false)
   const [browseTarget, setBrowseTarget] = useState<'imap_mailbox' | 'sent_mailbox' | 'deleted_mailbox'>('imap_mailbox')
+  const [passkeys, setPasskeys] = useState<any[]>([])
+  const [passkeyName, setPasskeyName] = useState('')
+  const [registeringPasskey, setRegisteringPasskey] = useState(false)
+  const supportsPasskey = typeof window !== 'undefined' && !!window.PublicKeyCredential
 
   const signatureEditor = useEditor({
     extensions: [
@@ -39,6 +44,9 @@ export function SettingsPage() {
         signatureEditor.commands.setContent(s.signature)
       }
     }).catch(console.error)
+    if (typeof window !== 'undefined' && window.PublicKeyCredential) {
+      api.passkeys.list().then(setPasskeys).catch(console.error)
+    }
   }, [signatureEditor])
 
   const saveEmail = async () => {
@@ -105,6 +113,7 @@ export function SettingsPage() {
           <Tabs.Tab value="email">Email (IMAP/SMTP)</Tabs.Tab>
           <Tabs.Tab value="signature">Signature</Tabs.Tab>
           <Tabs.Tab value="llm">LLM</Tabs.Tab>
+          {supportsPasskey && <Tabs.Tab value="passkeys">Passkeys</Tabs.Tab>}
           <Tabs.Tab value="notifications">Notifications</Tabs.Tab>
           {settings?.debug && <Tabs.Tab value="tools">Tools</Tabs.Tab>}
         </Tabs.List>
@@ -219,6 +228,73 @@ export function SettingsPage() {
             </Group>
           </Stack>
         </Tabs.Panel>
+
+        {supportsPasskey && (
+          <Tabs.Panel value="passkeys" pt="md">
+            <Stack maw={500}>
+              <Text size="sm" c="dimmed">Passkeys let you sign in with your fingerprint, face, or device PIN instead of a password.</Text>
+              {passkeys.length > 0 && (
+                <Table>
+                  <Table.Thead>
+                    <Table.Tr>
+                      <Table.Th>Name</Table.Th>
+                      <Table.Th>Created</Table.Th>
+                      <Table.Th w={50} />
+                    </Table.Tr>
+                  </Table.Thead>
+                  <Table.Tbody>
+                    {passkeys.map((pk) => (
+                      <Table.Tr key={pk.id}>
+                        <Table.Td>{pk.name}</Table.Td>
+                        <Table.Td>{new Date(pk.created_at).toLocaleDateString()}</Table.Td>
+                        <Table.Td>
+                          <Tooltip label="Delete passkey">
+                            <ActionIcon color="red" variant="subtle" onClick={async () => {
+                              try {
+                                await api.passkeys.delete(pk.id)
+                                setPasskeys(prev => prev.filter(p => p.id !== pk.id))
+                                notifications.show({ title: 'Deleted', message: 'Passkey removed', color: 'green' })
+                              } catch (e: any) {
+                                notifications.show({ title: 'Error', message: e.message, color: 'red' })
+                              }
+                            }}>
+                              <IconTrash size={16} />
+                            </ActionIcon>
+                          </Tooltip>
+                        </Table.Td>
+                      </Table.Tr>
+                    ))}
+                  </Table.Tbody>
+                </Table>
+              )}
+              <Group align="end">
+                <TextInput
+                  label="Passkey name"
+                  placeholder="e.g. MacBook Touch ID"
+                  value={passkeyName}
+                  onChange={(e) => setPasskeyName(e.currentTarget.value)}
+                  style={{ flex: 1 }}
+                />
+                <Button loading={registeringPasskey} onClick={async () => {
+                  setRegisteringPasskey(true)
+                  try {
+                    const { session_id, options } = await api.passkeys.beginRegistration()
+                    const attestation = await startRegistration({ optionsJSON: options.publicKey })
+                    const result = await api.passkeys.finishRegistration(session_id, passkeyName || 'Passkey', attestation)
+                    setPasskeys(prev => [...prev, result])
+                    setPasskeyName('')
+                    notifications.show({ title: 'Registered', message: 'Passkey added successfully', color: 'green' })
+                  } catch (e: any) {
+                    if (e.name === 'NotAllowedError') { setRegisteringPasskey(false); return }
+                    notifications.show({ title: 'Error', message: e.message, color: 'red' })
+                  } finally {
+                    setRegisteringPasskey(false)
+                  }
+                }}>Register passkey</Button>
+              </Group>
+            </Stack>
+          </Tabs.Panel>
+        )}
 
         <Tabs.Panel value="notifications" pt="md">
           <Stack maw={500}>

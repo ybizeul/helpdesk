@@ -45,6 +45,7 @@ func (db *DB) Users() *mongo.Collection       { return db.database.Collection("u
 func (db *DB) Attachments() *mongo.Collection { return db.database.Collection("attachments") }
 func (db *DB) Settings() *mongo.Collection    { return db.database.Collection("settings") }
 func (db *DB) Counters() *mongo.Collection    { return db.database.Collection("counters") }
+func (db *DB) Passkeys() *mongo.Collection    { return db.database.Collection("passkeys") }
 
 // NextTicketNumber atomically increments and returns the next ticket number.
 // The sequence starts at 1000.
@@ -271,6 +272,8 @@ func (db *DB) EnsureIndexes(ctx context.Context) error {
 		{"tickets", mongo.IndexModel{Keys: bson.D{{Key: "requester.email", Value: 1}}}},
 		{"users", mongo.IndexModel{Keys: bson.D{{Key: "email", Value: 1}}, Options: options.Index().SetUnique(true)}},
 		{"attachments", mongo.IndexModel{Keys: bson.D{{Key: "ticket_id", Value: 1}}}},
+		{"passkeys", mongo.IndexModel{Keys: bson.D{{Key: "user_id", Value: 1}}}},
+		{"passkeys", mongo.IndexModel{Keys: bson.D{{Key: "credential_id", Value: 1}}, Options: options.Index().SetUnique(true)}},
 	}
 	for _, idx := range indexes {
 		_, err := db.database.Collection(idx.collection).Indexes().CreateOne(ctx, idx.model)

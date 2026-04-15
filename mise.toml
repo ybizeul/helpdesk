@@ -23,3 +23,8 @@ run = "goreleaser release --clean"
 [tasks.release-snapshot]
 description = "Local GoReleaser build (no publish)"
 run = "GITHUB_REPOSITORY_OWNER=local goreleaser release --snapshot --clean"
+
+[tasks.build-frontend]
+description = "Build frontend into Go embed directory"
+dir = "frontend"
+run = "npm run build && rm -rf ../backend/cmd/helpdesk/dist && mv dist ../backend/cmd/helpdesk/dist"

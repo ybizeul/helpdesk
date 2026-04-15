@@ -4,13 +4,14 @@ import (
 	"encoding/json"
 	"net/http"
 
+	"github.com/go-webauthn/webauthn/webauthn"
 	"github.com/helpdesk/backend/internal/store"
 )
 
-func NewRouter(db *store.DB) http.Handler {
+func NewRouter(db *store.DB, wan *webauthn.WebAuthn) http.Handler {
 	mux := http.NewServeMux()
 
-	h := &handlers{db: db}
+	h := &handlers{db: db, wan: wan}
 
 	// Tickets
 	mux.HandleFunc("GET /api/v1/tickets", h.listTickets)
@@ -54,11 +55,20 @@ func NewRouter(db *store.DB) http.Handler {
 	mux.HandleFunc("POST /api/v1/auth/login", h.login)
 	mux.HandleFunc("PUT /api/v1/auth/password", h.changePassword)
 
+	// Passkeys
+	mux.HandleFunc("GET /api/v1/auth/passkeys", h.listPasskeys)
+	mux.HandleFunc("DELETE /api/v1/auth/passkeys/{id}", h.deletePasskey)
+	mux.HandleFunc("POST /api/v1/auth/passkeys/register/begin", h.beginPasskeyRegistration)
+	mux.HandleFunc("POST /api/v1/auth/passkeys/register/finish", h.finishPasskeyRegistration)
+	mux.HandleFunc("POST /api/v1/auth/passkeys/login/begin", h.beginPasskeyLogin)
+	mux.HandleFunc("POST /api/v1/auth/passkeys/login/finish", h.finishPasskeyLogin)
+
 	return authMiddleware(mux)
 }
 
 type handlers struct {
-	db *store.DB
+	db  *store.DB
+	wan *webauthn.WebAuthn
 }
 
 func writeJSON(w http.ResponseWriter, status int, v any) {

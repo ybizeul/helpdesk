@@ -1,5 +1,6 @@
 import { useState } from 'react'
-import { TextInput, PasswordInput, Button, Paper, Title, Stack, Center, Alert } from '@mantine/core'
+import { TextInput, PasswordInput, Button, Paper, Title, Stack, Center, Alert, Divider } from '@mantine/core'
+import { startAuthentication } from '@simplewebauthn/browser'
 import { api } from '../api/client'
 
 interface LoginPageProps {
@@ -11,6 +12,8 @@ export function LoginPage({ onLogin }: LoginPageProps) {
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
+  const [passkeyLoading, setPasskeyLoading] = useState(false)
+  const supportsPasskey = typeof window !== 'undefined' && !!window.PublicKeyCredential
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -23,6 +26,22 @@ export function LoginPage({ onLogin }: LoginPageProps) {
       setError(err.message || 'Login failed')
     } finally {
       setLoading(false)
+    }
+  }
+
+  const handlePasskeyLogin = async () => {
+    setError('')
+    setPasskeyLoading(true)
+    try {
+      const { session_id, options } = await api.passkeys.beginLogin()
+      const assertion = await startAuthentication({ optionsJSON: options.publicKey })
+      const result = await api.passkeys.finishLogin(session_id, assertion)
+      onLogin(result.token, result.user)
+    } catch (err: any) {
+      if (err.name === 'NotAllowedError') return // user cancelled
+      setError(err.message || 'Passkey login failed')
+    } finally {
+      setPasskeyLoading(false)
     }
   }
 
@@ -50,6 +69,14 @@ export function LoginPage({ onLogin }: LoginPageProps) {
             <Button type="submit" fullWidth loading={loading}>
               Sign in
             </Button>
+            {supportsPasskey && (
+              <>
+                <Divider label="or" labelPosition="center" />
+                <Button variant="light" fullWidth loading={passkeyLoading} onClick={handlePasskeyLogin}>
+                  Sign in with passkey
+                </Button>
+              </>
+            )}
           </Stack>
         </form>
       </Paper>

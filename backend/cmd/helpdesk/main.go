@@ -10,6 +10,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/go-webauthn/webauthn/webauthn"
 	"github.com/helpdesk/backend/internal/api"
 	"github.com/helpdesk/backend/internal/email"
 	"github.com/helpdesk/backend/internal/models"
@@ -73,7 +74,22 @@ func main() {
 		os.Exit(1)
 	}
 
-	apiRouter := api.NewRouter(db)
+	// Initialize WebAuthn
+	rpID := envOr("WEBAUTHN_RPID", "localhost")
+	rpOrigins := strings.Split(envOr("WEBAUTHN_ORIGINS", "http://localhost:8080,http://localhost:5173"), ",")
+	rpName := envOr("WEBAUTHN_RPNAME", "Helpdesk")
+
+	wan, err := webauthn.New(&webauthn.Config{
+		RPDisplayName: rpName,
+		RPID:          rpID,
+		RPOrigins:     rpOrigins,
+	})
+	if err != nil {
+		slog.Error("failed to initialize WebAuthn", "error", err)
+		os.Exit(1)
+	}
+
+	apiRouter := api.NewRouter(db, wan)
 	frontend := frontendHandler()
 
 	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

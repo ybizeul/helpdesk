@@ -92,6 +92,22 @@ type Attachment struct {
 	CreatedAt   time.Time `bson:"created_at" json:"created_at"`
 }
 
+type PasskeyCredential struct {
+	ID              string   `bson:"_id,omitempty" json:"id"`
+	UserID          string   `bson:"user_id" json:"user_id"`
+	Name            string   `bson:"name" json:"name"`
+	CredentialID    []byte   `bson:"credential_id" json:"-"`
+	PublicKey       []byte   `bson:"public_key" json:"-"`
+	AttestationType string   `bson:"attestation_type" json:"-"`
+	Transports      []string `bson:"transports,omitempty" json:"-"`
+	BackupEligible  bool     `bson:"backup_eligible" json:"-"`
+	BackupState     bool     `bson:"backup_state" json:"-"`
+	AAGUID          []byte   `bson:"aaguid" json:"-"`
+	SignCount       uint32   `bson:"sign_count" json:"-"`
+	CloneWarning    bool     `bson:"clone_warning" json:"-"`
+	CreatedAt       time.Time `bson:"created_at" json:"created_at"`
+}
+
 type EmailSettings struct {
 	IMAPHost            string `bson:"imap_host" json:"imap_host"`
 	IMAPPort            int    `bson:"imap_port" json:"imap_port"`
