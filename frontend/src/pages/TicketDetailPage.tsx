@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useMemo, useCallback } from 'react'
 import { useParams } from 'react-router-dom'
-import { Title, Text, Paper, Badge, Stack, Group, Box, ActionIcon, Tooltip, Alert, Button as MButton, Modal, Menu } from '@mantine/core'
-import { IconRefresh, IconSend, IconPaperclip, IconArrowLeft, IconUserCheck } from '@tabler/icons-react'
+import { Title, Text, Paper, Badge, Stack, Group, Box, ActionIcon, Tooltip, Alert, Button as MButton, Modal, Menu, Avatar } from '@mantine/core'
+import { IconRefresh, IconSend, IconPaperclip, IconArrowLeft } from '@tabler/icons-react'
 import { api } from '../api/client'
 import { ReplyEditor } from '../components/ReplyEditor'
 import { notifications } from '@mantine/notifications'
@@ -12,6 +12,20 @@ const statusColors: Record<string, string> = {
   active: 'orange',
   waiting: 'green',
   closed: 'dark',
+}
+
+const avatarColors = ['red', 'pink', 'grape', 'violet', 'indigo', 'blue', 'cyan', 'teal', 'green', 'lime', 'yellow', 'orange']
+
+function hashColor(str: string): string {
+  let hash = 0
+  for (let i = 0; i < str.length; i++) hash = ((hash << 5) - hash + str.charCodeAt(i)) | 0
+  return avatarColors[Math.abs(hash) % avatarColors.length]
+}
+
+function getInitials(name: string): string {
+  const parts = name.trim().split(/\s+/)
+  if (parts.length >= 2) return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase()
+  return name.slice(0, 2).toUpperCase()
 }
 
 function formatDate(d: string | Date): string {
@@ -74,15 +88,6 @@ function MessageBody({ msg, isOutgoing }: { msg: any; isOutgoing?: boolean }) {
 function attachmentUrl(ticketId: string, msgIdx: number, attIdx: number): string {
   const token = localStorage.getItem('token') || ''
   return `/api/v1/tickets/${ticketId}/messages/${msgIdx}/attachments/${attIdx}?token=${encodeURIComponent(token)}`
-}
-
-function getCurrentUserId(): string | null {
-  try {
-    const token = localStorage.getItem('token')
-    if (!token) return null
-    const payload = JSON.parse(atob(token.split('.')[1]))
-    return payload.sub || null
-  } catch { return null }
 }
 
 interface TicketDetailPageProps {
@@ -155,10 +160,8 @@ export function TicketDetailPage({ ticketId: propId, onBack, onTicketUpdate }: T
 
   if (!ticket) return <Text>Loading...</Text>
 
-  const currentUserId = getCurrentUserId()
   const ownerUser = users.find((u: any) => u.id === ticket.owner_id)
   const isOwned = !!ticket.owner_id
-  const isOwnedByMe = ticket.owner_id === currentUserId
 
   const handleClaim = async () => {
     if (!id) return
@@ -169,25 +172,26 @@ export function TicketDetailPage({ ticketId: propId, onBack, onTicketUpdate }: T
 
   return (
     <Box style={{ display: 'flex', flexDirection: 'column', position: 'absolute', inset: 0 }}>
-      <Group justify="space-between" style={{ flexShrink: 0, padding: 'var(--mantine-spacing-md)', paddingBottom: 'var(--mantine-spacing-xs)', boxShadow: '0 2px 8px rgba(0,0,0,0.15)', zIndex: 1 }}>
+      <Group justify="space-between" style={{ flexShrink: 0, padding: 'var(--mantine-spacing-md)', paddingBottom: 'var(--mantine-spacing-xs)', boxShadow: '0 2px 8px rgba(0,0,0,0.15)', position: 'relative', zIndex: 1 }}>
         <Group gap="xs">
           {onBack && (
             <ActionIcon variant="subtle" onClick={onBack}>
               <IconArrowLeft size={18} />
             </ActionIcon>
           )}
+          <Tooltip label={isOwned ? (ownerUser?.name || 'Unknown') : 'Assign to me'} withArrow>
+            <Avatar
+              radius="xl"
+              color={isOwned ? hashColor(ticket.owner_id) : 'gray'}
+              style={{ cursor: isOwned ? 'default' : 'pointer' }}
+              onClick={isOwned ? undefined : handleClaim}
+            >
+              {isOwned ? getInitials(ownerUser?.name || '?') : 'U'}
+            </Avatar>
+          </Tooltip>
           <Title order={2}>#{ticket.number} {ticket.subject}</Title>
         </Group>
         <Group gap="sm">
-          {isOwned ? (
-            <Badge variant="light" color={isOwnedByMe ? 'green' : 'blue'} size="lg">{ownerUser?.name || 'Unknown'}</Badge>
-          ) : (
-            <Tooltip label="Assign to me">
-              <ActionIcon variant="light" color="blue" onClick={handleClaim}>
-                <IconUserCheck size={18} />
-              </ActionIcon>
-            </Tooltip>
-          )}
           <Menu shadow="md" width={160}>
             <Menu.Target>
               <Badge color={statusColors[ticket.status] || 'gray'} size="lg" style={{ cursor: 'pointer' }}>{ticket.status}</Badge>
@@ -202,7 +206,7 @@ export function TicketDetailPage({ ticketId: propId, onBack, onTicketUpdate }: T
           </Menu>
         </Group>
       </Group>
-      <Box style={{ flex: 1, overflowY: 'auto', minHeight: 0, padding: 'var(--mantine-spacing-md)', paddingTop: 'var(--mantine-spacing-sm)' }}>
+      <Box style={{ flex: 1, overflowY: 'auto', minHeight: 0, padding: 'var(--mantine-spacing-md)', paddingTop: 'var(--mantine-spacing-sm)', position: 'relative', zIndex: 0 }}>
 
       <Stack gap="md">
         <Paper withBorder p={0} radius="md" style={{ overflow: 'hidden', marginBottom: 'var(--mantine-spacing-md)' }}>
