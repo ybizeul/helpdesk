@@ -5,6 +5,7 @@ import { Notifications } from '@mantine/notifications'
 import { BrowserRouter } from 'react-router-dom'
 import '@mantine/core/styles.css'
 import '@mantine/notifications/styles.css'
+import './app.css'
 import App from './App.tsx'
 
 createRoot(document.getElementById('root')!).render(
