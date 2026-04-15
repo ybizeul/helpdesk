@@ -68,7 +68,7 @@ function TicketPanes() {
   const showDetail = !!id
 
   return (
-    <Box ref={containerRef} style={{ display: 'flex', flexDirection: 'column', height: 'calc(100vh - 32px)' }}>
+    <Box ref={containerRef} style={{ display: 'flex', flexDirection: 'column', height: '100vh' }}>
       <Box style={{ height: showDetail ? `${topHeight}%` : '100%', padding: 'var(--mantine-spacing-md)', paddingBottom: showDetail ? 0 : undefined, display: 'flex', flexDirection: 'column', minHeight: 0, overflow: 'hidden' }}>
         <TicketListPage
           activeTicketId={id || null}
@@ -91,7 +91,7 @@ function TicketPanes() {
           >
             <div style={{ height: 1, width: '100%', background: 'var(--mantine-color-gray-3)', transition: 'background 150ms' }} />
           </Box>
-          <Box style={{ flex: 1, padding: 'var(--mantine-spacing-md)', minHeight: 0, display: 'flex', flexDirection: 'column' }}>
+          <Box style={{ flex: 1, padding: 'var(--mantine-spacing-md)', minHeight: 0, display: 'flex', flexDirection: 'column', position: 'relative' }}>
             <TicketDetailPage ticketId={id} />
           </Box>
         </>

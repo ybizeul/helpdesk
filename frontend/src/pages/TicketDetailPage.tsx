@@ -129,10 +129,24 @@ export function TicketDetailPage({ ticketId: propId, onBack }: TicketDetailPageP
     api.tickets.get(id).then(setTicket)
   }
 
+  const replyCc = useMemo(() => {
+    if (!ticket || !settings) return []
+    const ownAddr = (settings.email?.smtp_from || settings.email?.smtp_user || settings.email?.imap_user || '').toLowerCase()
+    const requester = (ticket.requester?.email || '').toLowerCase()
+    for (let i = ticket.messages.length - 1; i >= 0; i--) {
+      const msg = ticket.messages[i]
+      if (msg.from === 'agent' || !msg.cc?.length) continue
+      return msg.cc
+        .map((addr: string) => { const idx = addr.indexOf('<'); return idx >= 0 ? addr.slice(idx + 1).replace(/[> ]+$/, '').trim() : addr.trim() })
+        .filter((addr: string) => { const l = addr.toLowerCase(); return l && l !== ownAddr && l !== requester })
+    }
+    return []
+  }, [ticket, settings])
+
   if (!ticket) return <Text>Loading...</Text>
 
   return (
-    <Box style={{ display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0, margin: 'calc(-1 * var(--mantine-spacing-md))' }}>
+    <Box style={{ display: 'flex', flexDirection: 'column', position: 'absolute', inset: 0 }}>
       <Group justify="space-between" style={{ flexShrink: 0, padding: 'var(--mantine-spacing-md)', paddingBottom: 'var(--mantine-spacing-xs)', boxShadow: '0 2px 8px rgba(0,0,0,0.15)', zIndex: 1 }}>
         <Group gap="xs">
           {onBack && (
@@ -159,7 +173,7 @@ export function TicketDetailPage({ ticketId: propId, onBack }: TicketDetailPageP
           )}
         </Group>
       </Group>
-      <Box style={{ flex: 1, overflowY: 'auto', minHeight: 0, padding: 'var(--mantine-spacing-md)', paddingTop: 'var(--mantine-spacing-sm)' }}>
+      <Box style={{ flex: 1, overflowY: 'auto', minHeight: 0, padding: 'var(--mantine-spacing-md)', paddingTop: 'var(--mantine-spacing-sm)', paddingBottom: 0 }}>
       <Text c="dimmed" mb="lg">
         From: {ticket.requester?.name} ({ticket.requester?.email}) · Priority: {ticket.priority}
       </Text>
@@ -262,7 +276,16 @@ export function TicketDetailPage({ ticketId: propId, onBack }: TicketDetailPageP
             </Box>
           </Paper>
           {renderIdx === 0 && (
-            <ReplyEditor onSend={handleSend} onSendAndClose={ticket.status !== 'closed' ? handleSendAndClose : undefined} signature={signature} />
+            <Paper withBorder p={0} radius="md" style={{ overflow: 'hidden', marginBottom: 'var(--mantine-spacing-md)' }}>
+              <Box p="xs" style={{ background: 'var(--mantine-color-gray-1)' }}>
+                <Text size="sm" mb={2}><Text span fw={600}>Subject:</Text> Re: [#{ticket.number}] {ticket.subject}</Text>
+                <Text size="sm" mb={2}><Text span fw={600}>To:</Text> {ticket.requester?.email}</Text>
+                {replyCc.length > 0 && (
+                  <Text size="sm" mb={2}><Text span fw={600}>Cc:</Text> {replyCc.join(', ')}</Text>
+                )}
+              </Box>
+              <ReplyEditor onSend={handleSend} onSendAndClose={ticket.status !== 'closed' ? handleSendAndClose : undefined} signature={signature} />
+            </Paper>
           )}
         </React.Fragment>)})}
       </Stack>

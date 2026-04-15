@@ -114,7 +114,7 @@ export function ReplyEditor({ onSend, onSendAndClose, signature }: ReplyEditorPr
 
   return (
     <div>
-      <RichTextEditor editor={editor}>
+      <RichTextEditor editor={editor} styles={{ root: { border: 'none', borderRadius: 0 }, toolbar: { borderTop: '1px solid var(--mantine-color-default-border)', borderRadius: 0 } }}>
         <RichTextEditor.Toolbar sticky stickyOffset={0}>
           <RichTextEditor.ControlsGroup>
             <RichTextEditor.Bold />
@@ -138,7 +138,7 @@ export function ReplyEditor({ onSend, onSendAndClose, signature }: ReplyEditorPr
         </RichTextEditor.Toolbar>
         <RichTextEditor.Content />
       </RichTextEditor>
-      <Group justify="flex-end" mt="xs">
+      <Group justify="flex-end" m="md">
         {onSendAndClose && (
           <Button variant="default" onClick={handleSendAndClose}>
             Send Reply &amp; Close
