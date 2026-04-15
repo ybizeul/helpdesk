@@ -113,6 +113,19 @@ export default function App() {
   const [currentUser, setCurrentUser] = useState<any>(null)
   const isMobileHeader = useMediaQuery('(max-width: 48em)')
 
+  useEffect(() => {
+    const url = new URL(window.location.href)
+    const oidcToken = url.searchParams.get('token')
+    if (!oidcToken) return
+
+    localStorage.setItem('token', oidcToken)
+    setAuthToken(oidcToken)
+    setToken(oidcToken)
+
+    url.searchParams.delete('token')
+    window.history.replaceState({}, '', url.pathname + (url.search ? url.search : '') + url.hash)
+  }, [])
+
   const handleLogin = useCallback((newToken: string, user: any) => {
     localStorage.setItem('token', newToken)
     setAuthToken(newToken)

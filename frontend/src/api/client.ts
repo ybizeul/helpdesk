@@ -67,6 +67,10 @@ export const api = {
   },
   stats: () => request<any>('/stats'),
   login: (email: string, password: string) => request<any>('/auth/login', { method: 'POST', body: JSON.stringify({ email, password }) }),
+  oidc: {
+    status: () => request<{ enabled: boolean }>('/auth/oidc/status'),
+    startUrl: (redirect = '/') => `${API_BASE}/auth/oidc/start?` + new URLSearchParams({ redirect }).toString(),
+  },
   me: () => request<any>('/auth/me'),
   changePassword: (currentPassword: string, newPassword: string) => request<void>('/auth/password', { method: 'PUT', body: JSON.stringify({ current_password: currentPassword, new_password: newPassword }) }),
   updateAvatar: (avatar: string) => request<void>('/auth/avatar', { method: 'PUT', body: JSON.stringify({ avatar }) }),

@@ -204,6 +204,9 @@ func authMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// Skip auth for login and passkey login endpoints
 		if r.URL.Path == "/api/v1/auth/login" ||
+			r.URL.Path == "/api/v1/auth/oidc/status" ||
+			r.URL.Path == "/api/v1/auth/oidc/start" ||
+			r.URL.Path == "/api/v1/auth/oidc/callback" ||
 			r.URL.Path == "/api/v1/auth/passkeys/login/begin" ||
 			r.URL.Path == "/api/v1/auth/passkeys/login/finish" {
 			next.ServeHTTP(w, r)

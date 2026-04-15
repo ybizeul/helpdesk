@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { TextInput, PasswordInput, Button, Paper, Title, Stack, Center, Alert, Divider } from '@mantine/core'
 import { startAuthentication } from '@simplewebauthn/browser'
 import { api } from '../api/client'
@@ -13,7 +13,15 @@ export function LoginPage({ onLogin }: LoginPageProps) {
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
   const [passkeyLoading, setPasskeyLoading] = useState(false)
+  const [oidcEnabled, setOIDCEnabled] = useState(false)
+  const [oidcLoading, setOIDCLoading] = useState(false)
   const supportsPasskey = typeof window !== 'undefined' && !!window.PublicKeyCredential
+
+  useEffect(() => {
+    api.oidc.status()
+      .then((s) => setOIDCEnabled(!!s.enabled))
+      .catch(() => setOIDCEnabled(false))
+  }, [])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -45,6 +53,12 @@ export function LoginPage({ onLogin }: LoginPageProps) {
     }
   }
 
+  const handleOIDCLogin = () => {
+    setOIDCLoading(true)
+    const redirectPath = window.location.pathname + window.location.search
+    window.location.href = api.oidc.startUrl(redirectPath || '/')
+  }
+
   return (
     <Center h="100vh" px="md">
       <Paper withBorder shadow="md" p="xl" radius="md" w={400} maw="100%">
@@ -74,6 +88,14 @@ export function LoginPage({ onLogin }: LoginPageProps) {
                 <Divider label="or" labelPosition="center" />
                 <Button variant="light" fullWidth loading={passkeyLoading} onClick={handlePasskeyLogin}>
                   Sign in with passkey
+                </Button>
+              </>
+            )}
+            {oidcEnabled && (
+              <>
+                <Divider label="or" labelPosition="center" />
+                <Button variant="default" fullWidth loading={oidcLoading} onClick={handleOIDCLogin}>
+                  Sign in with OIDC
                 </Button>
               </>
             )}
