@@ -22,7 +22,6 @@ function formatDate(d: string | Date): string {
 }
 
 function sanitizeHtml(html: string): string {
-  // Strip <script>, <style>, on* attributes for safe rendering
   return html
     .replace(/<script[\s\S]*?<\/script>/gi, '')
     .replace(/<style[\s\S]*?<\/style>/gi, '')
@@ -68,8 +67,13 @@ function attachmentUrl(ticketId: string, msgIdx: number, attIdx: number): string
   return `/api/v1/tickets/${ticketId}/messages/${msgIdx}/attachments/${attIdx}?token=${encodeURIComponent(token)}`
 }
 
-export function TicketDetailPage() {
-  const { id } = useParams<{ id: string }>()
+interface TicketDetailPageProps {
+  ticketId?: string
+}
+
+export function TicketDetailPage({ ticketId: propId }: TicketDetailPageProps = {}) {
+  const { id: paramId } = useParams<{ id: string }>()
+  const id = propId || paramId
   const [ticket, setTicket] = useState<any>(null)
   const [signature, setSignature] = useState<string>('')
 

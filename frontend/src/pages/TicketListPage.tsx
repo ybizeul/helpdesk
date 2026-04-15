@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Title, Table, Badge, Group, Text, Checkbox, Button, Tooltip, Menu, ActionIcon } from '@mantine/core'
 import { IconTrash, IconEye, IconEyeOff, IconCircle, IconRefresh, IconArrowMerge } from '@tabler/icons-react'
-import { useNavigate } from 'react-router-dom'
 import { notifications } from '@mantine/notifications'
 import { api } from '../api/client'
 
@@ -20,10 +19,14 @@ function formatDate(d: string | Date): string {
   return date.toLocaleDateString()
 }
 
-export function TicketListPage() {
+interface TicketListPageProps {
+  activeTicketId?: string | null
+  onSelectTicket?: (id: string) => void
+}
+
+export function TicketListPage({ activeTicketId, onSelectTicket }: TicketListPageProps = {}) {
   const [tickets, setTickets] = useState<any[]>([])
   const [selected, setSelected] = useState<Set<string>>(new Set())
-  const navigate = useNavigate()
 
   const loadTickets = () => {
     api.tickets.list({}).then(setTickets).catch(console.error)
@@ -31,6 +34,8 @@ export function TicketListPage() {
 
   useEffect(() => {
     loadTickets()
+    const interval = setInterval(loadTickets, 60_000)
+    return () => clearInterval(interval)
   }, [])
 
   const toggleSelect = (id: string) => {
@@ -124,17 +129,21 @@ export function TicketListPage() {
           </Table.Tr>
         </Table.Thead>
         <Table.Tbody>
-          {tickets.map((t) => (
-            <Table.Tr key={t.id} style={{ cursor: 'pointer', fontWeight: t.unread ? 700 : 400 }}>
-              <Table.Td onClick={e => e.stopPropagation()}><Checkbox size="xs" checked={selected.has(t.id)} onChange={() => toggleSelect(t.id)} /></Table.Td>
-              <Table.Td onClick={() => navigate(`/tickets/${t.id}`)}>{t.number}</Table.Td>
-              <Table.Td onClick={() => navigate(`/tickets/${t.id}`)}>{t.subject}</Table.Td>
-              <Table.Td onClick={() => navigate(`/tickets/${t.id}`)}>{t.requester?.email}</Table.Td>
-              <Table.Td onClick={() => navigate(`/tickets/${t.id}`)}><Badge size="xs" color={statusColors[t.status] || 'gray'}>{t.status}</Badge></Table.Td>
-              <Table.Td onClick={() => navigate(`/tickets/${t.id}`)}>{t.priority}</Table.Td>
-              <Table.Td onClick={() => navigate(`/tickets/${t.id}`)}>{formatDate(t.updated_at)}</Table.Td>
-            </Table.Tr>
-          ))}
+          {tickets.map((t) => {
+            const isActive = activeTicketId === t.id
+            const handleClick = () => onSelectTicket?.(t.id)
+            return (
+              <Table.Tr key={t.id} style={{ cursor: 'pointer', fontWeight: t.unread ? 700 : 400, background: isActive ? 'var(--mantine-color-blue-0)' : undefined }}>
+                <Table.Td onClick={e => e.stopPropagation()}><Checkbox size="xs" checked={selected.has(t.id)} onChange={() => toggleSelect(t.id)} /></Table.Td>
+                <Table.Td onClick={handleClick}>{t.number}</Table.Td>
+                <Table.Td onClick={handleClick}>{t.subject}</Table.Td>
+                <Table.Td onClick={handleClick}>{t.requester?.email}</Table.Td>
+                <Table.Td onClick={handleClick}><Badge size="xs" color={statusColors[t.status] || 'gray'}>{t.status}</Badge></Table.Td>
+                <Table.Td onClick={handleClick}>{t.priority}</Table.Td>
+                <Table.Td onClick={handleClick}>{formatDate(t.updated_at)}</Table.Td>
+              </Table.Tr>
+            )
+          })}
           {tickets.length === 0 && (
             <Table.Tr>
               <Table.Td colSpan={7}><Text c="dimmed" ta="center">No tickets found</Text></Table.Td>
