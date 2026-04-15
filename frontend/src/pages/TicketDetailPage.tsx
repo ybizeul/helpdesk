@@ -121,8 +121,8 @@ export function TicketDetailPage({ ticketId: propId, onBack }: TicketDetailPageP
   if (!ticket) return <Text>Loading...</Text>
 
   return (
-    <>
-      <Group justify="space-between" mb="md">
+    <Box style={{ display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0 }}>
+      <Group justify="space-between" style={{ flexShrink: 0, paddingBottom: 'var(--mantine-spacing-xs)', borderBottom: '1px solid var(--mantine-color-gray-2)' }}>
         <Group gap="xs">
           {onBack && (
             <ActionIcon variant="subtle" onClick={onBack}>
@@ -148,6 +148,7 @@ export function TicketDetailPage({ ticketId: propId, onBack }: TicketDetailPageP
           )}
         </Group>
       </Group>
+      <Box style={{ flex: 1, overflowY: 'auto', minHeight: 0, paddingTop: 'var(--mantine-spacing-sm)' }}>
       <Text c="dimmed" mb="lg">
         From: {ticket.requester?.name} ({ticket.requester?.email}) · Priority: {ticket.priority}
       </Text>
@@ -253,6 +254,7 @@ export function TicketDetailPage({ ticketId: propId, onBack }: TicketDetailPageP
 
       <Divider my="lg" />
       <ReplyEditor onSend={handleSend} onSendAndClose={ticket.status !== 'closed' ? handleSendAndClose : undefined} signature={signature} />
-    </>
+      </Box>
+    </Box>
   )
 }

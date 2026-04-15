@@ -94,8 +94,8 @@ export function TicketListPage({ activeTicketId, onSelectTicket }: TicketListPag
   }
 
   return (
-    <>
-      <Group justify="space-between" mb="lg">
+    <Box style={{ display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0 }}>
+      <Group justify="space-between" style={{ flexShrink: 0, paddingBottom: 'var(--mantine-spacing-xs)', borderBottom: '1px solid var(--mantine-color-gray-2)' }}>
         <Group gap="xs">
           <Title order={2}>Tickets</Title>
           <Tooltip label="Refresh">
@@ -144,6 +144,7 @@ export function TicketListPage({ activeTicketId, onSelectTicket }: TicketListPag
           )}
         </Group>
       </Group>
+      <Box style={{ flex: 1, overflowY: 'auto', minHeight: 0 }}>
       {isMobile ? (
         <Stack gap={0}>
           {tickets.map((t) => {
@@ -185,9 +186,9 @@ export function TicketListPage({ activeTicketId, onSelectTicket }: TicketListPag
             <Table.Th>#</Table.Th>
             <Table.Th>Subject</Table.Th>
             <Table.Th>Requester</Table.Th>
-            <Table.Th>Status</Table.Th>
-            <Table.Th>Priority</Table.Th>
             <Table.Th>Updated</Table.Th>
+            <Table.Th>Priority</Table.Th>
+            <Table.Th>Status</Table.Th>
           </Table.Tr>
         </Table.Thead>
         <Table.Tbody>
@@ -200,9 +201,9 @@ export function TicketListPage({ activeTicketId, onSelectTicket }: TicketListPag
                 <Table.Td onClick={handleClick}>{t.number}</Table.Td>
                 <Table.Td onClick={handleClick}>{t.subject}</Table.Td>
                 <Table.Td onClick={handleClick}>{t.requester?.email}</Table.Td>
-                <Table.Td onClick={handleClick}><Badge size="xs" color={statusColors[t.status] || 'gray'}>{t.status}</Badge></Table.Td>
-                <Table.Td onClick={handleClick}>{t.priority}</Table.Td>
                 <Table.Td onClick={handleClick}>{formatDate(t.updated_at)}</Table.Td>
+                <Table.Td onClick={handleClick}>{t.priority}</Table.Td>
+                <Table.Td onClick={handleClick}><Badge size="xs" color={statusColors[t.status] || 'gray'}>{t.status}</Badge></Table.Td>
               </Table.Tr>
             )
           })}
@@ -214,6 +215,7 @@ export function TicketListPage({ activeTicketId, onSelectTicket }: TicketListPag
         </Table.Tbody>
       </Table>
       )}
-    </>
+      </Box>
+    </Box>
   )
 }

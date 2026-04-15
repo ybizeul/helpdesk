@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useRef } from 'react'
 import { Routes, Route, Navigate, useNavigate, useParams } from 'react-router-dom'
 import { AppShell, Box, Burger, Group, Text } from '@mantine/core'
 import { useDisclosure, useMediaQuery } from '@mantine/hooks'
@@ -35,29 +35,62 @@ function TicketPanes() {
     )
   }
 
-  // Desktop: side-by-side panes
+  // Desktop: ticket list on top, detail below with draggable splitter
+  const [topHeight, setTopHeight] = useState(50) // percentage
+  const dragging = useRef(false)
+  const containerRef = useRef<HTMLDivElement>(null)
+
+  const onMouseDown = useCallback((e: React.MouseEvent) => {
+    e.preventDefault()
+    dragging.current = true
+
+    const onMouseMove = (ev: MouseEvent) => {
+      if (!dragging.current || !containerRef.current) return
+      const rect = containerRef.current.getBoundingClientRect()
+      const pct = ((ev.clientY - rect.top) / rect.height) * 100
+      setTopHeight(Math.min(85, Math.max(15, pct)))
+    }
+
+    const onMouseUp = () => {
+      dragging.current = false
+      document.removeEventListener('mousemove', onMouseMove)
+      document.removeEventListener('mouseup', onMouseUp)
+    }
+
+    document.addEventListener('mousemove', onMouseMove)
+    document.addEventListener('mouseup', onMouseUp)
+  }, [])
+
+  const showDetail = !!id
+
   return (
-    <Box style={{ display: 'flex', height: 'calc(100vh - 32px)', gap: 0 }}>
-      <Box
-        style={{
-          width: id ? 420 : '100%',
-          minWidth: id ? 320 : undefined,
-          flexShrink: 0,
-          overflowY: 'auto',
-          borderRight: id ? '1px solid var(--mantine-color-gray-3)' : undefined,
-          padding: 'var(--mantine-spacing-md)',
-          transition: 'width 150ms ease',
-        }}
-      >
+    <Box ref={containerRef} style={{ display: 'flex', flexDirection: 'column', height: 'calc(100vh - 32px)' }}>
+      <Box style={{ height: showDetail ? `${topHeight}%` : '100%', padding: 'var(--mantine-spacing-md)', paddingBottom: showDetail ? 0 : undefined, display: 'flex', flexDirection: 'column', minHeight: 0, overflow: 'hidden' }}>
         <TicketListPage
           activeTicketId={id || null}
           onSelectTicket={(ticketId) => navigate(`/tickets/${ticketId}`)}
         />
       </Box>
-      {id && (
-        <Box style={{ flex: 1, overflowY: 'auto', padding: 'var(--mantine-spacing-md)', minWidth: 0 }}>
-          <TicketDetailPage ticketId={id} />
-        </Box>
+      {showDetail && (
+        <>
+          <Box
+            onMouseDown={onMouseDown}
+            style={{
+              height: 5,
+              cursor: 'row-resize',
+              flexShrink: 0,
+              display: 'flex',
+              alignItems: 'center',
+            }}
+            onMouseEnter={(e) => { const line = e.currentTarget.firstElementChild as HTMLElement; if (line) line.style.background = 'var(--mantine-color-blue-4)' }}
+            onMouseLeave={(e) => { if (!dragging.current) { const line = e.currentTarget.firstElementChild as HTMLElement; if (line) line.style.background = 'var(--mantine-color-gray-3)' } }}
+          >
+            <div style={{ height: 1, width: '100%', background: 'var(--mantine-color-gray-3)', transition: 'background 150ms' }} />
+          </Box>
+          <Box style={{ flex: 1, padding: 'var(--mantine-spacing-md)', minHeight: 0, display: 'flex', flexDirection: 'column' }}>
+            <TicketDetailPage ticketId={id} />
+          </Box>
+        </>
       )}
     </Box>
   )
