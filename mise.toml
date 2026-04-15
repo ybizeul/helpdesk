@@ -1,0 +1,25 @@
+[tasks.front]
+description = "Run Vite frontend dev server"
+dir = "frontend"
+run = "npm run dev"
+
+[tasks.back]
+description = "Run Go backend"
+dir = "backend"
+run = "set -a && source ../.env && set +a && go run ./cmd/helpdesk"
+
+[tasks.dev]
+description = "Run frontend + backend"
+depends = ["front", "back"]
+
+[tasks.mongo]
+description = "Run local MongoDB in Docker"
+run = "docker run --rm --name helpdesk-mongo -p 27017:27017 -v $PWD/local/mongo:/data/db mongo:7"
+
+[tasks.release]
+description = "Build and publish with GoReleaser"
+run = "goreleaser release --clean"
+
+[tasks.release-snapshot]
+description = "Local GoReleaser build (no publish)"
+run = "GITHUB_REPOSITORY_OWNER=local goreleaser release --snapshot --clean"

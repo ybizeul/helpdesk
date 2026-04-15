@@ -1,0 +1,44 @@
+version: 2
+project_name: helpdesk
+
+before:
+  hooks:
+    - "npm ci --prefix frontend"
+    - "npm run build --prefix frontend"
+    - "rm -rf backend/cmd/helpdesk/dist"
+    - "cp -r frontend/dist backend/cmd/helpdesk/dist"
+
+builds:
+  - id: helpdesk
+    dir: backend
+    main: ./cmd/helpdesk
+    binary: helpdesk
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - linux
+      - darwin
+      - windows
+    goarch:
+      - amd64
+      - arm64
+
+dockers:
+  - image_templates:
+      - "ghcr.io/{{ .Env.GITHUB_REPOSITORY_OWNER }}/helpdesk:{{ .Env.DOCKER_TAG }}"
+    dockerfile: Dockerfile
+    build_flag_templates:
+      - "--pull"
+      - "--platform=linux/amd64"
+    goos: linux
+    goarch: amd64
+    extra_files: []
+
+archives:
+  - formats:
+      - tar.gz
+    format_overrides:
+      - goos: windows
+        formats:
+          - zip
+    name_template: "helpdesk_{{ .Os }}_{{ .Arch }}"
