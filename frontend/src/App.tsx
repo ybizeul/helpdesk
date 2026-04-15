@@ -16,26 +16,7 @@ function TicketPanes() {
   const navigate = useNavigate()
   const isMobile = useMediaQuery('(max-width: 768px)')
 
-  // Mobile: show one pane at a time
-  if (isMobile) {
-    if (id) {
-      return (
-        <Box style={{ height: 'calc(100vh - 32px)', overflowY: 'auto', padding: 'var(--mantine-spacing-md)' }}>
-          <TicketDetailPage ticketId={id} onBack={() => navigate('/tickets')} />
-        </Box>
-      )
-    }
-    return (
-      <Box style={{ height: 'calc(100vh - 32px)', overflowY: 'auto', padding: 'var(--mantine-spacing-md)' }}>
-        <TicketListPage
-          activeTicketId={null}
-          onSelectTicket={(ticketId) => navigate(`/tickets/${ticketId}`)}
-        />
-      </Box>
-    )
-  }
-
-  // Desktop: ticket list on top, detail below with draggable splitter
+  // Hooks must be called unconditionally (before any early return)
   const [topHeight, setTopHeight] = useState(() => {
     const saved = localStorage.getItem('pane_split')
     return saved ? Number(saved) : 50
@@ -65,6 +46,26 @@ function TicketPanes() {
     document.addEventListener('mouseup', onMouseUp)
   }, [])
 
+  // Mobile: show one pane at a time
+  if (isMobile) {
+    if (id) {
+      return (
+        <Box style={{ height: 'calc(100vh - 32px)', position: 'relative' }}>
+          <TicketDetailPage ticketId={id} onBack={() => navigate('/tickets')} />
+        </Box>
+      )
+    }
+    return (
+      <Box style={{ height: 'calc(100vh - 32px)', overflowY: 'auto', padding: 'var(--mantine-spacing-md)' }}>
+        <TicketListPage
+          activeTicketId={null}
+          onSelectTicket={(ticketId) => navigate(`/tickets/${ticketId}`)}
+        />
+      </Box>
+    )
+  }
+
+  // Desktop: ticket list on top, detail below with draggable splitter
   const showDetail = !!id
 
   return (
