@@ -274,9 +274,13 @@ func FetchEmails(ctx context.Context, cfg models.EmailSettings, db TicketStore) 
 		if existingTicket != nil {
 			// Append message to existing ticket
 			oid, _ := bson.ObjectIDFromHex(existingTicket.ID)
+			newStatus := models.TicketStatusUnassigned
+			if existingTicket.OwnerID != "" {
+				newStatus = models.TicketStatusActive
+			}
 			_, err := db.Tickets().UpdateByID(ctx, oid, bson.M{
 				"$push": bson.M{"messages": newMsg},
-				"$set":  bson.M{"updated_at": now, "status": models.TicketStatusUnassigned, "unread": true},
+				"$set":  bson.M{"updated_at": now, "status": newStatus, "unread": true},
 			})
 			if err != nil {
 				slog.Error("failed to update ticket", "id", existingTicket.ID, "error", err)
