@@ -22,7 +22,7 @@ function getInitialToken(): string | null {
   return url.searchParams.get('token')
 }
 
-function TicketPanes() {
+function TicketPanes({ currentUser }: { currentUser: any }) {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
   const isMobile = useMediaQuery('(max-width: 768px)')
@@ -72,6 +72,7 @@ function TicketPanes() {
       <Box style={{ height: 'calc(100vh - 32px)', overflowY: 'auto', padding: 'var(--mantine-spacing-md)' }}>
         <TicketListPage
           activeTicketId={null}
+          currentUser={currentUser}
           onSelectTicket={(ticketId) => navigate(`/tickets/${ticketId}`)}
         />
       </Box>
@@ -87,6 +88,7 @@ function TicketPanes() {
         <TicketListPage
           ref={listRef}
           activeTicketId={id || null}
+          currentUser={currentUser}
           onSelectTicket={(ticketId) => navigate(`/tickets/${ticketId}`)}
         />
       </Box>
@@ -182,8 +184,8 @@ export default function App() {
         <Routes>
           <Route path="/" element={<Navigate to="/tickets" replace />} />
           <Route path="/dashboard" element={<Box p="md"><DashboardPage /></Box>} />
-          <Route path="/tickets" element={<TicketPanes />} />
-          <Route path="/tickets/:id" element={<TicketPanes />} />
+          <Route path="/tickets" element={<TicketPanes currentUser={currentUser} />} />
+          <Route path="/tickets/:id" element={<TicketPanes currentUser={currentUser} />} />
           <Route path="/users" element={isAdmin ? <Box p="md"><UsersPage /></Box> : <Navigate to="/tickets" replace />} />
           <Route path="/settings" element={isAdmin ? <Box p="md"><SettingsPage /></Box> : <Navigate to="/tickets" replace />} />
         </Routes>

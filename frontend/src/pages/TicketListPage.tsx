@@ -79,6 +79,7 @@ function notifyNewTickets(newTickets: any[]) {
 
 interface TicketListPageProps {
   activeTicketId?: string | null
+  currentUser?: { role?: string } | null
   onSelectTicket?: (id: string) => void
 }
 
@@ -86,12 +87,13 @@ export interface TicketListHandle {
   refresh: () => void
 }
 
-export const TicketListPage = forwardRef<TicketListHandle, TicketListPageProps>(function TicketListPage({ activeTicketId, onSelectTicket }, ref) {
+export const TicketListPage = forwardRef<TicketListHandle, TicketListPageProps>(function TicketListPage({ activeTicketId, currentUser, onSelectTicket }, ref) {
   const [tickets, setTickets] = useState<any[]>([])
   const [selected, setSelected] = useState<Set<string>>(new Set())
   const [usersMap, setUsersMap] = useState<Record<string, any>>({})
   const knownIdsRef = useRef<Set<string> | null>(null)
   const isMobile = useMediaQuery('(max-width: 768px)')
+  const canDelete = currentUser?.role === 'admin'
 
   const loadTickets = useCallback(() => {
     api.tickets.list({}).then((data) => {
@@ -133,6 +135,10 @@ export const TicketListPage = forwardRef<TicketListHandle, TicketListPageProps>(
 
   const bulkAction = async (action: string, extra?: Record<string, string>) => {
     const ids = Array.from(selected)
+    if (action === 'delete' && !canDelete) {
+      notifications.show({ title: 'Forbidden', message: 'Only admins can delete cases', color: 'red' })
+      return
+    }
     try {
       await api.tickets.bulk(ids, action, extra)
       setSelected(new Set())
@@ -178,9 +184,11 @@ export const TicketListPage = forwardRef<TicketListHandle, TicketListPageProps>(
                   }}>Merge</Button>
                 </Tooltip>
               )}
-              <Tooltip label="Delete selected">
-                <Button variant="light" color="red" size="xs" leftSection={<IconTrash size={14} />} onClick={() => bulkAction('delete')}>Delete</Button>
-              </Tooltip>
+              {canDelete && (
+                <Tooltip label="Delete selected">
+                  <Button variant="light" color="red" size="xs" leftSection={<IconTrash size={14} />} onClick={() => bulkAction('delete')}>Delete</Button>
+                </Tooltip>
+              )}
               <Menu shadow="md" width={150}>
                 <Menu.Target>
                   <Button variant="light" size="xs" leftSection={<IconCircle size={14} />}>Status</Button>

@@ -222,6 +222,11 @@ func (h *handlers) updateTicket(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *handlers) deleteTicket(w http.ResponseWriter, r *http.Request) {
+	if !requireAdmin(r) {
+		writeError(w, http.StatusForbidden, "FORBIDDEN", "admin role required")
+		return
+	}
+
 	ctx := r.Context()
 	id := r.PathValue("id")
 
@@ -766,6 +771,11 @@ func (h *handlers) bulkTicketAction(w http.ResponseWriter, r *http.Request) {
 
 	switch req.Action {
 	case "delete":
+		if !requireAdmin(r) {
+			writeError(w, http.StatusForbidden, "FORBIDDEN", "admin role required")
+			return
+		}
+
 		// Load tickets to get message IDs before deleting
 		cursor, findErr := h.db.Tickets().Find(ctx, filter)
 		var ticketsToDelete []models.Ticket
