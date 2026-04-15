@@ -65,12 +65,18 @@ func FetchEmails(ctx context.Context, cfg models.EmailSettings, db TicketStore) 
 		lastFetchedAt = settings.LastFetchedAt
 	}
 
-	// If we have a last fetched date, search for emails since that date;
-	// otherwise fall back to unseen only.
+	// If we have a last fetched date, search for emails since that date
+	// OR any unseen emails (to catch older unread messages).
+	// Otherwise fall back to unseen only.
 	var criteria *imap.SearchCriteria
 	if lastFetchedAt != nil {
 		criteria = &imap.SearchCriteria{
-			Since: *lastFetchedAt,
+			Or: [][2]imap.SearchCriteria{
+				{
+					imap.SearchCriteria{Since: *lastFetchedAt},
+					imap.SearchCriteria{NotFlag: []imap.Flag{imap.FlagSeen}},
+				},
+			},
 		}
 	} else {
 		criteria = &imap.SearchCriteria{
