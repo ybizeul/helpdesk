@@ -88,9 +88,9 @@ function TicketPanes() {
               alignItems: 'center',
             }}
             onMouseEnter={(e) => { const line = e.currentTarget.firstElementChild as HTMLElement; if (line) line.style.background = 'var(--mantine-color-blue-4)' }}
-            onMouseLeave={(e) => { if (!dragging.current) { const line = e.currentTarget.firstElementChild as HTMLElement; if (line) line.style.background = 'var(--mantine-color-gray-3)' } }}
+            onMouseLeave={(e) => { if (!dragging.current) { const line = e.currentTarget.firstElementChild as HTMLElement; if (line) line.style.background = 'var(--mantine-color-default-border)' } }}
           >
-            <div style={{ height: 1, width: '100%', background: 'var(--mantine-color-gray-3)', transition: 'background 150ms' }} />
+            <div style={{ height: 1, width: '100%', background: 'var(--mantine-color-default-border)', transition: 'background 150ms' }} />
           </Box>
           <Box style={{ flex: 1, padding: 'var(--mantine-spacing-md)', minHeight: 0, display: 'flex', flexDirection: 'column', position: 'relative' }}>
             <TicketDetailPage ticketId={id} />

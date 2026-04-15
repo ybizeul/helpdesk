@@ -95,7 +95,7 @@ export function TicketListPage({ activeTicketId, onSelectTicket }: TicketListPag
 
   return (
     <Box style={{ display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0 }}>
-      <Group justify="space-between" style={{ flexShrink: 0, paddingBottom: 'var(--mantine-spacing-xs)', borderBottom: '1px solid var(--mantine-color-gray-2)' }}>
+      <Group justify="space-between" style={{ flexShrink: 0, paddingBottom: 'var(--mantine-spacing-xs)', borderBottom: '1px solid var(--mantine-color-default-border)' }}>
         <Group gap="xs">
           <Title order={2}>Cases</Title>
           <Tooltip label="Refresh">
@@ -157,8 +157,8 @@ export function TicketListPage({ activeTicketId, onSelectTicket }: TicketListPag
                 style={{
                   cursor: 'pointer',
                   padding: 'var(--mantine-spacing-xs) var(--mantine-spacing-sm)',
-                  background: isActive ? 'var(--mantine-color-blue-0)' : undefined,
-                  borderBottom: '1px solid var(--mantine-color-gray-2)',
+                  background: isActive ? 'var(--mantine-primary-color-light)' : undefined,
+                  borderBottom: '1px solid var(--mantine-color-default-border)',
                 }}
               >
                 <Group justify="space-between" gap="xs" wrap="nowrap">
@@ -196,7 +196,7 @@ export function TicketListPage({ activeTicketId, onSelectTicket }: TicketListPag
             const isActive = activeTicketId === t.id
             const handleClick = () => onSelectTicket?.(t.id)
             return (
-              <Table.Tr key={t.id} style={{ cursor: 'pointer', fontWeight: t.unread ? 700 : 400, background: isActive ? 'var(--mantine-color-blue-0)' : undefined }}>
+              <Table.Tr key={t.id} style={{ cursor: 'pointer', fontWeight: t.unread ? 700 : 400, background: isActive ? 'var(--mantine-primary-color-light)' : undefined }}>
                 <Table.Td onClick={e => e.stopPropagation()}><Checkbox size="xs" checked={selected.has(t.id)} onChange={() => toggleSelect(t.id)} /></Table.Td>
                 <Table.Td onClick={handleClick}>{t.number}</Table.Td>
                 <Table.Td onClick={handleClick}>{t.subject}</Table.Td>
