@@ -6,7 +6,8 @@ before:
     - "npm ci --prefix frontend"
     - "npm run build --prefix frontend"
     - "rm -rf backend/cmd/helpdesk/dist"
-    - "cp -r frontend/dist backend/cmd/helpdesk/dist"
+    - "mkdir -p backend/cmd/helpdesk/dist"
+    - "cp -r frontend/dist/. backend/cmd/helpdesk/dist/"
 
 builds:
   - id: helpdesk
