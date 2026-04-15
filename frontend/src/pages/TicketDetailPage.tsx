@@ -205,13 +205,23 @@ export function TicketDetailPage({ ticketId: propId, onBack, onTicketUpdate }: T
       <Box style={{ flex: 1, overflowY: 'auto', minHeight: 0, padding: 'var(--mantine-spacing-md)', paddingTop: 'var(--mantine-spacing-sm)' }}>
 
       <Stack gap="md">
+        <Paper withBorder p={0} radius="md" style={{ overflow: 'hidden', marginBottom: 'var(--mantine-spacing-md)' }}>
+          <Box p="xs" style={{ background: 'var(--mantine-color-blue-0)' }}>
+            <Text size="sm" mb={2}><Text span fw={600}>Subject:</Text> Re: [#{ticket.number}] {ticket.subject}</Text>
+            <Text size="sm" mb={2}><Text span fw={600}>To:</Text> {ticket.requester?.email}</Text>
+            {replyCc.length > 0 && (
+              <Text size="sm" mb={2}><Text span fw={600}>Cc:</Text> {replyCc.join(', ')}</Text>
+            )}
+          </Box>
+          <ReplyEditor onSend={handleSend} onSendAndClose={ticket.status !== 'closed' ? handleSendAndClose : undefined} signature={signature} />
+        </Paper>
         {ticket.messages?.map((msg: any, i: number) => ({ msg, i })).reverse().map(({ msg, i }: { msg: any; i: number }, renderIdx: number) => {
           const smtpFrom = settings?.email?.smtp_from
           const isOutgoing = msg.from === 'agent' || (smtpFrom && msg.from === smtpFrom)
           const displayFrom = msg.from === 'agent' ? smtpFrom || 'agent' : msg.from
           return (<React.Fragment key={i}>
           <Paper withBorder p={0} radius="md" style={{ overflow: 'hidden' }}>
-            <Box p="xs" style={{ background: 'var(--mantine-color-default-hover)', position: 'relative' }}>
+            <Box p="xs" style={{ background: 'var(--mantine-color-blue-0)', position: 'relative' }}>
               <Text size="xs" c="dimmed" style={{ position: 'absolute', top: 8, right: 8 }}>{formatDate(msg.created_at)}</Text>
               {isOutgoing && !msg.send_error && (
                 <Tooltip label="Re-send">
@@ -301,18 +311,6 @@ export function TicketDetailPage({ ticketId: propId, onBack, onTicketUpdate }: T
             )}
             </Box>
           </Paper>
-          {renderIdx === 0 && (
-            <Paper withBorder p={0} radius="md" style={{ overflow: 'hidden', marginBottom: 'var(--mantine-spacing-md)' }}>
-              <Box p="xs" style={{ background: 'var(--mantine-color-default-hover)' }}>
-                <Text size="sm" mb={2}><Text span fw={600}>Subject:</Text> Re: [#{ticket.number}] {ticket.subject}</Text>
-                <Text size="sm" mb={2}><Text span fw={600}>To:</Text> {ticket.requester?.email}</Text>
-                {replyCc.length > 0 && (
-                  <Text size="sm" mb={2}><Text span fw={600}>Cc:</Text> {replyCc.join(', ')}</Text>
-                )}
-              </Box>
-              <ReplyEditor onSend={handleSend} onSendAndClose={ticket.status !== 'closed' ? handleSendAndClose : undefined} signature={signature} />
-            </Paper>
-          )}
         </React.Fragment>)})}
       </Stack>
 
