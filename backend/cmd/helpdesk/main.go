@@ -68,6 +68,11 @@ func main() {
 		os.Exit(1)
 	}
 
+	if err := db.RunMigrations(ctx); err != nil {
+		slog.Error("failed to run migrations", "error", err)
+		os.Exit(1)
+	}
+
 	apiRouter := api.NewRouter(db)
 	frontend := frontendHandler()
 

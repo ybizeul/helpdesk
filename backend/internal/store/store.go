@@ -342,3 +342,16 @@ func (db *DB) EnsureDefaultAdmin(ctx context.Context, initPassword string) error
 	slog.Info("default admin user created", "email", admin.Email, "password", password)
 	return nil
 }
+
+// RunMigrations applies one-time data migrations. Each migration is idempotent.
+func (db *DB) RunMigrations(ctx context.Context) error {
+	// Migration: rename ticket status "open" → "active"
+	result, err := db.Tickets().UpdateMany(ctx, bson.M{"status": "open"}, bson.M{"$set": bson.M{"status": "active"}})
+	if err != nil {
+		return err
+	}
+	if result.ModifiedCount > 0 {
+		slog.Info("migration: renamed ticket status open→active", "count", result.ModifiedCount)
+	}
+	return nil
+}
