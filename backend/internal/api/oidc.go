@@ -8,8 +8,10 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log/slog"
 	"net/http"
 	"net/url"
+	"os"
 	"strings"
 	"sync"
 	"time"
@@ -251,6 +253,15 @@ func (h *handlers) oidcCallback(w http.ResponseWriter, r *http.Request) {
 	if err := mapClaimsToOIDCUserInfo(claims, &info); err != nil {
 		writeError(w, http.StatusBadGateway, "OIDC_CLAIMS_ERROR", err.Error())
 		return
+	}
+
+	if os.Getenv("DEBUG") != "" {
+		slog.Info("oidc claims",
+			"groups", info.Groups,
+			"token_scope", token.Extra("scope"),
+			"claim_scope", claims["scope"],
+			"claim_scp", claims["scp"],
+		)
 	}
 
 	if info.Email == "" {
