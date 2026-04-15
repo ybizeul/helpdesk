@@ -40,6 +40,10 @@ func (db *DB) Disconnect(ctx context.Context) {
 	_ = db.client.Disconnect(ctx)
 }
 
+func (db *DB) Ping(ctx context.Context) error {
+	return db.client.Ping(ctx, nil)
+}
+
 func (db *DB) Tickets() *mongo.Collection     { return db.database.Collection("tickets") }
 func (db *DB) Users() *mongo.Collection       { return db.database.Collection("users") }
 func (db *DB) Attachments() *mongo.Collection { return db.database.Collection("attachments") }

@@ -1,8 +1,10 @@
 package api
 
 import (
+	"context"
 	"encoding/json"
 	"net/http"
+	"time"
 
 	"github.com/helpdesk/backend/internal/store"
 )
@@ -64,7 +66,31 @@ func NewRouter(db *store.DB) http.Handler {
 	mux.HandleFunc("POST /api/v1/auth/passkeys/login/begin", h.beginPasskeyLogin)
 	mux.HandleFunc("POST /api/v1/auth/passkeys/login/finish", h.finishPasskeyLogin)
 
-	return authMiddleware(mux)
+	// Health probes (unauthenticated)
+	health := http.NewServeMux()
+	health.HandleFunc("GET /livez", func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte("ok"))
+	})
+	health.HandleFunc("GET /readyz", func(w http.ResponseWriter, r *http.Request) {
+		ctx, cancel := context.WithTimeout(r.Context(), 2*time.Second)
+		defer cancel()
+		if err := db.Ping(ctx); err != nil {
+			w.WriteHeader(http.StatusServiceUnavailable)
+			w.Write([]byte("mongo: " + err.Error()))
+			return
+		}
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte("ok"))
+	})
+
+	// Compose: health probes bypass auth, everything else goes through it
+	top := http.NewServeMux()
+	top.Handle("GET /livez", health)
+	top.Handle("GET /readyz", health)
+	top.Handle("/", authMiddleware(mux))
+
+	return top
 }
 
 type handlers struct {
