@@ -49,7 +49,6 @@ function MessageBody({ msg, isOutgoing }: { msg: any; isOutgoing?: boolean }) {
     const refCallback = useCallback((node: HTMLDivElement | null) => {
       if (!node) return
       node.querySelectorAll('img').forEach((img) => {
-        img.style.maxWidth = '800px'
         img.style.cursor = 'pointer'
         img.onclick = (e) => {
           e.preventDefault()
@@ -59,8 +58,8 @@ function MessageBody({ msg, isOutgoing }: { msg: any; isOutgoing?: boolean }) {
     }, [safe])
     return (
       <Box>
-        <style>{`.MsoNormal { margin: 0 !important; } pre, code { background-color: #f5f5f5; border-radius: 4px; } code { padding: 2px 4px; font-size: 0.9em; } pre { padding: 12px; overflow-x: auto; } pre code { padding: 0; background: none; }`}</style>
-        <div ref={refCallback} dangerouslySetInnerHTML={{ __html: safe }} />
+        <style>{`.MsoNormal { margin: 0 !important; } pre, code { background-color: #f5f5f5; border-radius: 4px; } code { padding: 2px 4px; font-size: 0.9em; } pre { padding: 12px; overflow-x: auto; } pre code { padding: 0; background: none; } .msg-body img { max-width: 800px; height: auto; }`}</style>
+        <div className="msg-body" ref={refCallback} dangerouslySetInnerHTML={{ __html: safe }} />
       </Box>
     )
   }
