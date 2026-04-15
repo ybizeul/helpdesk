@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Title, Table, Badge, Text, Paper, Stack, PasswordInput, Button, Group, Modal, TextInput, Select, ActionIcon } from '@mantine/core'
+import { Title, Table, Badge, Text, Paper, Stack, PasswordInput, Button, Group, Modal, TextInput, Select, ActionIcon, Box } from '@mantine/core'
 import { notifications } from '@mantine/notifications'
 import { IconEdit, IconTrash, IconPlus } from '@tabler/icons-react'
 import { api } from '../api/client'
@@ -121,39 +121,70 @@ export function UsersPage() {
         <Button leftSection={<IconPlus size={16} />} onClick={openCreate}>Add user</Button>
       </Group>
 
-      <Table striped highlightOnHover>
-        <Table.Thead>
-          <Table.Tr>
-            <Table.Th>Name</Table.Th>
-            <Table.Th>Email</Table.Th>
-            <Table.Th>Role</Table.Th>
-            <Table.Th w={100}>Actions</Table.Th>
-          </Table.Tr>
-        </Table.Thead>
-        <Table.Tbody>
-          {users.map((u) => {
-            const isLastAdmin = u.role === 'admin' && adminCount <= 1
-            return (
-              <Table.Tr key={u.id}>
-                <Table.Td>{u.name}</Table.Td>
-                <Table.Td>{u.email}</Table.Td>
-                <Table.Td><Badge>{u.role}</Badge></Table.Td>
-                <Table.Td>
-                  <Group gap="xs">
-                    <ActionIcon variant="subtle" onClick={() => openEdit(u)}><IconEdit size={16} /></ActionIcon>
-                    <ActionIcon variant="subtle" color="red" disabled={isLastAdmin} onClick={() => setDeleteTarget(u)}><IconTrash size={16} /></ActionIcon>
-                  </Group>
-                </Table.Td>
+      <Box style={{ display: 'flex', gap: 'var(--mantine-spacing-xl)', alignItems: 'flex-start' }}>
+        <Box style={{ flex: 1, minWidth: 0 }}>
+          <Table striped highlightOnHover>
+            <Table.Thead>
+              <Table.Tr>
+                <Table.Th>Name</Table.Th>
+                <Table.Th>Email</Table.Th>
+                <Table.Th>Role</Table.Th>
+                <Table.Th w={100}>Actions</Table.Th>
               </Table.Tr>
-            )
-          })}
-          {users.length === 0 && (
-            <Table.Tr>
-              <Table.Td colSpan={4}><Text c="dimmed" ta="center">No users</Text></Table.Td>
-            </Table.Tr>
-          )}
-        </Table.Tbody>
-      </Table>
+            </Table.Thead>
+            <Table.Tbody>
+              {users.map((u) => {
+                const isLastAdmin = u.role === 'admin' && adminCount <= 1
+                return (
+                  <Table.Tr key={u.id}>
+                    <Table.Td>{u.name}</Table.Td>
+                    <Table.Td>{u.email}</Table.Td>
+                    <Table.Td><Badge>{u.role}</Badge></Table.Td>
+                    <Table.Td>
+                      <Group gap="xs">
+                        <ActionIcon variant="subtle" onClick={() => openEdit(u)}><IconEdit size={16} /></ActionIcon>
+                        <ActionIcon variant="subtle" color="red" disabled={isLastAdmin} onClick={() => setDeleteTarget(u)}><IconTrash size={16} /></ActionIcon>
+                      </Group>
+                    </Table.Td>
+                  </Table.Tr>
+                )
+              })}
+              {users.length === 0 && (
+                <Table.Tr>
+                  <Table.Td colSpan={4}><Text c="dimmed" ta="center">No users</Text></Table.Td>
+                </Table.Tr>
+              )}
+            </Table.Tbody>
+          </Table>
+        </Box>
+
+        <Paper withBorder p="lg" w={300} style={{ flexShrink: 0 }}>
+          <Title order={4} mb="md">Change my password</Title>
+          <form onSubmit={handleChangePassword}>
+            <Stack>
+              <PasswordInput
+                label="Current password"
+                value={currentPassword}
+                onChange={(e) => setCurrentPassword(e.currentTarget.value)}
+                required
+              />
+              <PasswordInput
+                label="New password"
+                value={newPassword}
+                onChange={(e) => setNewPassword(e.currentTarget.value)}
+                required
+              />
+              <PasswordInput
+                label="Confirm new password"
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.currentTarget.value)}
+                required
+              />
+              <Button type="submit" loading={loading}>Change password</Button>
+            </Stack>
+          </form>
+        </Paper>
+      </Box>
 
       {/* Create / Edit modal */}
       <Modal opened={modalOpen} onClose={() => setModalOpen(false)} title={editingId ? 'Edit user' : 'Create user'}>
@@ -179,35 +210,6 @@ export function UsersPage() {
           <Button color="red" loading={deleting} onClick={handleDelete}>Delete</Button>
         </Group>
       </Modal>
-
-      <Title order={3} mt="xl" mb="md">Change my password</Title>
-      <Paper withBorder p="lg" maw={400}>
-        <form onSubmit={handleChangePassword}>
-          <Stack>
-            <PasswordInput
-              label="Current password"
-              value={currentPassword}
-              onChange={(e) => setCurrentPassword(e.currentTarget.value)}
-              required
-            />
-            <PasswordInput
-              label="New password"
-              value={newPassword}
-              onChange={(e) => setNewPassword(e.currentTarget.value)}
-              required
-            />
-            <PasswordInput
-              label="Confirm new password"
-              value={confirmPassword}
-              onChange={(e) => setConfirmPassword(e.currentTarget.value)}
-              required
-            />
-            <Group>
-              <Button type="submit" loading={loading}>Change password</Button>
-            </Group>
-          </Stack>
-        </form>
-      </Paper>
     </>
   )
 }
