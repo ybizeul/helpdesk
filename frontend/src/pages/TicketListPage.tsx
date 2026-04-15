@@ -127,7 +127,7 @@ export const TicketListPage = forwardRef<TicketListHandle, TicketListPageProps>(
         <Group gap="xs">
           <Title order={2}>Cases</Title>
           <Tooltip label="Refresh">
-            <ActionIcon variant="white" size="sm" onClick={loadTickets}><IconRefresh size={14} /></ActionIcon>
+            <ActionIcon variant="subtle" size="sm" onClick={loadTickets}><IconRefresh size={14} /></ActionIcon>
           </Tooltip>
         </Group>
         <Group gap="sm">
