@@ -4,14 +4,13 @@ import (
 	"encoding/json"
 	"net/http"
 
-	"github.com/go-webauthn/webauthn/webauthn"
 	"github.com/helpdesk/backend/internal/store"
 )
 
-func NewRouter(db *store.DB, wan *webauthn.WebAuthn) http.Handler {
+func NewRouter(db *store.DB) http.Handler {
 	mux := http.NewServeMux()
 
-	h := &handlers{db: db, wan: wan}
+	h := &handlers{db: db}
 
 	// Tickets
 	mux.HandleFunc("GET /api/v1/tickets", h.listTickets)
@@ -67,8 +66,7 @@ func NewRouter(db *store.DB, wan *webauthn.WebAuthn) http.Handler {
 }
 
 type handlers struct {
-	db  *store.DB
-	wan *webauthn.WebAuthn
+	db *store.DB
 }
 
 func writeJSON(w http.ResponseWriter, status int, v any) {

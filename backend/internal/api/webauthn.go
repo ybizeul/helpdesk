@@ -7,6 +7,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"net/http"
+	"strings"
 	"sync"
 	"time"
 
@@ -15,6 +16,31 @@ import (
 	"github.com/helpdesk/backend/internal/models"
 	"go.mongodb.org/mongo-driver/v2/bson"
 )
+
+// webauthnForRequest builds a *webauthn.WebAuthn whose RP ID and origin
+// are derived from the incoming request so it works on any domain.
+func webauthnForRequest(r *http.Request) (*webauthn.WebAuthn, error) {
+	host := r.Host
+	// Strip port to get the RP ID (bare hostname).
+	rpID := host
+	if i := strings.LastIndex(rpID, ":"); i != -1 {
+		rpID = rpID[:i]
+	}
+	// Determine scheme.
+	scheme := "https"
+	if proto := r.Header.Get("X-Forwarded-Proto"); proto != "" {
+		scheme = proto
+	} else if r.TLS == nil {
+		scheme = "http"
+	}
+	origin := scheme + "://" + host
+
+	return webauthn.New(&webauthn.Config{
+		RPDisplayName: "Helpdesk",
+		RPID:          rpID,
+		RPOrigins:     []string{origin},
+	})
+}
 
 // In-memory challenge session store with TTL.
 var (
@@ -132,7 +158,13 @@ func (h *handlers) beginPasskeyRegistration(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	options, session, err := h.wan.BeginRegistration(wanUser,
+	wan, err := webauthnForRequest(r)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "WEBAUTHN_ERROR", err.Error())
+		return
+	}
+
+	options, session, err := wan.BeginRegistration(wanUser,
 		webauthn.WithResidentKeyRequirement(protocol.ResidentKeyRequirementRequired),
 	)
 	if err != nil {
@@ -191,7 +223,13 @@ func (h *handlers) finishPasskeyRegistration(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	credential, err := h.wan.CreateCredential(wanUser, *session, parsedResponse)
+	wan, err := webauthnForRequest(r)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "WEBAUTHN_ERROR", err.Error())
+		return
+	}
+
+	credential, err := wan.CreateCredential(wanUser, *session, parsedResponse)
 	if err != nil {
 		writeError(w, http.StatusBadRequest, "WEBAUTHN_ERROR", err.Error())
 		return
@@ -237,7 +275,13 @@ func (h *handlers) finishPasskeyRegistration(w http.ResponseWriter, r *http.Requ
 
 // POST /api/v1/auth/passkeys/login/begin (no auth required)
 func (h *handlers) beginPasskeyLogin(w http.ResponseWriter, r *http.Request) {
-	options, session, err := h.wan.BeginDiscoverableLogin()
+	wan, err := webauthnForRequest(r)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "WEBAUTHN_ERROR", err.Error())
+		return
+	}
+
+	options, session, err := wan.BeginDiscoverableLogin()
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "WEBAUTHN_ERROR", err.Error())
 		return
@@ -275,8 +319,14 @@ func (h *handlers) finishPasskeyLogin(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	wan, err := webauthnForRequest(r)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "WEBAUTHN_ERROR", err.Error())
+		return
+	}
+
 	var authenticatedUser models.User
-	credential, err := h.wan.ValidateDiscoverableLogin(
+	credential, err := wan.ValidateDiscoverableLogin(
 		func(rawID, userHandle []byte) (webauthn.User, error) {
 			userID := string(userHandle)
 			oid, err := bson.ObjectIDFromHex(userID)
