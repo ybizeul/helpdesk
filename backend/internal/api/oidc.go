@@ -5,6 +5,7 @@ import (
 	"crypto/rand"
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -13,12 +14,12 @@ import (
 	"sync"
 	"time"
 
+	coreoidc "github.com/coreos/go-oidc/v3/oidc"
 	"github.com/helpdesk/backend/internal/models"
 	"github.com/helpdesk/backend/internal/store"
 	"go.mongodb.org/mongo-driver/v2/bson"
+	"go.mongodb.org/mongo-driver/v2/mongo"
 	"golang.org/x/oauth2"
-	"golang.org/x/oauth2/clientcredentials"
-	coreoidc "github.com/coreos/go-oidc/v3/oidc"
 )
 
 type oidcDiscoveryDocument struct {
@@ -320,6 +321,9 @@ func (h *handlers) findOrCreateOIDCUser(ctx context.Context, info oidcUserInfo, 
 	if err == nil {
 		return user, nil
 	}
+	if !errors.Is(err, mongo.ErrNoDocuments) {
+		return models.User{}, err
+	}
 
 	role := mapOIDCGroupsToRole(info.Groups, mappings)
 	if role == "" {
@@ -376,6 +380,3 @@ func fetchOIDCDiscovery(ctx context.Context, endpoint string) (*oidcDiscoveryDoc
 
 	return &doc, nil
 }
-
-// Silence unused import warnings in case providers require client credentials later.
-var _ = clientcredentials.Config{}
