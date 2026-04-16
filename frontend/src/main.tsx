@@ -1,6 +1,6 @@
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
-import { MantineProvider, Tooltip, createTheme } from '@mantine/core'
+import { MantineProvider, Switch, Tooltip, createTheme } from '@mantine/core'
 import { Notifications } from '@mantine/notifications'
 import { BrowserRouter } from 'react-router-dom'
 import '@mantine/core/styles.css'
@@ -10,6 +10,12 @@ import App from './App.tsx'
 
 const theme = createTheme({
   components: {
+    Switch: Switch.extend({
+      defaultProps: {
+        // ✅ Disable withThumbIndicator if you want to use old styles
+        withThumbIndicator: false,
+      },
+    }),
     Tooltip: Tooltip.extend({
       defaultProps: {
         withArrow: true,

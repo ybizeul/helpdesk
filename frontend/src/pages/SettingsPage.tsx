@@ -13,11 +13,14 @@ import { api } from '../api/client'
 
 export function SettingsPage() {
   const [settings, setSettings] = useState<any>(null)
+  const [loading, setLoading] = useState(true)
+  const [loadError, setLoadError] = useState<string | null>(null)
   const [toolResponse, setToolResponse] = useState<string | null>(null)
   const [mailboxes, setMailboxes] = useState<any[]>([])
   const [browseOpen, setBrowseOpen] = useState(false)
   const [browseLoading, setBrowseLoading] = useState(false)
   const [browseTarget, setBrowseTarget] = useState<'imap_mailbox' | 'sent_mailbox' | 'deleted_mailbox'>('imap_mailbox')
+  const [oidcCallbackEndpoint, setOIDCCallbackEndpoint] = useState('')
 
   const signatureEditor = useEditor({
     extensions: [
@@ -31,6 +34,9 @@ export function SettingsPage() {
   })
 
   useEffect(() => {
+    setLoading(true)
+    setLoadError(null)
+
     api.settings.get().then((s: any) => {
       if (s?.email && !s.email.poll_interval_seconds) {
         s.email.poll_interval_seconds = 60
@@ -39,7 +45,15 @@ export function SettingsPage() {
       if (signatureEditor && s?.signature) {
         signatureEditor.commands.setContent(s.signature)
       }
-    }).catch(console.error)
+    }).catch((err: any) => {
+      setLoadError(err?.message || 'Failed to load settings')
+    }).finally(() => {
+      setLoading(false)
+    })
+
+    api.settings.getOIDCCallbackInfo()
+      .then((callbackInfo: any) => setOIDCCallbackEndpoint(callbackInfo?.callback_endpoint || ''))
+      .catch(() => setOIDCCallbackEndpoint(''))
   }, [signatureEditor])
 
   const saveEmail = async () => {
@@ -70,6 +84,15 @@ export function SettingsPage() {
     }
   }
 
+  const saveAuth = async () => {
+    try {
+      await api.settings.updateAuth(settings.auth || {})
+      notifications.show({ title: 'Saved', message: 'Authentication settings updated', color: 'green' })
+    } catch (e: any) {
+      notifications.show({ title: 'Error', message: e.message, color: 'red' })
+    }
+  }
+
   const browseMailboxes = async (target: 'imap_mailbox' | 'sent_mailbox' | 'deleted_mailbox' = 'imap_mailbox') => {
     setBrowseTarget(target)
     setBrowseLoading(true)
@@ -90,7 +113,9 @@ export function SettingsPage() {
     setBrowseOpen(false)
   }
 
-  if (!settings) return null
+  if (loading) return <Text c="dimmed">Loading settings...</Text>
+  if (loadError) return <Text c="red">{loadError}</Text>
+  if (!settings) return <Text c="red">Settings unavailable</Text>
 
   const updateEmail = (field: string, value: any) =>
     setSettings({ ...settings, email: { ...settings.email, [field]: value } })
@@ -98,12 +123,18 @@ export function SettingsPage() {
   const updateLLM = (field: string, value: any) =>
     setSettings({ ...settings, llm: { ...settings.llm, [field]: value } })
 
+  const updateAuth = (field: string, value: any) =>
+    setSettings({ ...settings, auth: { ...settings.auth, [field]: value } })
+
+  const callbackURL = oidcCallbackEndpoint ? new URL(oidcCallbackEndpoint, window.location.origin).toString() : ''
+
   return (
     <>
       <Title order={2} mb="lg">Settings</Title>
       <Tabs defaultValue="email">
         <Tabs.List>
           <Tabs.Tab value="email">Email (IMAP/SMTP)</Tabs.Tab>
+          <Tabs.Tab value="auth">Authentication</Tabs.Tab>
           <Tabs.Tab value="signature">Signature</Tabs.Tab>
           <Tabs.Tab value="llm">LLM</Tabs.Tab>
           {settings?.debug && <Tabs.Tab value="tools">Tools</Tabs.Tab>}
@@ -188,6 +219,46 @@ export function SettingsPage() {
                   notifications.show({ title: 'Fetch failed', message: e.message, color: 'red' })
                 }
               }}>Fetch Now</Button>
+            </Group>
+          </Stack>
+        </Tabs.Panel>
+
+        <Tabs.Panel value="auth" pt="md">
+          <Stack maw={600}>
+            <Title order={4}>OIDC</Title>
+            <Switch
+              label="Enable OIDC login"
+              checked={settings.auth?.oidc_enabled ?? false}
+              onChange={(e) => {
+                const enabled = e.currentTarget.checked
+                setSettings({
+                  ...settings,
+                  auth: {
+                    ...settings.auth,
+                    oidc_enabled: enabled,
+                    disable_local_login: enabled ? (settings.auth?.disable_local_login ?? false) : false,
+                  },
+                })
+              }}
+            />
+            <Switch
+              label="Disable Local Login"
+              description="When enabled, users are redirected directly to OIDC and local email/password login is disabled."
+              checked={settings.auth?.disable_local_login ?? false}
+              disabled={!(settings.auth?.oidc_enabled ?? false)}
+              onChange={(e) => updateAuth('disable_local_login', e.currentTarget.checked)}
+            />
+            <TextInput label="OIDC Endpoint" placeholder="https://idp.example.com/.well-known/openid-configuration" value={settings.auth?.oidc_issuer || ''} onChange={(e) => updateAuth('oidc_issuer', e.currentTarget.value)} />
+            <TextInput label="Client ID" value={settings.auth?.oidc_client_id || ''} onChange={(e) => updateAuth('oidc_client_id', e.currentTarget.value)} />
+            <PasswordInput label="Client Secret" value={settings.auth?.oidc_client_secret || ''} onChange={(e) => updateAuth('oidc_client_secret', e.currentTarget.value)} />
+            <TextInput label="Admin Group Name" description="Users in this OIDC group are assigned the admin role. Others default to agent." placeholder="helpdesk-admins" value={settings.auth?.oidc_admin_group || ''} onChange={(e) => updateAuth('oidc_admin_group', e.currentTarget.value)} />
+            <Stack gap={4}>
+              <Text size="sm" fw={500}>Callback URL</Text>
+              <Code block>{callbackURL || 'Unavailable'}</Code>
+              <Text size="xs" c="dimmed">Computed from browser URL + backend callback endpoint.</Text>
+            </Stack>
+            <Group>
+              <Button onClick={saveAuth}>Save Authentication Settings</Button>
             </Group>
           </Stack>
         </Tabs.Panel>

@@ -136,6 +136,7 @@ type LLMSettings struct {
 
 type AuthSettings struct {
 	OIDCEnabled       bool              `bson:"oidc_enabled" json:"oidc_enabled"`
+	DisableLocalLogin bool              `bson:"disable_local_login" json:"disable_local_login"`
 	OIDCIssuer        string            `bson:"oidc_issuer,omitempty" json:"oidc_issuer,omitempty"`
 	OIDCClientID      string            `bson:"oidc_client_id,omitempty" json:"oidc_client_id,omitempty"`
 	OIDCClientSecret  string            `bson:"oidc_client_secret,omitempty" json:"oidc_client_secret,omitempty"`

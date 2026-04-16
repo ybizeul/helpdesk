@@ -120,12 +120,12 @@ func (h *handlers) getOIDCLoginStatus(w http.ResponseWriter, r *http.Request) {
 
 	var s models.Settings
 	if err := h.db.Settings().FindOne(ctx, bson.M{"_id": "global"}).Decode(&s); err != nil {
-		writeJSON(w, http.StatusOK, map[string]bool{"enabled": false})
+		writeJSON(w, http.StatusOK, map[string]bool{"enabled": false, "disable_local_login": false})
 		return
 	}
 
 	enabled := s.Auth.OIDCEnabled && strings.TrimSpace(s.Auth.OIDCIssuer) != "" && strings.TrimSpace(s.Auth.OIDCClientID) != ""
-	writeJSON(w, http.StatusOK, map[string]bool{"enabled": enabled})
+	writeJSON(w, http.StatusOK, map[string]bool{"enabled": enabled, "disable_local_login": enabled && s.Auth.DisableLocalLogin})
 }
 
 func (h *handlers) oidcStart(w http.ResponseWriter, r *http.Request) {

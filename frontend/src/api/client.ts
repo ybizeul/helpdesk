@@ -83,7 +83,7 @@ export const api = {
   stats: () => request<any>('/stats'),
   login: (email: string, password: string) => request<any>('/auth/login', { method: 'POST', body: JSON.stringify({ email, password }) }),
   oidc: {
-    status: () => requestWithout401Reload<{ enabled: boolean }>('/auth/oidc/status'),
+    status: () => requestWithout401Reload<{ enabled: boolean; disable_local_login: boolean }>('/auth/oidc/status'),
     startUrl: (redirect = '/') => `${API_BASE}/auth/oidc/start?` + new URLSearchParams({ redirect }).toString(),
   },
   me: () => request<any>('/auth/me'),

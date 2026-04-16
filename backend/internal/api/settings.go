@@ -106,6 +106,9 @@ func (h *handlers) updateAuthSettings(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "INVALID_JSON", err.Error())
 		return
 	}
+	if !auth.OIDCEnabled {
+		auth.DisableLocalLogin = false
+	}
 
 	_, err := h.db.Settings().UpdateOne(ctx,
 		bson.M{"_id": "global"},
@@ -192,6 +195,14 @@ func (h *handlers) login(w http.ResponseWriter, r *http.Request) {
 	if err := readJSON(r, &body); err != nil {
 		writeError(w, http.StatusBadRequest, "INVALID_JSON", err.Error())
 		return
+	}
+
+	var settings models.Settings
+	if err := h.db.Settings().FindOne(ctx, bson.M{"_id": "global"}).Decode(&settings); err == nil {
+		if settings.Auth.OIDCEnabled && settings.Auth.DisableLocalLogin {
+			writeError(w, http.StatusForbidden, "LOCAL_LOGIN_DISABLED", "local login is disabled")
+			return
+		}
 	}
 
 	var user models.User

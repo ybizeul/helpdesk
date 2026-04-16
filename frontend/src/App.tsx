@@ -122,7 +122,6 @@ export default function App() {
   const [navOpened, { toggle: toggleNav, close: closeNav }] = useDisclosure(false)
   const [profileOpened, { open: openProfile, close: closeProfile }] = useDisclosure(false)
   const [currentUser, setCurrentUser] = useState<any>(null)
-  const isMobileHeader = useMediaQuery('(max-width: 48em)')
   const isAdmin = currentUser?.role === 'admin'
 
   useEffect(() => {
@@ -167,7 +166,7 @@ export default function App() {
 
   return (
     <AppShell
-      header={{ height: 50, collapsed: !isMobileHeader }}
+      header={{ height: 50 }}
       navbar={{ width: 220, breakpoint: 'sm', collapsed: { mobile: !navOpened } }}
       padding={0}
     >
