@@ -5,7 +5,7 @@ import Link from '@tiptap/extension-link'
 import Image from '@tiptap/extension-image'
 import Placeholder from '@tiptap/extension-placeholder'
 import { RichTextEditor } from '@mantine/tiptap'
-import { Button, Group } from '@mantine/core'
+import { Button, Group, Box } from '@mantine/core'
 import { IconNotes, IconSend, IconCircleLetterCFilled } from '@tabler/icons-react'
 import { useMediaQuery } from '@mantine/hooks'
 import '@mantine/tiptap/styles.css'
@@ -150,40 +150,39 @@ export function ReplyEditor({ onSend, onSendAndClose, onAddNote, signature }: Re
         </RichTextEditor.Toolbar>
         <RichTextEditor.Content />
       </RichTextEditor>
-      <Group justify="flex-end" m="md">
-        {isMobile ? (
-          <>
-            {onAddNote && (
-              <Button variant="light" color="red" size="sm" px="xs" onClick={handleAddNote}>
-                <IconNotes size={16} />
-              </Button>
-            )}
-            {onSendAndClose && (
-              <Button size="sm" px="xs" onClick={handleSendAndClose}>
-                <IconSend size={14} /><span style={{ fontSize: 10, margin: '0 1px' }}>+</span><IconCircleLetterCFilled size={14} />
-              </Button>
-            )}
-            <Button size="sm" px="xs" onClick={handleSend}>
-              <IconSend size={16} />
+      <Group justify="space-between" m="md">
+        <Box>
+          {onAddNote && (
+            <Button variant="light" color="red" onClick={handleAddNote} size={isMobile ? 'sm' : undefined} px={isMobile ? 'xs' : undefined}>
+              {isMobile ? <IconNotes size={16} /> : 'Add Private Note'}
             </Button>
-          </>
-        ) : (
-          <>
-            {onAddNote && (
-              <Button variant="light" color="red" onClick={handleAddNote}>
-                Add Private Note
+          )}
+        </Box>
+        <Group gap="xs">
+          {isMobile ? (
+            <>
+              {onSendAndClose && (
+                <Button size="sm" px="xs" onClick={handleSendAndClose}>
+                  <IconSend size={14} /><span style={{ fontSize: 10, margin: '0 1px' }}>+</span><IconCircleLetterCFilled size={14} />
+                </Button>
+              )}
+              <Button size="sm" px="xs" onClick={handleSend}>
+                <IconSend size={16} />
               </Button>
-            )}
-            {onSendAndClose && (
-              <Button variant="default" onClick={handleSendAndClose}>
-                Reply &amp; Close
+            </>
+          ) : (
+            <>
+              {onSendAndClose && (
+                <Button variant="default" onClick={handleSendAndClose}>
+                  Reply &amp; Close
+                </Button>
+              )}
+              <Button onClick={handleSend}>
+                Reply
               </Button>
-            )}
-            <Button onClick={handleSend}>
-              Reply
-            </Button>
-          </>
-        )}
+            </>
+          )}
+        </Group>
       </Group>
     </div>
   )

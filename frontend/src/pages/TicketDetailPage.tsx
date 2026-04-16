@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useMemo, useCallback } from 'react'
 import { useParams } from 'react-router-dom'
-import { Title, Text, Paper, Badge, Stack, Group, Box, ActionIcon, Tooltip, Alert, Button as MButton, Modal, Menu, Avatar } from '@mantine/core'
+import { Title, Text, Paper, Badge, Stack, Group, Box, ActionIcon, Tooltip, Alert, Button as MButton, Modal, Menu, Avatar, Skeleton } from '@mantine/core'
 import { IconRefresh, IconSend, IconPaperclip, IconArrowLeft } from '@tabler/icons-react'
 import { api } from '../api/client'
 import { ReplyEditor } from '../components/ReplyEditor'
@@ -190,7 +190,32 @@ export function TicketDetailPage({ ticketId: propId, onBack, onTicketUpdate }: T
     return []
   }, [ticket, settings])
 
-  if (!ticket) return <Text>Loading...</Text>
+  if (!ticket) return (
+    <Box style={{ display: 'flex', flexDirection: 'column', position: 'absolute', inset: 0 }}>
+      <Box style={{ flexShrink: 0, padding: 'var(--mantine-spacing-md)', paddingBottom: 'var(--mantine-spacing-xs)', boxShadow: '0 2px 8px rgba(0,0,0,0.15)' }}>
+        <Group gap="xs" mb={8}>
+          <Skeleton circle height={36} width={36} />
+          <Skeleton height={24} width="55%" radius="sm" />
+        </Group>
+        <Skeleton height={16} width="30%" radius="sm" />
+      </Box>
+      <Stack gap="md" p="md" style={{ flex: 1, overflowY: 'auto' }}>
+        {Array.from({ length: 3 }).map((_, i) => (
+          <Paper key={i} withBorder p={0} radius="md" style={{ overflow: 'hidden' }}>
+            <Box p="xs" style={{ background: 'light-dark(var(--mantine-color-gray-1), var(--mantine-color-dark-6))' }}>
+              <Skeleton height={12} width="25%" radius="sm" mb={6} />
+              <Skeleton height={10} width="40%" radius="sm" />
+            </Box>
+            <Box p="md">
+              <Skeleton height={12} radius="sm" mb={6} />
+              <Skeleton height={12} radius="sm" mb={6} width="85%" />
+              <Skeleton height={12} radius="sm" width="60%" />
+            </Box>
+          </Paper>
+        ))}
+      </Stack>
+    </Box>
+  )
 
   const ownerUser = users.find((u: any) => u.id === ticket.owner_id)
   const isOwned = !!ticket.owner_id
@@ -296,16 +321,19 @@ export function TicketDetailPage({ ticketId: propId, onBack, onTicketUpdate }: T
           const isOutgoing = msg.from === 'agent' || (smtpFrom && msg.from === smtpFrom)
           const displayFrom = msg.from === 'agent' ? smtpFrom || 'agent' : msg.from
           const headerBg = msg.private
-            ? 'light-dark(var(--mantine-color-red-1), var(--mantine-color-red-9))'
+            ? 'light-dark(#fff5f5, var(--mantine-color-red-7))'
             : 'light-dark(var(--mantine-color-gray-1), var(--mantine-color-dark-6))'
           return (<React.Fragment key={i}>
           <Paper withBorder p={0} radius="md" style={{ overflow: 'hidden' }}>
             <Box p="xs" style={{ background: headerBg, position: 'relative' }}>
-              <Text size="xs" c="dimmed" style={{ position: 'absolute', top: 8, right: 8 }}>{formatDate(msg.created_at)}</Text>
               {msg.private ? (
-                <Badge color="red" variant="light" size="sm">Private Note</Badge>
+                <Box style={{ display: 'flex', alignItems: 'center', minHeight: 24 }}>
+                  <Badge color="red" variant="light" size="sm">Private Note</Badge>
+                  <Text size="xs" style={{ position: 'absolute', top: '50%', transform: 'translateY(-50%)', right: 8, opacity: 0.6 }}>{formatDate(msg.created_at)}</Text>
+                </Box>
               ) : (
                 <>
+                  <Text size="xs" c="dimmed" style={{ position: 'absolute', top: 8, right: 8 }}>{formatDate(msg.created_at)}</Text>
                   {isOutgoing && !msg.send_error && (
                     <Tooltip label="Re-send">
                       <ActionIcon

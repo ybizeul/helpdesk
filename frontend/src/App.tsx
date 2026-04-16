@@ -69,7 +69,7 @@ function TicketPanes({ currentUser }: { currentUser: any }) {
       )
     }
     return (
-      <Box style={{ height: 'calc(100vh - 32px)', overflowY: 'auto' }}>
+      <Box style={{ height: 'calc(100vh - 32px)', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
         <TicketListPage
           activeTicketId={null}
           currentUser={currentUser}
