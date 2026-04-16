@@ -6,6 +6,8 @@ import Image from '@tiptap/extension-image'
 import Placeholder from '@tiptap/extension-placeholder'
 import { RichTextEditor } from '@mantine/tiptap'
 import { Button, Group } from '@mantine/core'
+import { IconNotes, IconSend, IconArchive, IconCircleLetterCFilled } from '@tabler/icons-react'
+import { useMediaQuery } from '@mantine/hooks'
 import '@mantine/tiptap/styles.css'
 
 const MAX_IMAGE_SIZE = 900
@@ -39,6 +41,7 @@ interface ReplyEditorProps {
 }
 
 export function ReplyEditor({ onSend, onSendAndClose, onAddNote, signature }: ReplyEditorProps) {
+  const isMobile = useMediaQuery('(max-width: 768px)')
   const initialContent = signature ? `<p></p><p>--</p>${signature}` : ''
   const editor = useEditor({
     extensions: [
@@ -148,19 +151,39 @@ export function ReplyEditor({ onSend, onSendAndClose, onAddNote, signature }: Re
         <RichTextEditor.Content />
       </RichTextEditor>
       <Group justify="flex-end" m="md">
-        {onAddNote && (
-          <Button variant="light" color="red" onClick={handleAddNote}>
-            Add Private Note
-          </Button>
+        {isMobile ? (
+          <>
+            {onAddNote && (
+              <Button variant="light" color="red" size="sm" px="xs" onClick={handleAddNote}>
+                <IconNotes size={16} />
+              </Button>
+            )}
+            {onSendAndClose && (
+              <Button size="sm" px="xs" onClick={handleSendAndClose}>
+                <IconSend size={14} /><span style={{ fontSize: 10, margin: '0 1px' }}>+</span><IconCircleLetterCFilled size={14} />
+              </Button>
+            )}
+            <Button size="sm" px="xs" onClick={handleSend}>
+              <IconSend size={16} />
+            </Button>
+          </>
+        ) : (
+          <>
+            {onAddNote && (
+              <Button variant="light" color="red" onClick={handleAddNote}>
+                Add Private Note
+              </Button>
+            )}
+            {onSendAndClose && (
+              <Button variant="default" onClick={handleSendAndClose}>
+                Reply &amp; Close
+              </Button>
+            )}
+            <Button onClick={handleSend}>
+              Reply
+            </Button>
+          </>
         )}
-        {onSendAndClose && (
-          <Button variant="default" onClick={handleSendAndClose}>
-            Reply &amp; Close
-          </Button>
-        )}
-        <Button onClick={handleSend}>
-          Reply
-        </Button>
       </Group>
     </div>
   )
