@@ -55,6 +55,7 @@ export const api = {
     bulk: (ids: string[], action: string, extra?: Record<string, string>) => request<any>('/tickets/bulk', { method: 'POST', body: JSON.stringify({ ids, action, ...extra }) }),
     merge: (ids: string[]) => request<any>('/tickets/merge', { method: 'POST', body: JSON.stringify({ ids }) }),
     reply: (id: string, msg: any) => request<any>(`/tickets/${id}/reply`, { method: 'POST', body: JSON.stringify(msg) }),
+    note: (id: string, msg: { body: string; html: string }) => request<void>(`/tickets/${id}/note`, { method: 'POST', body: JSON.stringify(msg) }),
     retrySend: (id: string, messageIndex: number) => request<any>(`/tickets/${id}/retry-send`, { method: 'POST', body: JSON.stringify({ message_index: messageIndex }) }),
     assign: (id: string, assigneeId: string) => request<void>(`/tickets/${id}/assign`, { method: 'PUT', body: JSON.stringify({ assignee_id: assigneeId }) }),
     claim: (id: string) => request<void>(`/tickets/${id}/claim`, { method: 'PUT' }),

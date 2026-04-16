@@ -34,10 +34,11 @@ function resizeImage(dataUrl: string): Promise<string> {
 interface ReplyEditorProps {
   onSend: (html: string, text: string) => void
   onSendAndClose?: (html: string, text: string) => void
+  onAddNote?: (html: string, text: string) => void
   signature?: string
 }
 
-export function ReplyEditor({ onSend, onSendAndClose, signature }: ReplyEditorProps) {
+export function ReplyEditor({ onSend, onSendAndClose, onAddNote, signature }: ReplyEditorProps) {
   const initialContent = signature ? `<p></p><p>--</p>${signature}` : ''
   const editor = useEditor({
     extensions: [
@@ -112,6 +113,14 @@ export function ReplyEditor({ onSend, onSendAndClose, signature }: ReplyEditorPr
     onSendAndClose(html, text)
   }
 
+  const handleAddNote = () => {
+    if (!editor || editor.isEmpty || !onAddNote) return
+    const html = editor.getHTML()
+    const text = editor.getText()
+    editor.commands.setContent(initialContent)
+    onAddNote(html, text)
+  }
+
   return (
     <div>
       <RichTextEditor editor={editor} styles={{ root: { border: 'none', borderRadius: 0 }, toolbar: { borderTop: '1px solid var(--mantine-color-default-border)', borderRadius: 0 } }}>
@@ -139,6 +148,11 @@ export function ReplyEditor({ onSend, onSendAndClose, signature }: ReplyEditorPr
         <RichTextEditor.Content />
       </RichTextEditor>
       <Group justify="flex-end" m="md">
+        {onAddNote && (
+          <Button variant="light" color="red" onClick={handleAddNote}>
+            Add Private Note
+          </Button>
+        )}
         {onSendAndClose && (
           <Button variant="default" onClick={handleSendAndClose}>
             Send Reply &amp; Close

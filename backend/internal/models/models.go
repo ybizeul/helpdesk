@@ -53,6 +53,7 @@ type Message struct {
 	RawEmail    []byte              `bson:"raw_email,omitempty" json:"-"`
 	Attachments []MessageAttachment `bson:"attachments,omitempty" json:"attachments,omitempty"`
 	SendError   string              `bson:"send_error,omitempty" json:"send_error,omitempty"`
+	Private     bool                `bson:"private,omitempty" json:"private,omitempty"`
 	CreatedAt   time.Time           `bson:"created_at" json:"created_at"`
 }
 

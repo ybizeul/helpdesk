@@ -21,6 +21,7 @@ func NewRouter(db *store.DB) http.Handler {
 	mux.HandleFunc("PUT /api/v1/tickets/{id}", h.updateTicket)
 	mux.HandleFunc("DELETE /api/v1/tickets/{id}", h.deleteTicket)
 	mux.HandleFunc("POST /api/v1/tickets/{id}/reply", h.replyTicket)
+	mux.HandleFunc("POST /api/v1/tickets/{id}/note", h.addNote)
 	mux.HandleFunc("POST /api/v1/tickets/{id}/retry-send", h.retrySend)
 	mux.HandleFunc("PUT /api/v1/tickets/{id}/assign", h.assignTicket)
 	mux.HandleFunc("PUT /api/v1/tickets/{id}/claim", h.claimTicket)

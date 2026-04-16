@@ -113,6 +113,14 @@ export function TicketDetailPage({ ticketId: propId, onBack, onTicketUpdate }: T
     api.settings.get().then((s: any) => { setSettings(s); setSignature(s?.signature || '') }).catch(() => {})
   }, [id])
 
+  const handleAddNote = async (html: string, text: string) => {
+    if (!id) return
+    await api.tickets.note(id, { body: text, html })
+    notifications.show({ title: 'Note added', message: 'Private note saved', color: 'green' })
+    api.tickets.get(id).then(setTicket)
+    onTicketUpdate?.()
+  }
+
   const handleSend = async (html: string, text: string) => {
     if (!id) return
     const result = await api.tickets.reply(id, { body: text, html })
@@ -219,39 +227,48 @@ export function TicketDetailPage({ ticketId: propId, onBack, onTicketUpdate }: T
               <Text size="sm" mb={2}><Text span fw={600}>Cc:</Text> {replyCc.join(', ')}</Text>
             )}
           </Box>
-          <ReplyEditor onSend={handleSend} onSendAndClose={ticket.status !== 'closed' ? handleSendAndClose : undefined} signature={signature} />
+          <ReplyEditor onSend={handleSend} onSendAndClose={ticket.status !== 'closed' ? handleSendAndClose : undefined} onAddNote={handleAddNote} signature={signature} />
         </Paper>
         {ticket.messages?.map((msg: any, i: number) => ({ msg, i })).reverse().map(({ msg, i }: { msg: any; i: number }) => {
           const smtpFrom = settings?.email?.smtp_from
           const isOutgoing = msg.from === 'agent' || (smtpFrom && msg.from === smtpFrom)
           const displayFrom = msg.from === 'agent' ? smtpFrom || 'agent' : msg.from
+          const headerBg = msg.private
+            ? 'light-dark(var(--mantine-color-red-1), var(--mantine-color-red-9))'
+            : 'light-dark(var(--mantine-color-gray-1), var(--mantine-color-dark-6))'
           return (<React.Fragment key={i}>
           <Paper withBorder p={0} radius="md" style={{ overflow: 'hidden' }}>
-            <Box p="xs" style={{ background: 'light-dark(var(--mantine-color-gray-1), var(--mantine-color-dark-6))', position: 'relative' }}>
+            <Box p="xs" style={{ background: headerBg, position: 'relative' }}>
               <Text size="xs" c="dimmed" style={{ position: 'absolute', top: 8, right: 8 }}>{formatDate(msg.created_at)}</Text>
-              {isOutgoing && !msg.send_error && (
-                <Tooltip label="Re-send">
-                  <ActionIcon
-                    variant="default"
-                    style={{ position: 'absolute', bottom: 8, right: 8 }}
-                    onClick={() => { setResendIdx(i); openResend() }}
-                  >
-                    <IconSend size={14} />
-                  </ActionIcon>
-                </Tooltip>
-              )}
-              {msg.subject && (
-                <Text size="sm" mb={2}><Text span fw={600}>Subject:</Text> {msg.subject}</Text>
-              )}
-              <Group gap="xs" mb={2}>
-                <Text size="sm"><Text span fw={600}>From:</Text> <Text span c={msg.from === 'agent' ? 'dimmed' : undefined}>{displayFrom}</Text></Text>
-                {msg.send_error && <Badge color="red" size="sm" variant="light">Unsent</Badge>}
-              </Group>
-              {msg.to?.length > 0 && (
-                <Text size="sm" mb={2}><Text span fw={600}>To:</Text> {msg.to.join(', ')}</Text>
-              )}
-              {msg.cc?.length > 0 && (
-                <Text size="sm" mb={2}><Text span fw={600}>Cc:</Text> {msg.cc.join(', ')}</Text>
+              {msg.private ? (
+                <Badge color="red" variant="light" size="sm">Private Note</Badge>
+              ) : (
+                <>
+                  {isOutgoing && !msg.send_error && (
+                    <Tooltip label="Re-send">
+                      <ActionIcon
+                        variant="default"
+                        style={{ position: 'absolute', bottom: 8, right: 8 }}
+                        onClick={() => { setResendIdx(i); openResend() }}
+                      >
+                        <IconSend size={14} />
+                      </ActionIcon>
+                    </Tooltip>
+                  )}
+                  {msg.subject && (
+                    <Text size="sm" mb={2}><Text span fw={600}>Subject:</Text> {msg.subject}</Text>
+                  )}
+                  <Group gap="xs" mb={2}>
+                    <Text size="sm"><Text span fw={600}>From:</Text> <Text span c={msg.from === 'agent' ? 'dimmed' : undefined}>{displayFrom}</Text></Text>
+                    {msg.send_error && <Badge color="red" size="sm" variant="light">Unsent</Badge>}
+                  </Group>
+                  {msg.to?.length > 0 && (
+                    <Text size="sm" mb={2}><Text span fw={600}>To:</Text> {msg.to.join(', ')}</Text>
+                  )}
+                  {msg.cc?.length > 0 && (
+                    <Text size="sm" mb={2}><Text span fw={600}>Cc:</Text> {msg.cc.join(', ')}</Text>
+                  )}
+                </>
               )}
             </Box>
             <Box p="md">
@@ -297,7 +314,7 @@ export function TicketDetailPage({ ticketId: propId, onBack, onTicketUpdate }: T
                 )}
               </Group>
             )}
-            <MessageBody msg={msg} isOutgoing={isOutgoing} />
+            <MessageBody msg={msg} isOutgoing={isOutgoing || msg.private} />
             {msg.attachments?.some((att: any) => att.content_type?.startsWith('image/')) && (
               <Stack gap="xs" mt="sm">
                 {msg.attachments.map((att: any, j: number) =>

@@ -501,6 +501,49 @@ func (h *handlers) changeTicketStatus(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNoContent)
 }
 
+func (h *handlers) addNote(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	id := r.PathValue("id")
+
+	oid, err := bson.ObjectIDFromHex(id)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "INVALID_ID", "invalid ticket ID format")
+		return
+	}
+
+	var body struct {
+		Body string `json:"body"`
+		HTML string `json:"html"`
+	}
+	if err := readJSON(r, &body); err != nil {
+		writeError(w, http.StatusBadRequest, "INVALID_JSON", err.Error())
+		return
+	}
+
+	claims := ctx.Value(claimsKey).(*jwtClaims)
+	msg := models.Message{
+		From:      claims.Sub,
+		Body:      body.Body,
+		HTML:      body.HTML,
+		Private:   true,
+		CreatedAt: time.Now(),
+	}
+
+	result, err := h.db.Tickets().UpdateByID(ctx, oid, bson.M{
+		"$push": bson.M{"messages": msg},
+		"$set":  bson.M{"updated_at": time.Now()},
+	})
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "DB_ERROR", err.Error())
+		return
+	}
+	if result.MatchedCount == 0 {
+		writeError(w, http.StatusNotFound, "TICKET_NOT_FOUND", "ticket not found")
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
+}
+
 func (h *handlers) downloadAttachment(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	id := r.PathValue("id")
