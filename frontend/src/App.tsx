@@ -189,7 +189,7 @@ export default function App() {
       <AppShell.Navbar>
         <AppNavbar onLogout={handleLogout} onNavigate={closeNav} user={currentUser} onOpenProfile={openProfile} siteName={siteName} />
       </AppShell.Navbar>
-      <AppShell.Main>
+      <AppShell.Main style={{ overflow: 'hidden' }}>
         <Routes>
           <Route path="/" element={<Navigate to="/tickets" replace />} />
           <Route path="/dashboard" element={<Box p="md"><DashboardPage /></Box>} />

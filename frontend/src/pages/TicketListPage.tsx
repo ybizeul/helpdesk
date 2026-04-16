@@ -172,6 +172,19 @@ export const TicketListPage = forwardRef<TicketListHandle, TicketListPageProps>(
     touchStartY.current = 0
   }, [pullY])
 
+  // Non-passive touchmove to block browser native pull-to-refresh when pulling from top
+  useEffect(() => {
+    const el = scrollRef.current
+    if (!el) return
+    const handler = (e: TouchEvent) => {
+      if (el.scrollTop === 0 && e.touches[0].clientY > touchStartY.current) {
+        e.preventDefault()
+      }
+    }
+    el.addEventListener('touchmove', handler, { passive: false })
+    return () => el.removeEventListener('touchmove', handler)
+  }, [])
+
   useEffect(() => {
     api.users.list().then((users) => {
       const map: Record<string, any> = {}

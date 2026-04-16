@@ -1,3 +1,8 @@
 .ProseMirror pre {
   background-color: var(--mantine-color-gray-2) !important;
 }
+
+html, body, #root {
+  overscroll-behavior: none;
+  height: 100%;
+}
