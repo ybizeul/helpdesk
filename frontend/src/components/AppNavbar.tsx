@@ -1,4 +1,4 @@
-import { NavLink, Stack, Text, Avatar, Menu, Group, UnstyledButton } from '@mantine/core'
+import { Stack, Text, Avatar, Menu, Group, UnstyledButton, Box } from '@mantine/core'
 import { useLocation, useNavigate } from 'react-router-dom'
 import {
   IconDashboard,
@@ -62,17 +62,28 @@ export function AppNavbar({ onLogout, onNavigate, user, onOpenProfile, siteName 
           </Menu>
           <Text fw={700} size="lg">{user?.name || siteName}</Text>
         </Group>
-        {visibleLinks.map((link) => (
-          <NavLink
-            key={link.to}
-            component="button"
-            label={link.label}
-            leftSection={<link.icon size={18} />}
-            active={location.pathname.startsWith(link.to)}
-            onClick={() => handleNav(link.to)}
-            style={{ borderRadius: 'var(--mantine-radius-sm)', width: '100%' }}
-          />
-        ))}
+        {visibleLinks.map((link) => {
+          const active = location.pathname.startsWith(link.to)
+          return (
+            <UnstyledButton
+              key={link.to}
+              onClick={() => handleNav(link.to)}
+              style={{
+                display: 'flex', alignItems: 'center', gap: 10,
+                width: '100%', padding: '8px 12px',
+                borderRadius: 'var(--mantine-radius-sm)',
+                fontWeight: active ? 600 : 400,
+                background: active ? 'var(--mantine-primary-color-light)' : undefined,
+                color: active ? 'var(--mantine-primary-color-filled)' : undefined,
+              }}
+            >
+              <Box style={{ color: active ? 'var(--mantine-primary-color-filled)' : 'var(--mantine-color-dimmed)', display: 'flex' }}>
+                <link.icon size={18} />
+              </Box>
+              <Text size="sm" fw={active ? 600 : 400}>{link.label}</Text>
+            </UnstyledButton>
+          )
+        })}
       </div>
     </Stack>
   )
