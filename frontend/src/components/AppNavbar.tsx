@@ -21,9 +21,10 @@ interface AppNavbarProps {
   onNavigate?: () => void
   user?: { id: string; name: string; email: string; role: string; avatar?: string } | null
   onOpenProfile?: () => void
+  siteName?: string
 }
 
-export function AppNavbar({ onLogout, onNavigate, user, onOpenProfile }: AppNavbarProps) {
+export function AppNavbar({ onLogout, onNavigate, user, onOpenProfile, siteName = 'Helpdesk' }: AppNavbarProps) {
   const location = useLocation()
   const navigate = useNavigate()
   const isAdmin = user?.role === 'admin'
@@ -59,7 +60,7 @@ export function AppNavbar({ onLogout, onNavigate, user, onOpenProfile }: AppNavb
               </Menu.Item>
             </Menu.Dropdown>
           </Menu>
-          <Text fw={700} size="lg">{user?.name || 'Helpdesk'}</Text>
+          <Text fw={700} size="lg">{user?.name || siteName}</Text>
         </Group>
         {visibleLinks.map((link) => (
           <NavLink

@@ -11,7 +11,7 @@ import Placeholder from '@tiptap/extension-placeholder'
 import { RichTextEditor } from '@mantine/tiptap'
 import { api } from '../api/client'
 
-export function SettingsPage() {
+export function SettingsPage({ onSiteNameChange }: { onSiteNameChange?: (name: string) => void }) {
   const [settings, setSettings] = useState<any>(null)
   const [loading, setLoading] = useState(true)
   const [loadError, setLoadError] = useState<string | null>(null)
@@ -55,6 +55,16 @@ export function SettingsPage() {
       .then((callbackInfo: any) => setOIDCCallbackEndpoint(callbackInfo?.callback_endpoint || ''))
       .catch(() => setOIDCCallbackEndpoint(''))
   }, [signatureEditor])
+
+  const saveGeneral = async () => {
+    try {
+      await api.settings.updateGeneral({ site_name: settings.site_name || '' })
+      onSiteNameChange?.(settings.site_name || '')
+      notifications.show({ title: 'Saved', message: 'General settings updated', color: 'green' })
+    } catch (e: any) {
+      notifications.show({ title: 'Error', message: e.message, color: 'red' })
+    }
+  }
 
   const saveEmail = async () => {
     try {
@@ -131,14 +141,30 @@ export function SettingsPage() {
   return (
     <>
       <Title order={2} mb="lg">Settings</Title>
-      <Tabs defaultValue="email">
+      <Tabs defaultValue="general">
         <Tabs.List>
+          <Tabs.Tab value="general">General</Tabs.Tab>
           <Tabs.Tab value="email">Email (IMAP/SMTP)</Tabs.Tab>
           <Tabs.Tab value="auth">Authentication</Tabs.Tab>
           <Tabs.Tab value="signature">Signature</Tabs.Tab>
           <Tabs.Tab value="llm">LLM</Tabs.Tab>
           {settings?.debug && <Tabs.Tab value="tools">Tools</Tabs.Tab>}
         </Tabs.List>
+
+        <Tabs.Panel value="general" pt="md">
+          <Stack maw={500}>
+            <TextInput
+              label="Site name"
+              description="Displayed in the top bar and navbar"
+              placeholder="Helpdesk"
+              value={settings.site_name || ''}
+              onChange={(e) => setSettings({ ...settings, site_name: e.currentTarget.value })}
+            />
+            <Group>
+              <Button onClick={saveGeneral}>Save General Settings</Button>
+            </Group>
+          </Stack>
+        </Tabs.Panel>
 
         <Tabs.Panel value="email" pt="md">
           <Stack maw={500}>

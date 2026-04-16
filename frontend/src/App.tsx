@@ -122,7 +122,12 @@ export default function App() {
   const [navOpened, { toggle: toggleNav, close: closeNav }] = useDisclosure(false)
   const [profileOpened, { open: openProfile, close: closeProfile }] = useDisclosure(false)
   const [currentUser, setCurrentUser] = useState<any>(null)
+  const [siteName, setSiteName] = useState('Helpdesk')
   const isAdmin = currentUser?.role === 'admin'
+
+  useEffect(() => {
+    api.settings.getPublic().then(s => { if (s.site_name) setSiteName(s.site_name) }).catch(() => {})
+  }, [])
 
   useEffect(() => {
     const url = new URL(window.location.href)
@@ -173,11 +178,11 @@ export default function App() {
       <AppShell.Header>
         <Group h="100%" px="md">
           <Burger opened={navOpened} onClick={toggleNav} size="sm" hiddenFrom="sm" />
-          <Text fw={700} size="lg">Helpdesk</Text>
+          <Text fw={700} size="lg">{siteName}</Text>
         </Group>
       </AppShell.Header>
       <AppShell.Navbar>
-        <AppNavbar onLogout={handleLogout} onNavigate={closeNav} user={currentUser} onOpenProfile={openProfile} />
+        <AppNavbar onLogout={handleLogout} onNavigate={closeNav} user={currentUser} onOpenProfile={openProfile} siteName={siteName} />
       </AppShell.Navbar>
       <AppShell.Main>
         <Routes>
@@ -186,7 +191,7 @@ export default function App() {
           <Route path="/tickets" element={<TicketPanes currentUser={currentUser} />} />
           <Route path="/tickets/:id" element={<TicketPanes currentUser={currentUser} />} />
           <Route path="/users" element={isAdmin ? <Box p="md"><UsersPage /></Box> : <Navigate to="/tickets" replace />} />
-          <Route path="/settings" element={isAdmin ? <Box p="md"><SettingsPage /></Box> : <Navigate to="/tickets" replace />} />
+          <Route path="/settings" element={isAdmin ? <Box p="md"><SettingsPage onSiteNameChange={setSiteName} /></Box> : <Navigate to="/tickets" replace />} />
         </Routes>
       </AppShell.Main>
       <ProfileModal opened={profileOpened} onClose={closeProfile} user={currentUser} onAvatarChange={(avatar) => setCurrentUser((u: any) => u ? { ...u, avatar } : u)} onLocaleChange={(locale) => setCurrentUser((u: any) => u ? { ...u, locale } : u)} />

@@ -248,7 +248,8 @@ func authMiddleware(next http.Handler) http.Handler {
 			r.URL.Path == "/api/v1/auth/oidc/start" ||
 			r.URL.Path == "/api/v1/auth/oidc/callback" ||
 			r.URL.Path == "/api/v1/auth/passkeys/login/begin" ||
-			r.URL.Path == "/api/v1/auth/passkeys/login/finish" {
+			r.URL.Path == "/api/v1/auth/passkeys/login/finish" ||
+			r.URL.Path == "/api/v1/settings/general/public" {
 			next.ServeHTTP(w, r)
 			return
 		}

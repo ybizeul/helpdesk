@@ -147,6 +147,7 @@ type AuthSettings struct {
 
 type Settings struct {
 	ID            string        `bson:"_id" json:"id"`
+	SiteName      string        `bson:"site_name,omitempty" json:"site_name,omitempty"`
 	Email         EmailSettings `bson:"email" json:"email"`
 	LLM           LLMSettings   `bson:"llm" json:"llm"`
 	Auth          AuthSettings  `bson:"auth" json:"auth"`
