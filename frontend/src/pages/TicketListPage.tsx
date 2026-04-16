@@ -1,6 +1,6 @@
 import { useEffect, useState, useRef, useCallback, useImperativeHandle, forwardRef } from 'react'
-import { Title, Table, Badge, Group, Text, Checkbox, Button, Tooltip, Menu, ActionIcon, Stack, Box, Avatar, Skeleton } from '@mantine/core'
-import { IconTrash, IconEye, IconEyeOff, IconCircle, IconRefresh, IconArrowMerge, IconFilter } from '@tabler/icons-react'
+import { Title, Table, Badge, Group, Text, Checkbox, Button, Tooltip, Menu, ActionIcon, Stack, Box, Avatar, Skeleton, Loader } from '@mantine/core'
+import { IconTrash, IconEye, IconEyeOff, IconCircle, IconRefresh, IconArrowMerge, IconFilter, IconArrowDown } from '@tabler/icons-react'
 import { useMediaQuery } from '@mantine/hooks'
 import { notifications } from '@mantine/notifications'
 import { api } from '../api/client'
@@ -145,6 +145,33 @@ export const TicketListPage = forwardRef<TicketListHandle, TicketListPageProps>(
     loadTickets()
   }, [loadTickets])
 
+  // Pull-to-refresh
+  const scrollRef = useRef<HTMLDivElement>(null)
+  const touchStartY = useRef(0)
+  const [pullY, setPullY] = useState(0)
+  const PULL_THRESHOLD = 65
+  const fetchAndRefreshRef = useRef(fetchAndRefresh)
+  useEffect(() => { fetchAndRefreshRef.current = fetchAndRefresh }, [fetchAndRefresh])
+
+  const onTouchStart = useCallback((e: React.TouchEvent) => {
+    if (scrollRef.current?.scrollTop !== 0) return
+    touchStartY.current = e.touches[0].clientY
+  }, [])
+
+  const onTouchMove = useCallback((e: React.TouchEvent) => {
+    if (!touchStartY.current) return
+    if ((scrollRef.current?.scrollTop ?? 0) > 0) { touchStartY.current = 0; return }
+    const delta = e.touches[0].clientY - touchStartY.current
+    if (delta <= 0) { setPullY(0); return }
+    setPullY(Math.min(delta * 0.45, PULL_THRESHOLD + 20))
+  }, [])
+
+  const onTouchEnd = useCallback(() => {
+    if (pullY >= PULL_THRESHOLD) fetchAndRefreshRef.current()
+    setPullY(0)
+    touchStartY.current = 0
+  }, [pullY])
+
   useEffect(() => {
     api.users.list().then((users) => {
       const map: Record<string, any> = {}
@@ -196,11 +223,34 @@ export const TicketListPage = forwardRef<TicketListHandle, TicketListPageProps>(
       <Group justify="space-between" style={{ flexShrink: 0, padding: isMobile ? `var(--mantine-spacing-xs) var(--mantine-spacing-md)` : `0 0 var(--mantine-spacing-xs)`, borderBottom: '1px solid var(--mantine-color-default-border)' }}>
         <Group gap="xs">
           <Title order={2}>Cases</Title>
+          {!isMobile && (
           <Tooltip label="Fetch emails &amp; refresh">
             <ActionIcon variant="subtle" size="sm" loading={fetching} onClick={fetchAndRefresh}><IconRefresh size={14} /></ActionIcon>
           </Tooltip>
+          )}
         </Group>
         <Group gap="sm">
+          {isMobile && selected.size === 0 && (
+            <Menu shadow="md" width={160}>
+              <Menu.Target>
+                <ActionIcon variant={statusFilter !== 'all_open' ? 'light' : 'subtle'} color={statusFilter !== 'all_open' ? 'blue' : undefined} size="sm">
+                  <IconFilter size={14} />
+                </ActionIcon>
+              </Menu.Target>
+              <Menu.Dropdown>
+                {(['all_open', 'all', 'unassigned', 'active', 'waiting', 'closed', 'parked'] as StatusFilter[]).map((f) => (
+                  <Menu.Item
+                    key={f}
+                    fw={statusFilter === f ? 700 : undefined}
+                    leftSection={f !== 'all_open' && f !== 'all' ? <Badge size="xs" color={statusColors[f] || 'gray'} circle /> : undefined}
+                    onClick={() => setStatusFilter(f)}
+                  >
+                    {statusFilterLabels[f]}
+                  </Menu.Item>
+                ))}
+              </Menu.Dropdown>
+            </Menu>
+          )}
           {selected.size > 0 && (
             <>
               <Text size="sm" c="dimmed">{selected.size} selected</Text>
@@ -246,7 +296,32 @@ export const TicketListPage = forwardRef<TicketListHandle, TicketListPageProps>(
           )}
         </Group>
       </Group>
-      <Box style={{ flex: 1, overflowY: 'auto', minHeight: 0 }}>
+      <Box
+        ref={scrollRef}
+        style={{ flex: 1, overflowY: 'auto', minHeight: 0, position: 'relative' }}
+        onTouchStart={isMobile ? onTouchStart : undefined}
+        onTouchMove={isMobile ? onTouchMove : undefined}
+        onTouchEnd={isMobile ? onTouchEnd : undefined}
+      >
+        {isMobile && (pullY > 0 || fetching) && (
+          <Box style={{
+            position: 'absolute', top: 0, left: 0, right: 0, zIndex: 10,
+            height: fetching ? PULL_THRESHOLD : pullY,
+            display: 'flex', alignItems: 'flex-end', justifyContent: 'center',
+            paddingBottom: 8,
+            transition: fetching ? 'height 0.2s ease' : undefined,
+            background: 'var(--mantine-color-body)',
+            borderBottom: '1px solid var(--mantine-color-default-border)',
+          }}>
+            {fetching
+              ? <Loader size="xs" />
+              : <IconArrowDown size={18} style={{ opacity: 0.4, transform: pullY >= PULL_THRESHOLD ? 'rotate(180deg)' : undefined, transition: 'transform 0.15s' }} />
+            }
+          </Box>
+        )}
+        {isMobile && (pullY > 0 || fetching) && (
+          <Box style={{ height: fetching ? PULL_THRESHOLD : pullY, transition: fetching ? 'height 0.2s ease' : undefined }} />
+        )}
       {isMobile ? (
         <Stack gap={0}>
           {loading ? (
