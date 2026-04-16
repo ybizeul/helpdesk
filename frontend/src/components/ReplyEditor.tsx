@@ -155,11 +155,11 @@ export function ReplyEditor({ onSend, onSendAndClose, onAddNote, signature }: Re
         )}
         {onSendAndClose && (
           <Button variant="default" onClick={handleSendAndClose}>
-            Send Reply &amp; Close
+            Reply &amp; Close
           </Button>
         )}
         <Button onClick={handleSend}>
-          Send Reply
+          Reply
         </Button>
       </Group>
     </div>
