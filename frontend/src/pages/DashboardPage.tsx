@@ -14,7 +14,7 @@ export function DashboardPage() {
   return (
     <>
       <Title order={2} mb="lg">Dashboard</Title>
-      <SimpleGrid cols={{ base: 1, sm: 2, md: 5 }}>
+      <SimpleGrid cols={{ base: 1, sm: 2, md: 6 }}>
         <Paper withBorder p="md" radius="md">
           <Text c="dimmed" size="sm">Total</Text>
           <Text size="xl" fw={700}>{stats.total}</Text>
@@ -33,7 +33,11 @@ export function DashboardPage() {
         </Paper>
         <Paper withBorder p="md" radius="md">
           <Text c="dimmed" size="sm">Closed</Text>
-          <Text size="xl" fw={700} c="gray">{stats.closed}</Text>
+          <Text size="xl" fw={700} c="dark">{stats.closed}</Text>
+        </Paper>
+        <Paper withBorder p="md" radius="md">
+          <Text c="dimmed" size="sm">Parked</Text>
+          <Text size="xl" fw={700} c="#6c757d">{stats.parked}</Text>
         </Paper>
       </SimpleGrid>
     </>

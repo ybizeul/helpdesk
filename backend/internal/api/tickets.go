@@ -85,7 +85,7 @@ func (h *handlers) listTickets(w http.ResponseWriter, r *http.Request) {
 	if s := r.URL.Query().Get("status"); s != "" {
 		filter["status"] = s
 	} else if r.URL.Query().Get("include_closed") == "" {
-		filter["status"] = bson.M{"$ne": "closed"}
+		filter["status"] = bson.M{"$nin": bson.A{"closed", "parked"}}
 	}
 	if a := r.URL.Query().Get("assignee_id"); a != "" {
 		filter["assignee_id"] = a
@@ -101,6 +101,7 @@ func (h *handlers) listTickets(w http.ResponseWriter, r *http.Request) {
 					bson.M{"case": bson.M{"$eq": bson.A{"$status", "active"}}, "then": 1},
 					bson.M{"case": bson.M{"$eq": bson.A{"$status", "waiting"}}, "then": 2},
 					bson.M{"case": bson.M{"$eq": bson.A{"$status", "closed"}}, "then": 3},
+					bson.M{"case": bson.M{"$eq": bson.A{"$status", "parked"}}, "then": 4},
 				},
 				"default": 4,
 			}},

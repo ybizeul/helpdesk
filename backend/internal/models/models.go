@@ -11,6 +11,7 @@ const (
 	TicketStatusActive     TicketStatus = "active"
 	TicketStatusWaiting    TicketStatus = "waiting"
 	TicketStatusClosed     TicketStatus = "closed"
+	TicketStatusParked     TicketStatus = "parked"
 )
 
 type TicketPriority string

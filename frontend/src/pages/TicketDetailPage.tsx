@@ -12,6 +12,7 @@ const statusColors: Record<string, string> = {
   active: 'orange',
   waiting: 'green',
   closed: 'dark',
+  parked: '#6c757d',
 }
 
 const avatarColors = ['red', 'pink', 'grape', 'violet', 'indigo', 'blue', 'cyan', 'teal', 'green', 'lime', 'yellow', 'orange']
@@ -198,7 +199,7 @@ export function TicketDetailPage({ ticketId: propId, onBack, onTicketUpdate }: T
               <Badge color={statusColors[ticket.status] || 'gray'} size="lg" style={{ cursor: 'pointer' }}>{ticket.status}</Badge>
             </Menu.Target>
             <Menu.Dropdown>
-              {(['unassigned', 'active', 'waiting', 'closed'] as const).map(s => (
+              {(['unassigned', 'active', 'waiting', 'closed', 'parked'] as const).map(s => (
                 <Menu.Item key={s} disabled={ticket.status === s} leftSection={<Badge color={statusColors[s]} size="xs" circle />} onClick={() => handleSetStatus(s)}>
                   {s.charAt(0).toUpperCase() + s.slice(1)}
                 </Menu.Item>

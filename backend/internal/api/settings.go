@@ -216,6 +216,7 @@ func (h *handlers) getStats(w http.ResponseWriter, r *http.Request) {
 	active, _ := h.db.Tickets().CountDocuments(ctx, bson.M{"status": "active"})
 	waiting, _ := h.db.Tickets().CountDocuments(ctx, bson.M{"status": "waiting"})
 	closed, _ := h.db.Tickets().CountDocuments(ctx, bson.M{"status": "closed"})
+	parked, _ := h.db.Tickets().CountDocuments(ctx, bson.M{"status": "parked"})
 
 	writeJSON(w, http.StatusOK, map[string]int64{
 		"total":      total,
@@ -223,6 +224,7 @@ func (h *handlers) getStats(w http.ResponseWriter, r *http.Request) {
 		"active":     active,
 		"waiting":    waiting,
 		"closed":     closed,
+		"parked":     parked,
 	})
 }
 

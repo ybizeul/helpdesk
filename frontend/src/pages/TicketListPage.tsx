@@ -10,6 +10,7 @@ const statusColors: Record<string, string> = {
   active: 'orange',
   waiting: 'green',
   closed: 'dark',
+  parked: '#6c757d',
 }
 
 const statusShort: Record<string, string> = {
@@ -17,9 +18,10 @@ const statusShort: Record<string, string> = {
   active: 'A',
   waiting: 'W',
   closed: 'C',
+  parked: 'P',
 }
 
-type StatusFilter = 'all_open' | 'all' | 'unassigned' | 'active' | 'waiting' | 'closed'
+type StatusFilter = 'all_open' | 'all' | 'unassigned' | 'active' | 'waiting' | 'closed' | 'parked'
 
 const statusFilterLabels: Record<StatusFilter, string> = {
   all_open: 'All open',
@@ -28,6 +30,7 @@ const statusFilterLabels: Record<StatusFilter, string> = {
   active: 'Active',
   waiting: 'Waiting',
   closed: 'Closed',
+  parked: 'Parked',
 }
 
 function getFilterParams(filter: StatusFilter): Record<string, string> {
@@ -233,6 +236,7 @@ export const TicketListPage = forwardRef<TicketListHandle, TicketListPageProps>(
                   <Menu.Item leftSection={<Badge color="orange" size="xs" circle />} onClick={() => bulkAction('set_status', { status: 'active' })}>Active</Menu.Item>
                   <Menu.Item leftSection={<Badge color="green" size="xs" circle />} onClick={() => bulkAction('set_status', { status: 'waiting' })}>Waiting</Menu.Item>
                   <Menu.Item leftSection={<Badge color="dark" size="xs" circle />} onClick={() => bulkAction('set_status', { status: 'closed' })}>Closed</Menu.Item>
+                  <Menu.Item leftSection={<Badge color="#6c757d" size="xs" circle />} onClick={() => bulkAction('set_status', { status: 'parked' })}>Parked</Menu.Item>
                 </Menu.Dropdown>
               </Menu>
             </>
@@ -298,7 +302,7 @@ export const TicketListPage = forwardRef<TicketListHandle, TicketListPageProps>(
                   </Group>
                 </Menu.Target>
                 <Menu.Dropdown>
-                  {(['all_open', 'all', 'unassigned', 'active', 'waiting', 'closed'] as StatusFilter[]).map((f) => (
+                  {(['all_open', 'all', 'unassigned', 'active', 'waiting', 'closed', 'parked'] as StatusFilter[]).map((f) => (
                     <Menu.Item
                       key={f}
                       fw={statusFilter === f ? 700 : undefined}
