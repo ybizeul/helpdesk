@@ -57,6 +57,10 @@ func main() {
 		slog.Error("failed to force reparse raw emails", "error", err)
 		os.Exit(1)
 	}
+	if err := db.BackfillRequesterNames(ctx); err != nil {
+		slog.Error("failed to backfill requester names", "error", err)
+		os.Exit(1)
+	}
 
 	if err := db.EnsureIndexes(ctx); err != nil {
 		slog.Error("failed to create indexes", "error", err)

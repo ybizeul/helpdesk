@@ -1,11 +1,13 @@
 package store
 
 import (
+	"bytes"
 	"context"
 	"crypto/rand"
 	"encoding/hex"
 	"fmt"
 	"log/slog"
+	"net/mail"
 	"time"
 
 	"github.com/helpdesk/backend/internal/email"
@@ -359,6 +361,58 @@ func (db *DB) RunMigrations(ctx context.Context) error {
 	}
 	if result.ModifiedCount > 0 {
 		slog.Info("migration: renamed ticket status open→active", "count", result.ModifiedCount)
+	}
+	return nil
+}
+
+// BackfillRequesterNames fills in requester.name for tickets where it is empty,
+// by parsing the From: header of the first message's raw_email.
+func (db *DB) BackfillRequesterNames(ctx context.Context) error {
+	cur, err := db.Tickets().Find(ctx, bson.M{
+		"requester.name": bson.M{"$in": bson.A{"", nil}},
+		"messages.0.raw_email": bson.M{"$exists": true},
+	})
+	if err != nil {
+		return fmt.Errorf("find tickets without requester name: %w", err)
+	}
+	defer cur.Close(ctx)
+
+	count := 0
+	for cur.Next(ctx) {
+		var t models.Ticket
+		if err := cur.Decode(&t); err != nil {
+			slog.Warn("backfill requester name: decode failed", "error", err)
+			continue
+		}
+		// Find the first inbound message with raw_email
+		var name string
+		for _, msg := range t.Messages {
+			if len(msg.RawEmail) == 0 || msg.From == "agent" {
+				continue
+			}
+			m, err := mail.ReadMessage(bytes.NewReader(msg.RawEmail))
+			if err != nil {
+				continue
+			}
+			addr, err := mail.ParseAddress(m.Header.Get("From"))
+			if err != nil || addr.Name == "" {
+				continue
+			}
+			name = addr.Name
+			break
+		}
+		if name == "" {
+			continue
+		}
+		oid, _ := bson.ObjectIDFromHex(t.ID)
+		if _, err := db.Tickets().UpdateByID(ctx, oid, bson.M{"$set": bson.M{"requester.name": name}}); err != nil {
+			slog.Warn("backfill requester name: update failed", "ticket", t.ID, "error", err)
+			continue
+		}
+		count++
+	}
+	if count > 0 {
+		slog.Info("backfilled requester names", "count", count)
 	}
 	return nil
 }
