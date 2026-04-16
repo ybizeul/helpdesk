@@ -16,17 +16,45 @@ import (
 	"go.mongodb.org/mongo-driver/v2/mongo"
 )
 
+// replyPrefixes lists multilingual reply/forward prefixes to strip when normalising subjects.
+var replyPrefixes = []string{
+	"Re: ", "RE: ", "re: ",
+	"AW: ", "Aw: ", "aw: ", // German Antwort
+	"Fwd: ", "FWD: ", "fwd: ",
+	"WG: ", "Wg: ", // German Weitergeleitet (forward)
+	"SV: ", "Sv: ", // Scandinavian reply
+	"VS: ", "Vs: ", // Scandinavian forward
+	"TR: ", "Tr: ", // French Transmission (forward)
+}
+
+// stripReplyPrefixes removes all leading reply/forward prefixes from subject.
+func stripReplyPrefixes(subject string) string {
+	for {
+		stripped := false
+		for _, p := range replyPrefixes {
+			if strings.HasPrefix(subject, p) {
+				subject = subject[len(p):]
+				stripped = true
+			}
+		}
+		if !stripped {
+			break
+		}
+	}
+	return subject
+}
+
 // buildReplySubject constructs the reply subject, avoiding double [#N] tags
-// when the ticket subject already contains the ticket number reference.
+// and normalising multilingual reply prefixes (AW:, SV:, etc.) to "Re:".
 func buildReplySubject(number int, subject string) string {
 	tag := fmt.Sprintf("[#%d]", number)
 	if strings.Contains(subject, tag) {
-		if strings.HasPrefix(subject, "Re: ") {
-			return subject
-		}
-		return "Re: " + subject
+		// Strip all reply prefixes then re-add a single canonical "Re: "
+		bare := stripReplyPrefixes(subject)
+		return "Re: " + bare
 	}
-	return fmt.Sprintf("Re: %s %s", tag, subject)
+	bare := stripReplyPrefixes(subject)
+	return fmt.Sprintf("Re: %s %s", tag, bare)
 }
 
 // buildReplyHeaders collects threading headers from a ticket for outgoing replies.
