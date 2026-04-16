@@ -283,7 +283,6 @@ func fetchEmailsOnce(ctx context.Context, cfg models.EmailSettings, db TicketSto
 			}
 		}
 
-		now := time.Now()
 		if existingTicket != nil {
 			// Append message to existing ticket
 			oid, _ := bson.ObjectIDFromHex(existingTicket.ID)
@@ -293,7 +292,7 @@ func fetchEmailsOnce(ctx context.Context, cfg models.EmailSettings, db TicketSto
 			}
 			_, err := db.Tickets().UpdateByID(ctx, oid, bson.M{
 				"$push": bson.M{"messages": newMsg},
-				"$set":  bson.M{"updated_at": now, "status": newStatus, "unread": true},
+				"$set":  bson.M{"updated_at": date, "status": newStatus, "unread": true},
 			})
 			if err != nil {
 				slog.Error("failed to update ticket", "id", existingTicket.ID, "error", err)
@@ -333,8 +332,8 @@ func fetchEmailsOnce(ctx context.Context, cfg models.EmailSettings, db TicketSto
 				EmailThreadID: messageID,
 				ThreadTopic:   parsed.ThreadTopic,
 				Unread:        true,
-				CreatedAt:     now,
-				UpdatedAt:     now,
+				CreatedAt:     date,
+				UpdatedAt:     date,
 			}
 			_, err := db.Tickets().InsertOne(ctx, ticket)
 			if err != nil {
