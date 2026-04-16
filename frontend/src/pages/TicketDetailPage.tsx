@@ -74,7 +74,7 @@ function MessageBody({ msg, isOutgoing }: { msg: any; isOutgoing?: boolean }) {
     }, [safe])
     return (
       <Box>
-        <style>{`.MsoNormal { margin: 0 !important; } pre, code { background-color: var(--mantine-color-default-hover); border-radius: 4px; } code { padding: 2px 4px; font-size: 0.9em; } pre { padding: 12px; overflow-x: auto; } pre code { padding: 0; background: none; } .msg-body img { max-width: 800px; height: auto; }`}</style>
+        <style>{`.MsoNormal { margin: 0 !important; } pre, code { background-color: light-dark(var(--mantine-color-gray-1), var(--mantine-color-dark-6)); border-radius: 4px; } code { padding: 2px 4px; font-size: 0.9em; } pre { padding: 12px; overflow-x: auto; } pre code { padding: 0; background: none; } .msg-body img { max-width: 800px; height: auto; }`}</style>
         <div className="msg-body" ref={refCallback} dangerouslySetInnerHTML={{ __html: safe }} />
       </Box>
     )
@@ -212,7 +212,7 @@ export function TicketDetailPage({ ticketId: propId, onBack, onTicketUpdate }: T
 
       <Stack gap="md">
         <Paper withBorder p={0} radius="md" style={{ overflow: 'hidden', marginBottom: 'var(--mantine-spacing-md)' }}>
-          <Box p="xs" style={{ background: 'var(--mantine-color-default-hover)' }}>
+          <Box p="xs" style={{ background: 'light-dark(var(--mantine-color-gray-1), var(--mantine-color-dark-6))' }}>
             <Text size="sm" mb={2}><Text span fw={600}>Subject:</Text> Re: [#{ticket.number}] {ticket.subject}</Text>
             <Text size="sm" mb={2}><Text span fw={600}>To:</Text> {ticket.requester?.email}</Text>
             {replyCc.length > 0 && (
@@ -227,7 +227,7 @@ export function TicketDetailPage({ ticketId: propId, onBack, onTicketUpdate }: T
           const displayFrom = msg.from === 'agent' ? smtpFrom || 'agent' : msg.from
           return (<React.Fragment key={i}>
           <Paper withBorder p={0} radius="md" style={{ overflow: 'hidden' }}>
-            <Box p="xs" style={{ background: 'var(--mantine-color-default-hover)', position: 'relative' }}>
+            <Box p="xs" style={{ background: 'light-dark(var(--mantine-color-gray-1), var(--mantine-color-dark-6))', position: 'relative' }}>
               <Text size="xs" c="dimmed" style={{ position: 'absolute', top: 8, right: 8 }}>{formatDate(msg.created_at)}</Text>
               {isOutgoing && !msg.send_error && (
                 <Tooltip label="Re-send">
