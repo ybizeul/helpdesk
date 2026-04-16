@@ -12,7 +12,7 @@
         "panel": "dedicated",
         "group": "services"
       }
-    }
+    },
     {
       "label": "Start Vite Dev Server",
       "type": "shell",
