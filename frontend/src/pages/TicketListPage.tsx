@@ -1,6 +1,6 @@
 import { useEffect, useState, useRef, useCallback, useImperativeHandle, forwardRef } from 'react'
 import { Title, Table, Badge, Group, Text, Checkbox, Button, Tooltip, Menu, ActionIcon, Stack, Box, Avatar } from '@mantine/core'
-import { IconTrash, IconEye, IconEyeOff, IconCircle, IconRefresh, IconArrowMerge } from '@tabler/icons-react'
+import { IconTrash, IconEye, IconEyeOff, IconCircle, IconRefresh, IconArrowMerge, IconFilter } from '@tabler/icons-react'
 import { useMediaQuery } from '@mantine/hooks'
 import { notifications } from '@mantine/notifications'
 import { api } from '../api/client'
@@ -17,6 +17,23 @@ const statusShort: Record<string, string> = {
   active: 'A',
   waiting: 'W',
   closed: 'C',
+}
+
+type StatusFilter = 'all_open' | 'all' | 'unassigned' | 'active' | 'waiting' | 'closed'
+
+const statusFilterLabels: Record<StatusFilter, string> = {
+  all_open: 'All open',
+  all: 'All',
+  unassigned: 'Unassigned',
+  active: 'Active',
+  waiting: 'Waiting',
+  closed: 'Closed',
+}
+
+function getFilterParams(filter: StatusFilter): Record<string, string> {
+  if (filter === 'all') return { include_closed: '1' }
+  if (filter === 'all_open') return {}
+  return { status: filter }
 }
 
 const avatarColors = ['red', 'pink', 'grape', 'violet', 'indigo', 'blue', 'cyan', 'teal', 'green', 'lime', 'yellow', 'orange']
@@ -91,12 +108,13 @@ export const TicketListPage = forwardRef<TicketListHandle, TicketListPageProps>(
   const [tickets, setTickets] = useState<any[]>([])
   const [selected, setSelected] = useState<Set<string>>(new Set())
   const [usersMap, setUsersMap] = useState<Record<string, any>>({})
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>('all_open')
   const knownIdsRef = useRef<Set<string> | null>(null)
   const isMobile = useMediaQuery('(max-width: 768px)')
   const canDelete = currentUser?.role === 'admin'
 
   const loadTickets = useCallback(() => {
-    api.tickets.list({}).then((data) => {
+    api.tickets.list(getFilterParams(statusFilter)).then((data) => {
       if (knownIdsRef.current !== null) {
         const newTickets = data.filter((t: any) => t.unread && !knownIdsRef.current!.has(t.id))
         if (newTickets.length > 0) notifyNewTickets(newTickets)
@@ -104,20 +122,23 @@ export const TicketListPage = forwardRef<TicketListHandle, TicketListPageProps>(
       knownIdsRef.current = new Set(data.map((t: any) => t.id))
       setTickets(data)
     }).catch(console.error)
-  }, [])
+  }, [statusFilter])
 
   useImperativeHandle(ref, () => ({ refresh: loadTickets }), [loadTickets])
 
   useEffect(() => {
-    loadTickets()
     api.users.list().then((users) => {
       const map: Record<string, any> = {}
       for (const u of users) map[u.id] = u
       setUsersMap(map)
     }).catch(console.error)
+  }, [])
+
+  useEffect(() => {
+    loadTickets()
     const interval = setInterval(loadTickets, 60_000)
     return () => clearInterval(interval)
-  }, [])
+  }, [loadTickets])
 
   const toggleSelect = (id: string) => {
     setSelected(prev => {
@@ -254,7 +275,28 @@ export const TicketListPage = forwardRef<TicketListHandle, TicketListPageProps>(
             <Table.Th>Requester</Table.Th>
             <Table.Th>Updated</Table.Th>
             <Table.Th>Priority</Table.Th>
-            <Table.Th>Status</Table.Th>
+            <Table.Th>
+              <Menu shadow="md" width={160}>
+                <Menu.Target>
+                  <Group gap={4} style={{ cursor: 'pointer', userSelect: 'none', flexWrap: 'nowrap' }} wrap="nowrap">
+                    Status
+                    <IconFilter size={12} color={statusFilter !== 'all_open' ? 'var(--mantine-color-blue-6)' : undefined} />
+                  </Group>
+                </Menu.Target>
+                <Menu.Dropdown>
+                  {(['all_open', 'all', 'unassigned', 'active', 'waiting', 'closed'] as StatusFilter[]).map((f) => (
+                    <Menu.Item
+                      key={f}
+                      fw={statusFilter === f ? 700 : undefined}
+                      leftSection={f !== 'all_open' && f !== 'all' ? <Badge size="xs" color={statusColors[f] || 'gray'} circle /> : undefined}
+                      onClick={() => setStatusFilter(f)}
+                    >
+                      {statusFilterLabels[f]}
+                    </Menu.Item>
+                  ))}
+                </Menu.Dropdown>
+              </Menu>
+            </Table.Th>
           </Table.Tr>
         </Table.Thead>
         <Table.Tbody>
