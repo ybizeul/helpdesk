@@ -7,6 +7,28 @@ import { ReplyEditor } from '../components/ReplyEditor'
 import { notifications } from '@mantine/notifications'
 import { useDisclosure } from '@mantine/hooks'
 
+const REPLY_PREFIXES = ['Re: ', 'RE: ', 're: ', 'AW: ', 'Aw: ', 'aw: ', 'Fwd: ', 'FWD: ', 'fwd: ', 'WG: ', 'Wg: ', 'SV: ', 'Sv: ', 'VS: ', 'Vs: ', 'TR: ', 'Tr: ']
+
+function stripReplyPrefixes(subject: string): string {
+  let s = subject
+  let stripped = true
+  while (stripped) {
+    stripped = false
+    for (const p of REPLY_PREFIXES) {
+      if (s.startsWith(p)) { s = s.slice(p.length); stripped = true }
+    }
+  }
+  return s
+}
+
+function buildReplySubject(number: number, subject: string): string {
+  const tag = `[#${number}]`
+  const bare = stripReplyPrefixes(subject)
+  if (subject.includes(tag)) return `Re: ${bare}`
+  return `Re: ${tag} ${bare}`
+}
+
+
 const statusColors: Record<string, string> = {
   unassigned: 'gray',
   active: 'orange',
@@ -221,7 +243,7 @@ export function TicketDetailPage({ ticketId: propId, onBack, onTicketUpdate }: T
       <Stack gap="md">
         <Paper withBorder p={0} radius="md" style={{ overflow: 'hidden', marginBottom: 'var(--mantine-spacing-md)' }}>
           <Box p="xs" style={{ background: 'light-dark(var(--mantine-color-gray-1), var(--mantine-color-dark-6))' }}>
-            <Text size="sm" mb={2}><Text span fw={600}>Subject:</Text> Re: [#{ticket.number}] {ticket.subject}</Text>
+            <Text size="sm" mb={2}><Text span fw={600}>Subject:</Text> {buildReplySubject(ticket.number, ticket.subject)}</Text>
             <Text size="sm" mb={2}><Text span fw={600}>To:</Text> {ticket.requester?.email}</Text>
             {replyCc.length > 0 && (
               <Text size="sm" mb={2}><Text span fw={600}>Cc:</Text> {replyCc.join(', ')}</Text>

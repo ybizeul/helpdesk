@@ -413,11 +413,19 @@ func updateFetchedAt(ctx context.Context, db TicketStore) {
 }
 
 func stripRePrefix(subject string) string {
-	// Handle Re:, RE:, re:, Fwd:, FW: etc.
+	prefixes := []string{
+		"Re: ", "RE: ", "re: ", "Re:", "RE:", "re:",
+		"AW: ", "Aw: ", "aw: ", "AW:", // German Antwort
+		"WG: ", "Wg: ", "WG:",         // German Weitergeleitet
+		"Fwd: ", "FWD: ", "fwd: ", "Fwd:", "FW:", "FW: ",
+		"SV: ", "Sv: ", // Scandinavian
+		"VS: ", "Vs: ", // Scandinavian forward
+		"TR: ", "Tr: ", // French
+	}
 	s := subject
 	for {
 		trimmed := s
-		for _, prefix := range []string{"Re: ", "RE: ", "re: ", "Re:", "RE:", "re:", "Fwd: ", "FW: ", "fwd: ", "Fwd:", "FW:", "fwd:"} {
+		for _, prefix := range prefixes {
 			if len(trimmed) > len(prefix) && trimmed[:len(prefix)] == prefix {
 				trimmed = trimmed[len(prefix):]
 				break
