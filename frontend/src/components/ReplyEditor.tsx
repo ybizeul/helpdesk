@@ -6,7 +6,7 @@ import Image from '@tiptap/extension-image'
 import Placeholder from '@tiptap/extension-placeholder'
 import { RichTextEditor } from '@mantine/tiptap'
 import { Button, Group } from '@mantine/core'
-import { IconNotes, IconSend, IconArchive, IconCircleLetterCFilled } from '@tabler/icons-react'
+import { IconNotes, IconSend, IconCircleLetterCFilled } from '@tabler/icons-react'
 import { useMediaQuery } from '@mantine/hooks'
 import '@mantine/tiptap/styles.css'
 
