@@ -172,7 +172,7 @@ export default function App() {
     >
       <AppShell.Header>
         <Group h="100%" px="md">
-          <Burger opened={navOpened} onClick={toggleNav} size="sm" />
+          <Burger opened={navOpened} onClick={toggleNav} size="sm" hiddenFrom="sm" />
           <Text fw={700} size="lg">Helpdesk</Text>
         </Group>
       </AppShell.Header>

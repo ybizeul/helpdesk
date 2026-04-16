@@ -59,7 +59,7 @@ export function AppNavbar({ onLogout, onNavigate, user, onOpenProfile }: AppNavb
               </Menu.Item>
             </Menu.Dropdown>
           </Menu>
-          <Text fw={700} size="lg">Helpdesk</Text>
+          <Text fw={700} size="lg">{user?.name || 'Helpdesk'}</Text>
         </Group>
         {visibleLinks.map((link) => (
           <NavLink
