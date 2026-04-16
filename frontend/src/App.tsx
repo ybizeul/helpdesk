@@ -130,6 +130,10 @@ export default function App() {
   }, [])
 
   useEffect(() => {
+    document.title = siteName
+  }, [siteName])
+
+  useEffect(() => {
     const url = new URL(window.location.href)
     const oidcToken = url.searchParams.get('token')
     if (!oidcToken) return
