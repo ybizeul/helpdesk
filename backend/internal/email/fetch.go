@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"log/slog"
+	"mime"
 	"net"
 	"regexp"
 	"strconv"
@@ -130,7 +131,7 @@ func fetchEmailsOnce(ctx context.Context, cfg models.EmailSettings, db TicketSto
 			break
 		}
 
-		var from, subject, messageID string
+		var from, fromName, subject, messageID string
 		var inReplyTo []string
 		var to, cc []string
 		var date time.Time
@@ -150,6 +151,12 @@ func fetchEmailsOnce(ctx context.Context, cfg models.EmailSettings, db TicketSto
 				if len(data.Envelope.From) > 0 {
 					a := data.Envelope.From[0]
 					from = fmt.Sprintf("%s@%s", a.Mailbox, a.Host)
+					dec := new(mime.WordDecoder)
+					if decoded, err := dec.DecodeHeader(a.Name); err == nil {
+						fromName = decoded
+					} else {
+						fromName = a.Name
+					}
 				}
 				for _, a := range data.Envelope.To {
 					to = append(to, fmt.Sprintf("%s@%s", a.Mailbox, a.Host))
@@ -291,10 +298,15 @@ func fetchEmailsOnce(ctx context.Context, cfg models.EmailSettings, db TicketSto
 			if existingTicket.OwnerID != "" {
 				newStatus = models.TicketStatusActive
 			}
-			_, err := db.Tickets().UpdateByID(ctx, oid, bson.M{
+			update := bson.M{
 				"$push": bson.M{"messages": newMsg},
 				"$set":  bson.M{"updated_at": date, "status": newStatus, "unread": true},
-			})
+			}
+			// Backfill requester name if not yet recorded
+			if existingTicket.Requester.Name == "" && fromName != "" {
+				update["$set"].(bson.M)["requester.name"] = fromName
+			}
+			_, err := db.Tickets().UpdateByID(ctx, oid, update)
 			if err != nil {
 				slog.Error("failed to update ticket", "id", existingTicket.ID, "error", err)
 				continue
@@ -328,7 +340,7 @@ func fetchEmailsOnce(ctx context.Context, cfg models.EmailSettings, db TicketSto
 				Subject:       subject,
 				Status:        models.TicketStatusUnassigned,
 				Priority:      models.PriorityNormal,
-				Requester:     models.Requester{Email: from},
+				Requester:     models.Requester{Name: fromName, Email: from},
 				Messages:      []models.Message{newMsg},
 				EmailThreadID: messageID,
 				ThreadTopic:   parsed.ThreadTopic,
