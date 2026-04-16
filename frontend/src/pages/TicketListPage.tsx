@@ -1,5 +1,5 @@
 import { useEffect, useState, useRef, useCallback, useImperativeHandle, forwardRef } from 'react'
-import { Title, Table, Badge, Group, Text, Checkbox, Button, Tooltip, Menu, ActionIcon, Stack, Box, Avatar } from '@mantine/core'
+import { Title, Table, Badge, Group, Text, Checkbox, Button, Tooltip, Menu, ActionIcon, Stack, Box, Avatar, Skeleton } from '@mantine/core'
 import { IconTrash, IconEye, IconEyeOff, IconCircle, IconRefresh, IconArrowMerge, IconFilter } from '@tabler/icons-react'
 import { useMediaQuery } from '@mantine/hooks'
 import { notifications } from '@mantine/notifications'
@@ -109,6 +109,7 @@ export interface TicketListHandle {
 
 export const TicketListPage = forwardRef<TicketListHandle, TicketListPageProps>(function TicketListPage({ activeTicketId, currentUser, onSelectTicket }, ref) {
   const [tickets, setTickets] = useState<any[]>([])
+  const [loading, setLoading] = useState(true)
   const [selected, setSelected] = useState<Set<string>>(new Set())
   const [usersMap, setUsersMap] = useState<Record<string, any>>({})
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all_open')
@@ -126,6 +127,7 @@ export const TicketListPage = forwardRef<TicketListHandle, TicketListPageProps>(
       }
       knownIdsRef.current = new Set(data.map((t: any) => t.id))
       setTickets(data)
+      setLoading(false)
     }).catch(console.error)
   }, [statusFilter])
 
@@ -152,6 +154,7 @@ export const TicketListPage = forwardRef<TicketListHandle, TicketListPageProps>(
   }, [])
 
   useEffect(() => {
+    setLoading(true)
     loadTickets()
     const interval = setInterval(loadTickets, 60_000)
     return () => clearInterval(interval)
@@ -246,6 +249,24 @@ export const TicketListPage = forwardRef<TicketListHandle, TicketListPageProps>(
       <Box style={{ flex: 1, overflowY: 'auto', minHeight: 0 }}>
       {isMobile ? (
         <Stack gap={0}>
+          {loading ? (
+            Array.from({ length: 20 }).map((_, i) => (
+              <Box key={i} style={{ padding: 'var(--mantine-spacing-xs) var(--mantine-spacing-sm)', borderBottom: '1px solid var(--mantine-color-default-border)' }}>
+                <Group justify="space-between" gap="xs" wrap="nowrap">
+                  <Skeleton circle height={30} width={30} style={{ flexShrink: 0 }} />
+                  <Box style={{ minWidth: 0, flex: 1 }}>
+                    <Skeleton height={12} mb={6} radius="sm" width="70%" />
+                    <Skeleton height={10} radius="sm" width="40%" />
+                  </Box>
+                  <Group gap={6} wrap="nowrap" style={{ flexShrink: 0 }}>
+                    <Skeleton height={10} width={36} radius="sm" />
+                    <Skeleton height={16} width={18} radius="sm" />
+                  </Group>
+                </Group>
+              </Box>
+            ))
+          ) : (
+          <>
           {tickets.map((t) => {
             const isActive = activeTicketId === t.id
             const handleClick = () => onSelectTicket?.(t.id)
@@ -280,6 +301,8 @@ export const TicketListPage = forwardRef<TicketListHandle, TicketListPageProps>(
           })}
           {tickets.length === 0 && (
             <Text c="dimmed" ta="center" py="md">No cases found</Text>
+          )}
+          </>
           )}
         </Stack>
       ) : (
@@ -318,6 +341,21 @@ export const TicketListPage = forwardRef<TicketListHandle, TicketListPageProps>(
           </Table.Tr>
         </Table.Thead>
         <Table.Tbody>
+          {loading ? (
+            Array.from({ length: 20 }).map((_, i) => (
+              <Table.Tr key={i}>
+                <Table.Td><Skeleton height={14} width={14} radius="sm" /></Table.Td>
+                <Table.Td><Skeleton circle height={26} width={26} /></Table.Td>
+                <Table.Td><Skeleton height={12} width={30} radius="sm" /></Table.Td>
+                <Table.Td><Skeleton height={12} radius="sm" width={`${50 + (i * 17) % 35}%`} /></Table.Td>
+                <Table.Td><Skeleton height={12} radius="sm" width="80%" /></Table.Td>
+                <Table.Td><Skeleton height={12} width={48} radius="sm" /></Table.Td>
+                <Table.Td><Skeleton height={12} width={40} radius="sm" /></Table.Td>
+                <Table.Td><Skeleton height={18} width={60} radius="sm" /></Table.Td>
+              </Table.Tr>
+            ))
+          ) : (
+          <>
           {tickets.map((t) => {
             const isActive = activeTicketId === t.id
             const handleClick = () => onSelectTicket?.(t.id)
@@ -344,6 +382,8 @@ export const TicketListPage = forwardRef<TicketListHandle, TicketListPageProps>(
             <Table.Tr>
               <Table.Td colSpan={8}><Text c="dimmed" ta="center">No cases found</Text></Table.Td>
             </Table.Tr>
+          )}
+          </>
           )}
         </Table.Tbody>
       </Table>
