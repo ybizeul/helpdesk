@@ -5,7 +5,7 @@ import { IconRefresh, IconSend, IconPaperclip, IconArrowLeft } from '@tabler/ico
 import { api } from '../api/client'
 import { ReplyEditor } from '../components/ReplyEditor'
 import { notifications } from '@mantine/notifications'
-import { useDisclosure } from '@mantine/hooks'
+import { useDisclosure, useMediaQuery } from '@mantine/hooks'
 
 const REPLY_PREFIXES = ['Re: ', 'RE: ', 're: ', 'AW: ', 'Aw: ', 'aw: ', 'Fwd: ', 'FWD: ', 'fwd: ', 'WG: ', 'Wg: ', 'SV: ', 'Sv: ', 'VS: ', 'Vs: ', 'TR: ', 'Tr: ']
 
@@ -122,6 +122,7 @@ interface TicketDetailPageProps {
 export function TicketDetailPage({ ticketId: propId, onBack, onTicketUpdate }: TicketDetailPageProps = {}) {
   const { id: paramId } = useParams<{ id: string }>()
   const id = propId || paramId
+  const isMobile = useMediaQuery('(max-width: 768px)')
   const [ticket, setTicket] = useState<any>(null)
   const [users, setUsers] = useState<any[]>([])
   const [settings, setSettings] = useState<any>(null)
@@ -203,6 +204,44 @@ export function TicketDetailPage({ ticketId: propId, onBack, onTicketUpdate }: T
 
   return (
     <Box style={{ display: 'flex', flexDirection: 'column', position: 'absolute', inset: 0 }}>
+      {isMobile ? (
+        <Box style={{ flexShrink: 0, padding: 'var(--mantine-spacing-xs) var(--mantine-spacing-sm)', boxShadow: '0 2px 8px rgba(0,0,0,0.15)', position: 'relative', zIndex: 1 }}>
+          <Group justify="space-between" wrap="nowrap" gap="xs" mb={4}>
+            <Group gap="xs" wrap="nowrap">
+              {onBack && (
+                <ActionIcon variant="subtle" onClick={onBack}>
+                  <IconArrowLeft size={18} />
+                </ActionIcon>
+              )}
+              <Tooltip label={isOwned ? (ownerUser?.name || 'Unknown') : 'Assign to me'} withArrow>
+                <Avatar
+                  size="sm"
+                  radius="xl"
+                  color={isOwned ? hashColor(ticket.owner_id) : 'gray'}
+                  src={isOwned && ownerUser?.avatar ? ownerUser.avatar : null}
+                  style={{ cursor: isOwned ? 'default' : 'pointer' }}
+                  onClick={isOwned ? undefined : handleClaim}
+                >
+                  {isOwned && ownerUser?.avatar ? null : (isOwned ? getInitials(ownerUser?.name || '?') : 'U')}
+                </Avatar>
+              </Tooltip>
+            </Group>
+            <Menu shadow="md" width={160}>
+              <Menu.Target>
+                <Badge color={statusColors[ticket.status] || 'gray'} size="lg" style={{ cursor: 'pointer' }}>{ticket.status}</Badge>
+              </Menu.Target>
+              <Menu.Dropdown>
+                {(['unassigned', 'active', 'waiting', 'closed', 'parked'] as const).map(s => (
+                  <Menu.Item key={s} disabled={ticket.status === s} leftSection={<Badge color={statusColors[s]} size="xs" circle />} onClick={() => handleSetStatus(s)}>
+                    {s.charAt(0).toUpperCase() + s.slice(1)}
+                  </Menu.Item>
+                ))}
+              </Menu.Dropdown>
+            </Menu>
+          </Group>
+          <Title order={4} lineClamp={2}>#{ticket.number} {ticket.subject}</Title>
+        </Box>
+      ) : (
       <Group justify="space-between" style={{ flexShrink: 0, padding: 'var(--mantine-spacing-md)', paddingBottom: 'var(--mantine-spacing-xs)', boxShadow: '0 2px 8px rgba(0,0,0,0.15)', position: 'relative', zIndex: 1 }}>
         <Group gap="xs">
           {onBack && (
@@ -238,6 +277,7 @@ export function TicketDetailPage({ ticketId: propId, onBack, onTicketUpdate }: T
           </Menu>
         </Group>
       </Group>
+      )}
       <Box style={{ flex: 1, overflowY: 'auto', minHeight: 0, padding: 'var(--mantine-spacing-md)', paddingTop: 'var(--mantine-spacing-sm)', position: 'relative', zIndex: 0 }}>
 
       <Stack gap="md">
