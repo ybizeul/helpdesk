@@ -291,6 +291,16 @@ func fetchEmailsOnce(ctx context.Context, cfg models.EmailSettings, db TicketSto
 			}
 		}
 
+		// Try matching by [#N] ticket number in the subject
+		if existingTicket == nil {
+			if extracted := extractTicketNumber(subject); extracted > 0 {
+				var t models.Ticket
+				if err := db.Tickets().FindOne(ctx, bson.M{"number": extracted}).Decode(&t); err == nil {
+					existingTicket = &t
+				}
+			}
+		}
+
 		if existingTicket != nil {
 			// Append message to existing ticket
 			oid, _ := bson.ObjectIDFromHex(existingTicket.ID)
