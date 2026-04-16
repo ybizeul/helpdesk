@@ -65,11 +65,12 @@ export function AppNavbar({ onLogout, onNavigate, user, onOpenProfile, siteName 
         {visibleLinks.map((link) => (
           <NavLink
             key={link.to}
+            component="button"
             label={link.label}
             leftSection={<link.icon size={18} />}
             active={location.pathname.startsWith(link.to)}
             onClick={() => handleNav(link.to)}
-            style={{ borderRadius: 'var(--mantine-radius-sm)' }}
+            style={{ borderRadius: 'var(--mantine-radius-sm)', width: '100%' }}
           />
         ))}
       </div>
