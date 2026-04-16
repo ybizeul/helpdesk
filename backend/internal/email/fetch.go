@@ -337,7 +337,7 @@ func fetchEmailsOnce(ctx context.Context, cfg models.EmailSettings, db TicketSto
 			}
 			ticket := models.Ticket{
 				Number:        num,
-				Subject:       cleanTicketSubject(subject),
+				Subject:       subject,
 				Status:        models.TicketStatusUnassigned,
 				Priority:      models.PriorityNormal,
 				Requester:     models.Requester{Name: fromName, Email: from},
@@ -421,18 +421,6 @@ func stripRePrefix(subject string) string {
 }
 
 var ticketNumberRe = regexp.MustCompile(`\[#(\d+)\]`)
-
-// cleanTicketSubject strips Re:/Fwd: prefixes and any [#N] ticket tag from a subject line.
-func cleanTicketSubject(subject string) string {
-	s := stripRePrefix(subject)
-	s = ticketNumberRe.ReplaceAllString(s, "")
-	// Trim any leading/trailing whitespace left behind
-	s = regexp.MustCompile(`^\s+|\s+$`).ReplaceAllString(s, "")
-	if s == "" {
-		return subject // fallback: keep original if everything was stripped
-	}
-	return s
-}
 
 // extractTicketNumber returns the ticket number found in a subject like "[#1042] Some subject", or 0.
 func extractTicketNumber(subject string) int {

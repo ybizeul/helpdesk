@@ -16,6 +16,19 @@ import (
 	"go.mongodb.org/mongo-driver/v2/mongo"
 )
 
+// buildReplySubject constructs the reply subject, avoiding double [#N] tags
+// when the ticket subject already contains the ticket number reference.
+func buildReplySubject(number int, subject string) string {
+	tag := fmt.Sprintf("[#%d]", number)
+	if strings.Contains(subject, tag) {
+		if strings.HasPrefix(subject, "Re: ") {
+			return subject
+		}
+		return "Re: " + subject
+	}
+	return fmt.Sprintf("Re: %s %s", tag, subject)
+}
+
 // buildReplyHeaders collects threading headers from a ticket for outgoing replies.
 func buildReplyHeaders(ticket models.Ticket) email.ReplyHeaders {
 	h := email.ReplyHeaders{
@@ -284,7 +297,7 @@ func (h *handlers) replyTicket(w http.ResponseWriter, r *http.Request) {
 	}
 	msg.CreatedAt = time.Now()
 	msg.To = []string{ticket.Requester.Email}
-	msg.Subject = fmt.Sprintf("Re: [#%d] %s", ticket.Number, ticket.Subject)
+	msg.Subject = buildReplySubject(ticket.Number, ticket.Subject)
 
 	// Load settings to get the sender address
 	var settings models.Settings
@@ -315,7 +328,7 @@ func (h *handlers) replyTicket(w http.ResponseWriter, r *http.Request) {
 
 	// Send email via SMTP
 	if settings.Email.SMTPHost != "" {
-		subject := fmt.Sprintf("Re: [#%d] %s", ticket.Number, ticket.Subject)
+		subject := buildReplySubject(ticket.Number, ticket.Subject)
 		replyHeaders := buildReplyHeaders(ticket)
 		cc := collectCc(ticket, settings.Email)
 		generatedID, rawMsg, sendErr := email.SendReply(settings.Email, ticket.Requester.Email, cc, subject, msg.Body, msg.HTML, replyHeaders)
@@ -379,7 +392,7 @@ func (h *handlers) retrySend(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	subject := fmt.Sprintf("Re: [#%d] %s", ticket.Number, ticket.Subject)
+	subject := buildReplySubject(ticket.Number, ticket.Subject)
 	replyHeaders := buildReplyHeaders(ticket)
 	cc := collectCc(ticket, settings.Email)
 	generatedID, rawMsg, sendErr := email.SendReply(settings.Email, ticket.Requester.Email, cc, subject, msg.Body, msg.HTML, replyHeaders)
