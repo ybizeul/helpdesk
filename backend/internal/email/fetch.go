@@ -257,11 +257,12 @@ func fetchEmailsOnce(ctx context.Context, cfg models.EmailSettings, db TicketSto
 			}
 		}
 
-		// Try matching by Thread-Topic header
+		// Try matching by Thread-Topic header (Outlook threading)
 		if existingTicket == nil && parsed.ThreadTopic != "" {
 			var t models.Ticket
 			err := db.Tickets().FindOne(ctx, bson.M{
-				"thread_topic": parsed.ThreadTopic,
+				"thread_topic":    parsed.ThreadTopic,
+				"requester.email": from,
 			}).Decode(&t)
 			if err == nil {
 				existingTicket = &t
