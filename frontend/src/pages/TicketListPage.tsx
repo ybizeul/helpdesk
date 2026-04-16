@@ -264,7 +264,7 @@ export const TicketListPage = forwardRef<TicketListHandle, TicketListPageProps>(
                   ) })()}
                   <Box style={{ minWidth: 0, flex: 1 }}>
                     <Text size="sm" fw={t.unread ? 700 : 400} truncate>#{t.number} {t.subject}</Text>
-                    <Text size="xs" c="dimmed" truncate>{t.requester?.email}</Text>
+                    <Text size="xs" c="dimmed" truncate>{t.requester?.name || t.requester?.email}</Text>
                   </Box>
                   <Group gap={6} wrap="nowrap" style={{ flexShrink: 0 }}>
                     <Text size="xs" c="dimmed">{formatDate(t.updated_at, locale)}</Text>
@@ -329,7 +329,7 @@ export const TicketListPage = forwardRef<TicketListHandle, TicketListPageProps>(
                 ) })()}</Table.Td>
                 <Table.Td onClick={handleClick}>{t.number}</Table.Td>
                 <Table.Td onClick={handleClick}>{t.subject}</Table.Td>
-                <Table.Td onClick={handleClick}>{t.requester?.email}</Table.Td>
+                <Table.Td onClick={handleClick}>{t.requester?.name || t.requester?.email}</Table.Td>
                 <Table.Td onClick={handleClick}>{formatDate(t.updated_at, locale)}</Table.Td>
                 <Table.Td onClick={handleClick}>{t.priority}</Table.Td>
                 <Table.Td onClick={handleClick}><Badge size="xs" color={statusColors[t.status] || 'gray'}>{t.status}</Badge></Table.Td>
