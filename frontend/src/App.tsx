@@ -59,22 +59,23 @@ function TicketPanes({ currentUser }: { currentUser: any }) {
     document.addEventListener('mouseup', onMouseUp)
   }, [])
 
-  // Mobile: show one pane at a time
+  // Mobile: render both panes, toggle visibility so list stays mounted (preserves scroll/state)
   if (isMobile) {
-    if (id) {
-      return (
-        <Box style={{ height: 'calc(100vh - 32px)', position: 'relative' }}>
-          <TicketDetailPage ticketId={id} onBack={() => navigate('/tickets')} onTicketUpdate={refreshList} />
-        </Box>
-      )
-    }
     return (
-      <Box style={{ height: 'calc(100vh - 32px)', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-        <TicketListPage
-          activeTicketId={null}
-          currentUser={currentUser}
-          onSelectTicket={(ticketId) => navigate(`/tickets/${ticketId}`)}
-        />
+      <Box style={{ height: 'calc(100vh - 32px)', position: 'relative' }}>
+        <Box style={{ display: id ? 'none' : 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden' }}>
+          <TicketListPage
+            ref={listRef}
+            activeTicketId={null}
+            currentUser={currentUser}
+            onSelectTicket={(ticketId) => navigate(`/tickets/${ticketId}`)}
+          />
+        </Box>
+        {id && (
+          <Box style={{ position: 'absolute', inset: 0 }}>
+            <TicketDetailPage ticketId={id} onBack={() => navigate('/tickets')} onTicketUpdate={refreshList} />
+          </Box>
+        )}
       </Box>
     )
   }
