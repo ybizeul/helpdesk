@@ -719,7 +719,7 @@ func (h *handlers) mergeTickets(w http.ResponseWriter, r *http.Request) {
 		"$set": bson.M{
 			"subject":    targetTicket.Subject,
 			"messages":   allMessages,
-			"updated_at": time.Now(),
+			"updated_at": latestMsg.CreatedAt,
 			"unread":     true,
 		},
 	})
