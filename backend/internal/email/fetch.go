@@ -33,6 +33,19 @@ type TicketStore interface {
 }
 
 func FetchEmails(ctx context.Context, cfg models.EmailSettings, db TicketStore) (*FetchResult, error) {
+	var result *FetchResult
+	err := withIMAPRetry(ctx, func() error {
+		var runErr error
+		result, runErr = fetchEmailsOnce(ctx, cfg, db)
+		return runErr
+	})
+	if err != nil {
+		return nil, err
+	}
+	return result, nil
+}
+
+func fetchEmailsOnce(ctx context.Context, cfg models.EmailSettings, db TicketStore) (*FetchResult, error) {
 	c, err := connect(cfg)
 	if err != nil {
 		return nil, err

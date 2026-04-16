@@ -1,6 +1,7 @@
 package email
 
 import (
+	"context"
 	"fmt"
 	"sort"
 
@@ -14,36 +15,45 @@ type Mailbox struct {
 }
 
 func ListMailboxes(cfg models.EmailSettings) ([]Mailbox, error) {
-	c, err := connect(cfg)
+	var flat []Mailbox
+	err := withIMAPRetry(context.Background(), func() error {
+		c, err := connect(cfg)
+		if err != nil {
+			return err
+		}
+		defer c.Close()
+
+		if err := c.Login(cfg.IMAPUser, cfg.IMAPPassword).Wait(); err != nil {
+			return fmt.Errorf("imap login: %w", err)
+		}
+
+		listCmd := c.List("", "*", nil)
+		var local []Mailbox
+		for {
+			mbox := listCmd.Next()
+			if mbox == nil {
+				break
+			}
+			delim := "/"
+			if mbox.Delim != 0 {
+				delim = string(mbox.Delim)
+			}
+			if !hasAttr(mbox.Attrs, imap.MailboxAttrNoSelect) {
+				local = append(local, Mailbox{
+					Name:      mbox.Mailbox,
+					Delimiter: delim,
+				})
+			}
+		}
+		if err := listCmd.Close(); err != nil {
+			return fmt.Errorf("imap list: %w", err)
+		}
+
+		flat = local
+		return nil
+	})
 	if err != nil {
 		return nil, err
-	}
-	defer c.Close()
-
-	if err := c.Login(cfg.IMAPUser, cfg.IMAPPassword).Wait(); err != nil {
-		return nil, fmt.Errorf("imap login: %w", err)
-	}
-
-	listCmd := c.List("", "*", nil)
-	var flat []Mailbox
-	for {
-		mbox := listCmd.Next()
-		if mbox == nil {
-			break
-		}
-		delim := "/"
-		if mbox.Delim != 0 {
-			delim = string(mbox.Delim)
-		}
-		if !hasAttr(mbox.Attrs, imap.MailboxAttrNoSelect) {
-			flat = append(flat, Mailbox{
-				Name:      mbox.Mailbox,
-				Delimiter: delim,
-			})
-		}
-	}
-	if err := listCmd.Close(); err != nil {
-		return nil, fmt.Errorf("imap list: %w", err)
 	}
 
 	sort.Slice(flat, func(i, j int) bool { return flat[i].Name < flat[j].Name })

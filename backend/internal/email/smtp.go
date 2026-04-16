@@ -1,6 +1,7 @@
 package email
 
 import (
+	"context"
 	"crypto/rand"
 	"crypto/tls"
 	"encoding/base64"
@@ -283,27 +284,29 @@ func StoreSentEmail(cfg models.EmailSettings, rawMsg []byte) error {
 		return nil
 	}
 
-	c, err := connect(cfg)
-	if err != nil {
-		return fmt.Errorf("imap connect for sent: %w", err)
-	}
-	defer c.Close()
+	return withIMAPRetry(context.Background(), func() error {
+		c, err := connect(cfg)
+		if err != nil {
+			return fmt.Errorf("imap connect for sent: %w", err)
+		}
+		defer c.Close()
 
-	if err := c.Login(cfg.IMAPUser, cfg.IMAPPassword).Wait(); err != nil {
-		return fmt.Errorf("imap login for sent: %w", err)
-	}
+		if err := c.Login(cfg.IMAPUser, cfg.IMAPPassword).Wait(); err != nil {
+			return fmt.Errorf("imap login for sent: %w", err)
+		}
 
-	appendCmd := c.Append(cfg.SentMailbox, int64(len(rawMsg)), &imap.AppendOptions{
-		Flags: []imap.Flag{imap.FlagSeen},
+		appendCmd := c.Append(cfg.SentMailbox, int64(len(rawMsg)), &imap.AppendOptions{
+			Flags: []imap.Flag{imap.FlagSeen},
+		})
+		if _, err := appendCmd.Write(rawMsg); err != nil {
+			return fmt.Errorf("imap append write: %w", err)
+		}
+		if err := appendCmd.Close(); err != nil {
+			return fmt.Errorf("imap append close: %w", err)
+		}
+
+		return nil
 	})
-	if _, err := appendCmd.Write(rawMsg); err != nil {
-		return fmt.Errorf("imap append write: %w", err)
-	}
-	if err := appendCmd.Close(); err != nil {
-		return fmt.Errorf("imap append close: %w", err)
-	}
-
-	return nil
 }
 
 // MoveToDeletedMailbox moves emails identified by their Message-IDs from the
@@ -313,79 +316,81 @@ func MoveToDeletedMailbox(cfg models.EmailSettings, messageIDs []string) error {
 		return nil
 	}
 
-	c, err := connect(cfg)
-	if err != nil {
-		return fmt.Errorf("imap connect for delete: %w", err)
-	}
-	defer c.Close()
-
-	if err := c.Login(cfg.IMAPUser, cfg.IMAPPassword).Wait(); err != nil {
-		return fmt.Errorf("imap login for delete: %w", err)
-	}
-
-	mailbox := cfg.IMAPMailbox
-	if mailbox == "" {
-		mailbox = "INBOX"
-	}
-	if _, err := c.Select(mailbox, nil).Wait(); err != nil {
-		return fmt.Errorf("imap select %s: %w", mailbox, err)
-	}
-
-	// Search for each Message-ID and collect UIDs
-	var allUIDs []imap.UID
-	for _, mid := range messageIDs {
-		// Ensure angle brackets for IMAP header search — the raw header
-		// contains them even though the envelope strips them.
-		searchMID := mid
-		if !strings.HasPrefix(searchMID, "<") {
-			searchMID = "<" + searchMID + ">"
-		}
-		criteria := &imap.SearchCriteria{
-			Header: []imap.SearchCriteriaHeaderField{
-				{Key: "Message-ID", Value: searchMID},
-			},
-		}
-		searchData, err := c.UIDSearch(criteria, nil).Wait()
+	return withIMAPRetry(context.Background(), func() error {
+		c, err := connect(cfg)
 		if err != nil {
-			continue
+			return fmt.Errorf("imap connect for delete: %w", err)
 		}
-		allUIDs = append(allUIDs, searchData.AllUIDs()...)
-	}
+		defer c.Close()
 
-	if len(allUIDs) == 0 {
+		if err := c.Login(cfg.IMAPUser, cfg.IMAPPassword).Wait(); err != nil {
+			return fmt.Errorf("imap login for delete: %w", err)
+		}
+
+		mailbox := cfg.IMAPMailbox
+		if mailbox == "" {
+			mailbox = "INBOX"
+		}
+		if _, err := c.Select(mailbox, nil).Wait(); err != nil {
+			return fmt.Errorf("imap select %s: %w", mailbox, err)
+		}
+
+		// Search for each Message-ID and collect UIDs
+		var allUIDs []imap.UID
+		for _, mid := range messageIDs {
+			// Ensure angle brackets for IMAP header search — the raw header
+			// contains them even though the envelope strips them.
+			searchMID := mid
+			if !strings.HasPrefix(searchMID, "<") {
+				searchMID = "<" + searchMID + ">"
+			}
+			criteria := &imap.SearchCriteria{
+				Header: []imap.SearchCriteriaHeaderField{
+					{Key: "Message-ID", Value: searchMID},
+				},
+			}
+			searchData, err := c.UIDSearch(criteria, nil).Wait()
+			if err != nil {
+				continue
+			}
+			allUIDs = append(allUIDs, searchData.AllUIDs()...)
+		}
+
+		if len(allUIDs) == 0 {
+			return nil
+		}
+
+		uidSet := imap.UIDSetNum(allUIDs...)
+
+		// Try MOVE first, fall back to COPY+delete
+		moveCmd := c.Move(uidSet, cfg.DeletedMailbox)
+		if _, err := moveCmd.Wait(); err != nil {
+			// Fallback: COPY then mark deleted and expunge
+			copyCmd := c.Copy(uidSet, cfg.DeletedMailbox)
+			if _, err := copyCmd.Wait(); err != nil {
+				return fmt.Errorf("imap copy to %s: %w", cfg.DeletedMailbox, err)
+			}
+			storeCmd := c.Store(uidSet, &imap.StoreFlags{
+				Op:    imap.StoreFlagsAdd,
+				Flags: []imap.Flag{imap.FlagDeleted},
+			}, nil)
+			for {
+				msg := storeCmd.Next()
+				if msg == nil {
+					break
+				}
+				for msg.Next() != nil {
+				}
+			}
+			_ = storeCmd.Close()
+			expungeCmd := c.Expunge()
+			for expungeCmd.Next() != 0 {
+			}
+			if err := expungeCmd.Close(); err != nil {
+				return fmt.Errorf("imap expunge: %w", err)
+			}
+		}
+
 		return nil
-	}
-
-	uidSet := imap.UIDSetNum(allUIDs...)
-
-	// Try MOVE first, fall back to COPY+delete
-	moveCmd := c.Move(uidSet, cfg.DeletedMailbox)
-	if _, err := moveCmd.Wait(); err != nil {
-		// Fallback: COPY then mark deleted and expunge
-		copyCmd := c.Copy(uidSet, cfg.DeletedMailbox)
-		if _, err := copyCmd.Wait(); err != nil {
-			return fmt.Errorf("imap copy to %s: %w", cfg.DeletedMailbox, err)
-		}
-		storeCmd := c.Store(uidSet, &imap.StoreFlags{
-			Op:    imap.StoreFlagsAdd,
-			Flags: []imap.Flag{imap.FlagDeleted},
-		}, nil)
-		for {
-			msg := storeCmd.Next()
-			if msg == nil {
-				break
-			}
-			for msg.Next() != nil {
-			}
-		}
-		_ = storeCmd.Close()
-		expungeCmd := c.Expunge()
-		for expungeCmd.Next() != 0 {
-		}
-		if err := expungeCmd.Close(); err != nil {
-			return fmt.Errorf("imap expunge: %w", err)
-		}
-	}
-
-	return nil
+	})
 }
