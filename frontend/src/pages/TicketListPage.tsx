@@ -187,7 +187,7 @@ export const TicketListPage = forwardRef<TicketListHandle, TicketListPageProps>(
 
   return (
     <Box style={{ display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0 }}>
-      <Group justify="space-between" style={{ flexShrink: 0, paddingBottom: 'var(--mantine-spacing-xs)', borderBottom: '1px solid var(--mantine-color-default-border)' }}>
+      <Group justify="space-between" style={{ flexShrink: 0, padding: isMobile ? `var(--mantine-spacing-xs) var(--mantine-spacing-md)` : `0 0 var(--mantine-spacing-xs)`, borderBottom: '1px solid var(--mantine-color-default-border)' }}>
         <Group gap="xs">
           <Title order={2}>Cases</Title>
           <Tooltip label="Fetch emails &amp; refresh">
