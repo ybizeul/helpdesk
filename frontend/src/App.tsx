@@ -62,8 +62,8 @@ function TicketPanes({ currentUser }: { currentUser: any }) {
   // Mobile: render both panes, toggle visibility so list stays mounted (preserves scroll/state)
   if (isMobile) {
     return (
-      <Box style={{ height: 'calc(100vh - 32px)', position: 'relative' }}>
-        <Box style={{ display: id ? 'none' : 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden' }}>
+      <Box style={{ height: 'calc(100dvh - var(--app-shell-header-height, 50px))', position: 'relative', overflow: 'hidden' }}>
+        <Box style={{ display: id ? 'none' : 'flex', flexDirection: 'column', height: '100%' }}>
           <TicketListPage
             ref={listRef}
             activeTicketId={null}
