@@ -78,6 +78,7 @@ type User struct {
 	Name         string    `bson:"name" json:"name"`
 	Email        string    `bson:"email" json:"email"`
 	Role         UserRole  `bson:"role" json:"role"`
+	Locale       string    `bson:"locale,omitempty" json:"locale,omitempty"`
 	Avatar       string    `bson:"avatar,omitempty" json:"avatar,omitempty"`
 	PasswordHash string    `bson:"password_hash" json:"-"`
 	CreatedAt    time.Time `bson:"created_at" json:"created_at"`

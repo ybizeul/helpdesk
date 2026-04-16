@@ -50,13 +50,13 @@ function getInitials(name: string): string {
   return name.slice(0, 2).toUpperCase()
 }
 
-function formatDate(d: string | Date): string {
+function formatDate(d: string | Date, locale?: string): string {
   const date = new Date(d)
   const today = new Date()
   if (date.toDateString() === today.toDateString()) {
-    return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+    return date.toLocaleTimeString(locale || undefined, { hour: '2-digit', minute: '2-digit' })
   }
-  return date.toLocaleDateString()
+  return date.toLocaleDateString(locale || undefined)
 }
 
 function showInAppTicketNotifications(newTickets: any[]) {
@@ -96,7 +96,7 @@ function notifyNewTickets(newTickets: any[]) {
 
 interface TicketListPageProps {
   activeTicketId?: string | null
-  currentUser?: { role?: string } | null
+  currentUser?: { role?: string; locale?: string } | null
   onSelectTicket?: (id: string) => void
 }
 
@@ -109,9 +109,11 @@ export const TicketListPage = forwardRef<TicketListHandle, TicketListPageProps>(
   const [selected, setSelected] = useState<Set<string>>(new Set())
   const [usersMap, setUsersMap] = useState<Record<string, any>>({})
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all_open')
+  const [fetching, setFetching] = useState(false)
   const knownIdsRef = useRef<Set<string> | null>(null)
   const isMobile = useMediaQuery('(max-width: 768px)')
   const canDelete = currentUser?.role === 'admin'
+  const locale = currentUser?.locale || undefined
 
   const loadTickets = useCallback(() => {
     api.tickets.list(getFilterParams(statusFilter)).then((data) => {
@@ -125,6 +127,18 @@ export const TicketListPage = forwardRef<TicketListHandle, TicketListPageProps>(
   }, [statusFilter])
 
   useImperativeHandle(ref, () => ({ refresh: loadTickets }), [loadTickets])
+
+  const fetchAndRefresh = useCallback(async () => {
+    setFetching(true)
+    try {
+      await api.email.fetch()
+    } catch (e: any) {
+      notifications.show({ title: 'Email fetch failed', message: e.message, color: 'red' })
+    } finally {
+      setFetching(false)
+    }
+    loadTickets()
+  }, [loadTickets])
 
   useEffect(() => {
     api.users.list().then((users) => {
@@ -176,8 +190,8 @@ export const TicketListPage = forwardRef<TicketListHandle, TicketListPageProps>(
       <Group justify="space-between" style={{ flexShrink: 0, paddingBottom: 'var(--mantine-spacing-xs)', borderBottom: '1px solid var(--mantine-color-default-border)' }}>
         <Group gap="xs">
           <Title order={2}>Cases</Title>
-          <Tooltip label="Refresh">
-            <ActionIcon variant="subtle" size="sm" onClick={loadTickets}><IconRefresh size={14} /></ActionIcon>
+          <Tooltip label="Fetch emails &amp; refresh">
+            <ActionIcon variant="subtle" size="sm" loading={fetching} onClick={fetchAndRefresh}><IconRefresh size={14} /></ActionIcon>
           </Tooltip>
         </Group>
         <Group gap="sm">
@@ -253,7 +267,7 @@ export const TicketListPage = forwardRef<TicketListHandle, TicketListPageProps>(
                     <Text size="xs" c="dimmed" truncate>{t.requester?.email}</Text>
                   </Box>
                   <Group gap={6} wrap="nowrap" style={{ flexShrink: 0 }}>
-                    <Text size="xs" c="dimmed">{formatDate(t.updated_at)}</Text>
+                    <Text size="xs" c="dimmed">{formatDate(t.updated_at, locale)}</Text>
                     <Badge size="xs" color={statusColors[t.status] || 'gray'}>{statusShort[t.status] || t.status[0]?.toUpperCase()}</Badge>
                   </Group>
                 </Group>
@@ -316,7 +330,7 @@ export const TicketListPage = forwardRef<TicketListHandle, TicketListPageProps>(
                 <Table.Td onClick={handleClick}>{t.number}</Table.Td>
                 <Table.Td onClick={handleClick}>{t.subject}</Table.Td>
                 <Table.Td onClick={handleClick}>{t.requester?.email}</Table.Td>
-                <Table.Td onClick={handleClick}>{formatDate(t.updated_at)}</Table.Td>
+                <Table.Td onClick={handleClick}>{formatDate(t.updated_at, locale)}</Table.Td>
                 <Table.Td onClick={handleClick}>{t.priority}</Table.Td>
                 <Table.Td onClick={handleClick}><Badge size="xs" color={statusColors[t.status] || 'gray'}>{t.status}</Badge></Table.Td>
               </Table.Tr>

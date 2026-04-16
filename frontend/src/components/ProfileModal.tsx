@@ -1,5 +1,5 @@
 import { useEffect, useState, useRef, useCallback } from 'react'
-import { Modal, Tabs, Stack, TextInput, PasswordInput, Button, Group, Text, Table, ActionIcon, Tooltip, Switch, Avatar, UnstyledButton } from '@mantine/core'
+import { Modal, Tabs, Stack, TextInput, PasswordInput, Button, Group, Text, Table, ActionIcon, Tooltip, Switch, Avatar, UnstyledButton, Select } from '@mantine/core'
 import { notifications } from '@mantine/notifications'
 import { IconTrash, IconCamera } from '@tabler/icons-react'
 import { startRegistration } from '@simplewebauthn/browser'
@@ -28,18 +28,40 @@ function resizeImage(dataUrl: string, maxSize: number): Promise<string> {
   })
 }
 
+const LOCALES = [
+  { value: '', label: 'Browser default' },
+  { value: 'en-US', label: 'English (US)' },
+  { value: 'en-GB', label: 'English (UK)' },
+  { value: 'fr-FR', label: 'French' },
+  { value: 'de-DE', label: 'German' },
+  { value: 'es-ES', label: 'Spanish' },
+  { value: 'it-IT', label: 'Italian' },
+  { value: 'pt-BR', label: 'Portuguese (Brazil)' },
+  { value: 'nl-NL', label: 'Dutch' },
+  { value: 'pl-PL', label: 'Polish' },
+  { value: 'ru-RU', label: 'Russian' },
+  { value: 'sv-SE', label: 'Swedish' },
+  { value: 'tr-TR', label: 'Turkish' },
+  { value: 'ja-JP', label: 'Japanese' },
+  { value: 'zh-CN', label: 'Chinese (Simplified)' },
+  { value: 'ko-KR', label: 'Korean' },
+]
+
 interface ProfileModalProps {
   opened: boolean
   onClose: () => void
-  user: { id: string; name: string; email: string; role: string; avatar?: string } | null
+  user: { id: string; name: string; email: string; role: string; avatar?: string; locale?: string } | null
   onAvatarChange?: (avatar: string) => void
+  onLocaleChange?: (locale: string) => void
 }
 
-export function ProfileModal({ opened, onClose, user, onAvatarChange }: ProfileModalProps) {
+export function ProfileModal({ opened, onClose, user, onAvatarChange, onLocaleChange }: ProfileModalProps) {
   const [currentPassword, setCurrentPassword] = useState('')
   const [newPassword, setNewPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
   const [changingPassword, setChangingPassword] = useState(false)
+  const [locale, setLocale] = useState<string>(user?.locale ?? '')
+  const [savingLocale, setSavingLocale] = useState(false)
 
   const [passkeys, setPasskeys] = useState<any[]>([])
   const [passkeyName, setPasskeyName] = useState('')
@@ -79,6 +101,7 @@ export function ProfileModal({ opened, onClose, user, onAvatarChange }: ProfileM
 
   useEffect(() => {
     if (!opened) return
+    setLocale(user?.locale ?? '')
     if (supportsPasskey) {
       api.passkeys.list().then(setPasskeys).catch(console.error)
     }
@@ -109,6 +132,7 @@ export function ProfileModal({ opened, onClose, user, onAvatarChange }: ProfileM
       <Tabs defaultValue="account">
         <Tabs.List>
           <Tabs.Tab value="account">Account</Tabs.Tab>
+          <Tabs.Tab value="preferences">Preferences</Tabs.Tab>
           <Tabs.Tab value="notifications">Notifications</Tabs.Tab>
         </Tabs.List>
 
@@ -219,6 +243,40 @@ export function ProfileModal({ opened, onClose, user, onAvatarChange }: ProfileM
                 </Group>
               </>
             )}
+          </Stack>
+        </Tabs.Panel>
+
+        <Tabs.Panel value="preferences" pt="md">
+          <Stack>
+            <Group align="flex-end">
+              <Select
+                label="Date &amp; time locale"
+                description="Affects how dates are displayed throughout the app."
+                data={LOCALES}
+                value={locale}
+                onChange={(v) => setLocale(v ?? '')}
+                allowDeselect={false}
+                style={{ flex: 1 }}
+              />
+              <Button
+                loading={savingLocale}
+                disabled={locale === (user?.locale ?? '')}
+                onClick={async () => {
+                  setSavingLocale(true)
+                  try {
+                    await api.updateLocale(locale)
+                    onLocaleChange?.(locale)
+                    notifications.show({ title: 'Saved', message: 'Locale updated', color: 'green' })
+                  } catch (e: any) {
+                    notifications.show({ title: 'Error', message: e.message, color: 'red' })
+                  } finally {
+                    setSavingLocale(false)
+                  }
+                }}
+              >
+                Save
+              </Button>
+            </Group>
           </Stack>
         </Tabs.Panel>
 

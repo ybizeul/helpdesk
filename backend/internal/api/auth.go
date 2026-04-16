@@ -171,6 +171,38 @@ func (h *handlers) changePassword(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNoContent)
 }
 
+func (h *handlers) updateLocale(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	claims := ctx.Value(claimsKey).(*jwtClaims)
+
+	var body struct {
+		Locale string `json:"locale"`
+	}
+	if err := readJSON(r, &body); err != nil {
+		writeError(w, http.StatusBadRequest, "INVALID_JSON", err.Error())
+		return
+	}
+
+	oid, err := bson.ObjectIDFromHex(claims.Sub)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "INVALID_ID", "invalid user ID")
+		return
+	}
+
+	var update bson.M
+	if body.Locale == "" {
+		update = bson.M{"$unset": bson.M{"locale": ""}}
+	} else {
+		update = bson.M{"$set": bson.M{"locale": body.Locale}}
+	}
+
+	if _, err := h.db.Users().UpdateByID(ctx, oid, update); err != nil {
+		writeError(w, http.StatusInternalServerError, "DB_ERROR", err.Error())
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
+}
+
 func (h *handlers) updateAvatar(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	claims := ctx.Value(claimsKey).(*jwtClaims)

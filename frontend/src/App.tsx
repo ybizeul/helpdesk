@@ -189,7 +189,7 @@ export default function App() {
           <Route path="/settings" element={isAdmin ? <Box p="md"><SettingsPage /></Box> : <Navigate to="/tickets" replace />} />
         </Routes>
       </AppShell.Main>
-      <ProfileModal opened={profileOpened} onClose={closeProfile} user={currentUser} onAvatarChange={(avatar) => setCurrentUser((u: any) => u ? { ...u, avatar } : u)} />
+      <ProfileModal opened={profileOpened} onClose={closeProfile} user={currentUser} onAvatarChange={(avatar) => setCurrentUser((u: any) => u ? { ...u, avatar } : u)} onLocaleChange={(locale) => setCurrentUser((u: any) => u ? { ...u, locale } : u)} />
     </AppShell>
   )
 }

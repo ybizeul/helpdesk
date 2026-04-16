@@ -89,6 +89,7 @@ export const api = {
   me: () => request<any>('/auth/me'),
   changePassword: (currentPassword: string, newPassword: string) => request<void>('/auth/password', { method: 'PUT', body: JSON.stringify({ current_password: currentPassword, new_password: newPassword }) }),
   updateAvatar: (avatar: string) => request<void>('/auth/avatar', { method: 'PUT', body: JSON.stringify({ avatar }) }),
+  updateLocale: (locale: string) => request<void>('/auth/locale', { method: 'PUT', body: JSON.stringify({ locale }) }),
   passkeys: {
     list: () => request<any[]>('/auth/passkeys'),
     delete: (id: string) => request<void>(`/auth/passkeys/${id}`, { method: 'DELETE' }),
