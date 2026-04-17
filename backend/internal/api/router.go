@@ -38,10 +38,18 @@ func NewRouter(db *store.DB) http.Handler {
 	mux.HandleFunc("PUT /api/v1/users/{id}", h.updateUser)
 	mux.HandleFunc("DELETE /api/v1/users/{id}", h.deleteUser)
 
-	// Email
+	// Mailboxes
+	mux.HandleFunc("GET /api/v1/mailboxes", h.listMailboxesAPI)
+	mux.HandleFunc("POST /api/v1/mailboxes", h.createMailbox)
+	mux.HandleFunc("GET /api/v1/mailboxes/by-slug/{slug}", h.getMailboxBySlug)
+	mux.HandleFunc("GET /api/v1/mailboxes/{id}", h.getMailboxAPI)
+	mux.HandleFunc("PUT /api/v1/mailboxes/{id}", h.updateMailbox)
+	mux.HandleFunc("DELETE /api/v1/mailboxes/{id}", h.deleteMailbox)
+	mux.HandleFunc("POST /api/v1/mailboxes/{id}/fetch", h.fetchMailboxNow)
+	mux.HandleFunc("POST /api/v1/mailboxes/list-imap-folders", h.listMailboxIMAPFolders)
+
+	// Email (legacy/debug)
 	mux.HandleFunc("GET /api/v1/email/status", h.emailStatus)
-	mux.HandleFunc("POST /api/v1/email/mailboxes", h.listMailboxes)
-	mux.HandleFunc("POST /api/v1/email/fetch", h.fetchNow)
 	mux.HandleFunc("POST /api/v1/email/reparse", h.reparseEmails)
 
 	// Settings
@@ -49,10 +57,8 @@ func NewRouter(db *store.DB) http.Handler {
 	mux.HandleFunc("GET /api/v1/settings/general/public", h.getPublicSettings)
 	mux.HandleFunc("GET /api/v1/settings/auth/oidc-callback", h.getOIDCCallbackInfo)
 	mux.HandleFunc("PUT /api/v1/settings/general", h.updateGeneralSettings)
-	mux.HandleFunc("PUT /api/v1/settings/email", h.updateEmailSettings)
 	mux.HandleFunc("PUT /api/v1/settings/llm", h.updateLLMSettings)
 	mux.HandleFunc("PUT /api/v1/settings/auth", h.updateAuthSettings)
-	mux.HandleFunc("PUT /api/v1/settings/signature", h.updateSignature)
 
 	// Dashboard
 	mux.HandleFunc("GET /api/v1/stats", h.getStats)

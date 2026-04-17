@@ -60,6 +60,7 @@ type Message struct {
 type Ticket struct {
 	ID            string         `bson:"_id,omitempty" json:"id"`
 	Number        int            `bson:"number" json:"number"`
+	MailboxID     string         `bson:"mailbox_id,omitempty" json:"mailbox_id,omitempty"`
 	Subject       string         `bson:"subject" json:"subject"`
 	Status        TicketStatus   `bson:"status" json:"status"`
 	Priority      TicketPriority `bson:"priority" json:"priority"`
@@ -84,6 +85,7 @@ type User struct {
 	Locale       string    `bson:"locale,omitempty" json:"locale,omitempty"`
 	Avatar       string    `bson:"avatar,omitempty" json:"avatar,omitempty"`
 	PasswordHash string    `bson:"password_hash" json:"-"`
+	Mailboxes    []string  `bson:"mailboxes,omitempty" json:"mailboxes,omitempty"`
 	CreatedAt    time.Time `bson:"created_at" json:"created_at"`
 }
 
@@ -149,12 +151,22 @@ type AuthSettings struct {
 }
 
 type Settings struct {
-	ID            string        `bson:"_id" json:"id"`
-	SiteName      string        `bson:"site_name,omitempty" json:"site_name,omitempty"`
+	ID        string       `bson:"_id" json:"id"`
+	SiteName  string       `bson:"site_name,omitempty" json:"site_name,omitempty"`
+	LLM       LLMSettings  `bson:"llm" json:"llm"`
+	Auth      AuthSettings `bson:"auth" json:"auth"`
+	UpdatedAt time.Time    `bson:"updated_at" json:"updated_at"`
+}
+
+type Mailbox struct {
+	ID            string        `bson:"_id,omitempty" json:"id"`
+	Name          string        `bson:"name" json:"name"`
+	Slug          string        `bson:"slug" json:"slug"`
+	Enabled       bool          `bson:"enabled" json:"enabled"`
 	Email         EmailSettings `bson:"email" json:"email"`
-	LLM           LLMSettings   `bson:"llm" json:"llm"`
-	Auth          AuthSettings  `bson:"auth" json:"auth"`
 	Signature     string        `bson:"signature,omitempty" json:"signature,omitempty"`
+	OIDCGroup     string        `bson:"oidc_group,omitempty" json:"oidc_group,omitempty"`
 	LastFetchedAt *time.Time    `bson:"last_fetched_at,omitempty" json:"last_fetched_at,omitempty"`
+	CreatedAt     time.Time     `bson:"created_at" json:"created_at"`
 	UpdatedAt     time.Time     `bson:"updated_at" json:"updated_at"`
 }

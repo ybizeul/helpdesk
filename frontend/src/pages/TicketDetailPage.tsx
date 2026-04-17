@@ -117,23 +117,23 @@ interface TicketDetailPageProps {
   ticketId?: string
   onBack?: () => void
   onTicketUpdate?: () => void
+  mailbox?: any
 }
 
-export function TicketDetailPage({ ticketId: propId, onBack, onTicketUpdate }: TicketDetailPageProps = {}) {
+export function TicketDetailPage({ ticketId: propId, onBack, onTicketUpdate, mailbox }: TicketDetailPageProps = {}) {
   const { id: paramId } = useParams<{ id: string }>()
   const id = propId || paramId
   const isMobile = useMediaQuery('(max-width: 768px)')
   const [ticket, setTicket] = useState<any>(null)
   const [users, setUsers] = useState<any[]>([])
-  const [settings, setSettings] = useState<any>(null)
-  const [signature, setSignature] = useState<string>('')
+
+  const signature = mailbox?.signature || ''
   const [resendOpened, { open: openResend, close: closeResend }] = useDisclosure(false)
   const [resendIdx, setResendIdx] = useState<number | null>(null)
 
   useEffect(() => {
     if (id) api.tickets.get(id).then(setTicket).catch(console.error)
     api.users.list().then(setUsers).catch(() => {})
-    api.settings.get().then((s: any) => { setSettings(s); setSignature(s?.signature || '') }).catch(() => {})
   }, [id])
 
   const handleAddNote = async (html: string, text: string) => {
@@ -177,8 +177,8 @@ export function TicketDetailPage({ ticketId: propId, onBack, onTicketUpdate }: T
   }
 
   const replyCc = useMemo(() => {
-    if (!ticket || !settings) return []
-    const ownAddr = (settings.email?.smtp_from || settings.email?.smtp_user || settings.email?.imap_user || '').toLowerCase()
+    if (!ticket || !mailbox) return []
+    const ownAddr = (mailbox.email?.smtp_from || mailbox.email?.smtp_user || mailbox.email?.imap_user || '').toLowerCase()
     const requester = (ticket.requester?.email || '').toLowerCase()
     for (let i = ticket.messages.length - 1; i >= 0; i--) {
       const msg = ticket.messages[i]
@@ -188,7 +188,7 @@ export function TicketDetailPage({ ticketId: propId, onBack, onTicketUpdate }: T
         .filter((addr: string) => { const l = addr.toLowerCase(); return l && l !== ownAddr && l !== requester })
     }
     return []
-  }, [ticket, settings])
+  }, [ticket, mailbox])
 
   if (!ticket) return (
     <Box style={{ display: 'flex', flexDirection: 'column', position: 'absolute', inset: 0 }}>
@@ -347,7 +347,7 @@ export function TicketDetailPage({ ticketId: propId, onBack, onTicketUpdate }: T
           <ReplyEditor onSend={handleSend} onSendAndClose={ticket.status !== 'closed' ? handleSendAndClose : undefined} onAddNote={handleAddNote} signature={signature} />
         </Paper>
         {ticket.messages?.map((msg: any, i: number) => ({ msg, i })).reverse().map(({ msg, i }: { msg: any; i: number }) => {
-          const smtpFrom = settings?.email?.smtp_from
+          const smtpFrom = mailbox?.email?.smtp_from
           const isOutgoing = msg.from === 'agent' || (smtpFrom && msg.from === smtpFrom)
           const displayFrom = msg.from === 'agent' ? smtpFrom || 'agent' : msg.from
           const headerBg = msg.private

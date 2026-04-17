@@ -52,6 +52,7 @@ func (db *DB) Attachments() *mongo.Collection { return db.database.Collection("a
 func (db *DB) Settings() *mongo.Collection    { return db.database.Collection("settings") }
 func (db *DB) Counters() *mongo.Collection    { return db.database.Collection("counters") }
 func (db *DB) Passkeys() *mongo.Collection    { return db.database.Collection("passkeys") }
+func (db *DB) Mailboxes() *mongo.Collection   { return db.database.Collection("mailboxes") }
 
 // NextTicketNumber atomically increments and returns the next ticket number.
 // The sequence starts at 1000.
@@ -280,6 +281,8 @@ func (db *DB) EnsureIndexes(ctx context.Context) error {
 		{"attachments", mongo.IndexModel{Keys: bson.D{{Key: "ticket_id", Value: 1}}}},
 		{"passkeys", mongo.IndexModel{Keys: bson.D{{Key: "user_id", Value: 1}}}},
 		{"passkeys", mongo.IndexModel{Keys: bson.D{{Key: "credential_id", Value: 1}}, Options: options.Index().SetUnique(true)}},
+		{"mailboxes", mongo.IndexModel{Keys: bson.D{{Key: "slug", Value: 1}}, Options: options.Index().SetUnique(true)}},
+		{"tickets", mongo.IndexModel{Keys: bson.D{{Key: "mailbox_id", Value: 1}}}},
 	}
 	for _, idx := range indexes {
 		_, err := db.database.Collection(idx.collection).Indexes().CreateOne(ctx, idx.model)
@@ -362,6 +365,80 @@ func (db *DB) RunMigrations(ctx context.Context) error {
 	if result.ModifiedCount > 0 {
 		slog.Info("migration: renamed ticket status open→active", "count", result.ModifiedCount)
 	}
+
+	// Migration: create default mailbox from global settings if no mailboxes exist
+	if err := db.migrateToMailboxes(ctx); err != nil {
+		return fmt.Errorf("mailbox migration: %w", err)
+	}
+
+	return nil
+}
+
+// migrateToMailboxes creates a "Default" mailbox from existing global settings
+// and assigns all tickets and agent users to it.
+func (db *DB) migrateToMailboxes(ctx context.Context) error {
+	count, err := db.Mailboxes().CountDocuments(ctx, bson.M{})
+	if err != nil {
+		return err
+	}
+	if count > 0 {
+		return nil // already migrated
+	}
+
+	// Read legacy settings (which may still have email/signature/last_fetched_at)
+	var legacy struct {
+		Email         models.EmailSettings `bson:"email"`
+		Signature     string               `bson:"signature"`
+		LastFetchedAt *time.Time           `bson:"last_fetched_at"`
+	}
+	_ = db.Settings().FindOne(ctx, bson.M{"_id": "global"}).Decode(&legacy)
+
+	now := time.Now()
+	mailbox := models.Mailbox{
+		Name:          "Default",
+		Slug:          "default",
+		Email:         legacy.Email,
+		Signature:     legacy.Signature,
+		LastFetchedAt: legacy.LastFetchedAt,
+		CreatedAt:     now,
+		UpdatedAt:     now,
+	}
+	res, err := db.Mailboxes().InsertOne(ctx, mailbox)
+	if err != nil {
+		return fmt.Errorf("insert default mailbox: %w", err)
+	}
+	mailboxID := res.InsertedID.(bson.ObjectID).Hex()
+	slog.Info("migration: created default mailbox", "id", mailboxID)
+
+	// Assign mailbox_id to all existing tickets
+	ticketResult, err := db.Tickets().UpdateMany(ctx,
+		bson.M{"mailbox_id": bson.M{"$exists": false}},
+		bson.M{"$set": bson.M{"mailbox_id": mailboxID}},
+	)
+	if err != nil {
+		return fmt.Errorf("assign tickets to default mailbox: %w", err)
+	}
+	if ticketResult.ModifiedCount > 0 {
+		slog.Info("migration: assigned tickets to default mailbox", "count", ticketResult.ModifiedCount)
+	}
+
+	// Assign mailbox to all agent users
+	agentResult, err := db.Users().UpdateMany(ctx,
+		bson.M{"role": models.RoleAgent, "mailboxes": bson.M{"$exists": false}},
+		bson.M{"$set": bson.M{"mailboxes": []string{mailboxID}}},
+	)
+	if err != nil {
+		return fmt.Errorf("assign agents to default mailbox: %w", err)
+	}
+	if agentResult.ModifiedCount > 0 {
+		slog.Info("migration: assigned agents to default mailbox", "count", agentResult.ModifiedCount)
+	}
+
+	// Clean up legacy fields from global settings
+	db.Settings().UpdateOne(ctx, bson.M{"_id": "global"}, bson.M{
+		"$unset": bson.M{"email": "", "signature": "", "last_fetched_at": ""},
+	})
+
 	return nil
 }
 
@@ -369,7 +446,7 @@ func (db *DB) RunMigrations(ctx context.Context) error {
 // by parsing the From: header of the first message's raw_email.
 func (db *DB) BackfillRequesterNames(ctx context.Context) error {
 	cur, err := db.Tickets().Find(ctx, bson.M{
-		"requester.name": bson.M{"$in": bson.A{"", nil}},
+		"requester.name":       bson.M{"$in": bson.A{"", nil}},
 		"messages.0.raw_email": bson.M{"$exists": true},
 	})
 	if err != nil {

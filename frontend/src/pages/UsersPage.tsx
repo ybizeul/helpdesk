@@ -1,12 +1,12 @@
 import { useEffect, useState } from 'react'
-import { Title, Table, Badge, Text, Stack, PasswordInput, Button, Group, Modal, TextInput, Select, ActionIcon } from '@mantine/core'
+import { Title, Table, Badge, Text, Stack, PasswordInput, Button, Group, Modal, TextInput, Select, ActionIcon, Checkbox } from '@mantine/core'
 import { notifications } from '@mantine/notifications'
 import { IconEdit, IconTrash, IconPlus } from '@tabler/icons-react'
 import { api } from '../api/client'
 
-const emptyForm = { name: '', email: '', role: 'agent', password: '' }
+const emptyForm = { name: '', email: '', role: 'agent', password: '', mailboxes: [] as string[] }
 
-export function UsersPage() {
+export function UsersPage({ mailboxes = [] }: { mailboxes?: any[] }) {
   const [users, setUsers] = useState<any[]>([])
 
   // CRUD modal state
@@ -35,7 +35,7 @@ export function UsersPage() {
 
   const openEdit = (u: any) => {
     setEditingId(u.id)
-    setForm({ name: u.name, email: u.email, role: u.role, password: '' })
+    setForm({ name: u.name, email: u.email, role: u.role, password: '', mailboxes: u.mailboxes || [] })
     setModalOpen(true)
   }
 
@@ -56,12 +56,12 @@ export function UsersPage() {
     setSaving(true)
     try {
       if (editingId) {
-        const data: any = { name: form.name, email: form.email, role: form.role }
+        const data: any = { name: form.name, email: form.email, role: form.role, mailboxes: form.role === 'agent' ? form.mailboxes : undefined }
         if (form.password) data.password = form.password
         await api.users.update(editingId, data)
         notifications.show({ title: 'User updated', message: `${form.email} has been updated`, color: 'green' })
       } else {
-        await api.users.create({ name: form.name, email: form.email, role: form.role, password: form.password })
+        await api.users.create({ name: form.name, email: form.email, role: form.role, password: form.password, mailboxes: form.role === 'agent' ? form.mailboxes : undefined })
         notifications.show({ title: 'User created', message: `${form.email} has been created`, color: 'green' })
       }
       setModalOpen(false)
@@ -137,6 +137,30 @@ export function UsersPage() {
             <TextInput label="Email" value={form.email} onChange={(e) => setForm({ ...form, email: e.currentTarget.value })} required />
             <Select label="Role" data={[{ value: 'admin', label: 'Admin' }, { value: 'agent', label: 'Agent' }]} value={form.role} onChange={(v) => setForm({ ...form, role: v || 'agent' })} />
             <PasswordInput label={editingId ? 'New password (leave blank to keep)' : 'Password'} value={form.password} onChange={(e) => setForm({ ...form, password: e.currentTarget.value })} required={!editingId} />
+            {form.role === 'agent' && mailboxes.length > 0 && (
+              <Stack gap="xs">
+                <Text size="sm" fw={500}>Mailboxes</Text>
+                {mailboxes.map((mb: any) => (
+                  <Checkbox
+                    key={mb.id}
+                    label={mb.name}
+                    checked={form.mailboxes.includes(mb.id)}
+                    onChange={(e) => {
+                      const checked = e.currentTarget.checked
+                      setForm(prev => ({
+                        ...prev,
+                        mailboxes: checked
+                          ? [...prev.mailboxes, mb.id]
+                          : prev.mailboxes.filter((id: string) => id !== mb.id),
+                      }))
+                    }}
+                  />
+                ))}
+              </Stack>
+            )}
+            {form.role === 'admin' && (
+              <Text size="sm" c="dimmed">Admins have access to all mailboxes.</Text>
+            )}
             <Group justify="flex-end">
               <Button variant="default" onClick={() => setModalOpen(false)}>Cancel</Button>
               <Button type="submit" loading={saving}>{editingId ? 'Save' : 'Create'}</Button>

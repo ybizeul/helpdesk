@@ -16,6 +16,20 @@ import (
 	"go.mongodb.org/mongo-driver/v2/mongo"
 )
 
+// loadTicketMailbox loads the mailbox associated with a ticket.
+func (h *handlers) loadTicketMailbox(ctx context.Context, ticket models.Ticket) (models.Mailbox, error) {
+	var mb models.Mailbox
+	if ticket.MailboxID == "" {
+		return mb, fmt.Errorf("ticket has no mailbox_id")
+	}
+	oid, err := bson.ObjectIDFromHex(ticket.MailboxID)
+	if err != nil {
+		return mb, err
+	}
+	err = h.db.Mailboxes().FindOne(ctx, bson.M{"_id": oid}).Decode(&mb)
+	return mb, err
+}
+
 // replyPrefixes lists multilingual reply/forward prefixes to strip when normalising subjects.
 var replyPrefixes = []string{
 	"Re: ", "RE: ", "re: ",
@@ -124,6 +138,21 @@ func (h *handlers) listTickets(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 
 	filter := bson.M{}
+
+	// Mailbox filtering — if mailbox_id is specified, filter by it; otherwise filter by user's accessible mailboxes
+	if mbID := r.URL.Query().Get("mailbox_id"); mbID != "" {
+		if !userCanAccessMailbox(h, r, mbID) {
+			writeError(w, http.StatusForbidden, "FORBIDDEN", "no access to this mailbox")
+			return
+		}
+		filter["mailbox_id"] = mbID
+	} else {
+		ids, isAdmin := userMailboxIDs(h, r)
+		if !isAdmin {
+			filter["mailbox_id"] = bson.M{"$in": ids}
+		}
+	}
+
 	if s := r.URL.Query().Get("status"); s != "" {
 		filter["status"] = s
 	} else if r.URL.Query().Get("include_closed") == "" {
@@ -365,10 +394,10 @@ func (h *handlers) replyTicket(w http.ResponseWriter, r *http.Request) {
 	msg.To = []string{ticket.Requester.Email}
 	msg.Subject = buildReplySubject(ticket.Number, ticket.Subject)
 
-	// Load settings to get the sender address
-	var settings models.Settings
-	if err := h.db.Settings().FindOne(ctx, bson.M{"_id": "global"}).Decode(&settings); err == nil && settings.Email.SMTPFrom != "" {
-		msg.From = settings.Email.SMTPFrom
+	// Load mailbox to get email config
+	mb, _ := h.loadTicketMailbox(ctx, ticket)
+	if mb.Email.SMTPFrom != "" {
+		msg.From = mb.Email.SMTPFrom
 	} else {
 		msg.From = "agent"
 	}
@@ -393,11 +422,11 @@ func (h *handlers) replyTicket(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Send email via SMTP
-	if settings.Email.SMTPHost != "" {
+	if mb.Email.SMTPHost != "" {
 		subject := buildReplySubject(ticket.Number, ticket.Subject)
 		replyHeaders := buildReplyHeaders(ticket)
-		cc := collectCc(ticket, settings.Email)
-		generatedID, rawMsg, sendErr := email.SendReply(settings.Email, ticket.Requester.Email, cc, subject, msg.Body, msg.HTML, replyHeaders)
+		cc := collectCc(ticket, mb.Email)
+		generatedID, rawMsg, sendErr := email.SendReply(mb.Email, ticket.Requester.Email, cc, subject, msg.Body, msg.HTML, replyHeaders)
 		if sendErr != nil {
 			slog.Error("failed to send reply email", "ticket", ticket.Number, "to", ticket.Requester.Email, "error", sendErr)
 			msg.SendError = sendErr.Error()
@@ -412,7 +441,7 @@ func (h *handlers) replyTicket(w http.ResponseWriter, r *http.Request) {
 				bson.M{"_id": oid, "messages.created_at": msg.CreatedAt},
 				bson.M{"$set": bson.M{"messages.$.message_id": generatedID}},
 			)
-			if err := email.StoreSentEmail(settings.Email, rawMsg); err != nil {
+			if err := email.StoreSentEmail(mb.Email, rawMsg); err != nil {
 				slog.Error("failed to store sent email", "ticket", ticket.Number, "error", err)
 			}
 		}
@@ -452,16 +481,16 @@ func (h *handlers) retrySend(w http.ResponseWriter, r *http.Request) {
 
 	msg := ticket.Messages[body.MessageIndex]
 
-	var settings models.Settings
-	if err := h.db.Settings().FindOne(ctx, bson.M{"_id": "global"}).Decode(&settings); err != nil || settings.Email.SMTPHost == "" {
+	mb, err := h.loadTicketMailbox(ctx, ticket)
+	if err != nil || mb.Email.SMTPHost == "" {
 		writeError(w, http.StatusBadRequest, "SMTP_NOT_CONFIGURED", "SMTP is not configured")
 		return
 	}
 
 	subject := buildReplySubject(ticket.Number, ticket.Subject)
 	replyHeaders := buildReplyHeaders(ticket)
-	cc := collectCc(ticket, settings.Email)
-	generatedID, rawMsg, sendErr := email.SendReply(settings.Email, ticket.Requester.Email, cc, subject, msg.Body, msg.HTML, replyHeaders)
+	cc := collectCc(ticket, mb.Email)
+	generatedID, rawMsg, sendErr := email.SendReply(mb.Email, ticket.Requester.Email, cc, subject, msg.Body, msg.HTML, replyHeaders)
 
 	arrayFilter := fmt.Sprintf("messages.%d.send_error", body.MessageIndex)
 	if sendErr != nil {
@@ -471,7 +500,7 @@ func (h *handlers) retrySend(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := email.StoreSentEmail(settings.Email, rawMsg); err != nil {
+	if err := email.StoreSentEmail(mb.Email, rawMsg); err != nil {
 		slog.Error("failed to store sent email", "ticket", ticket.Number, "error", err)
 	}
 
@@ -953,28 +982,43 @@ func (h *handlers) bulkTicketAction(w http.ResponseWriter, r *http.Request) {
 // corresponding emails to the configured deleted IMAP mailbox.
 func moveTicketEmails(db *store.DB, tickets []models.Ticket) {
 	ctx := context.Background()
-	var settings models.Settings
-	if err := db.Settings().FindOne(ctx, bson.M{"_id": "global"}).Decode(&settings); err != nil {
-		return
-	}
-	if settings.Email.DeletedMailbox == "" {
-		return
+
+	// Group tickets by mailbox_id
+	byMailbox := map[string][]models.Ticket{}
+	for _, t := range tickets {
+		byMailbox[t.MailboxID] = append(byMailbox[t.MailboxID], t)
 	}
 
-	var messageIDs []string
-	for _, t := range tickets {
-		for _, m := range t.Messages {
-			if m.MessageID != "" {
-				messageIDs = append(messageIDs, m.MessageID)
+	for mailboxID, mbTickets := range byMailbox {
+		if mailboxID == "" {
+			continue
+		}
+		oid, err := bson.ObjectIDFromHex(mailboxID)
+		if err != nil {
+			continue
+		}
+		var mb models.Mailbox
+		if err := db.Mailboxes().FindOne(ctx, bson.M{"_id": oid}).Decode(&mb); err != nil {
+			continue
+		}
+		if mb.Email.DeletedMailbox == "" {
+			continue
+		}
+
+		var messageIDs []string
+		for _, t := range mbTickets {
+			for _, m := range t.Messages {
+				if m.MessageID != "" {
+					messageIDs = append(messageIDs, m.MessageID)
+				}
 			}
 		}
-	}
+		if len(messageIDs) == 0 {
+			continue
+		}
 
-	if len(messageIDs) == 0 {
-		return
-	}
-
-	if err := email.MoveToDeletedMailbox(settings.Email, messageIDs); err != nil {
-		slog.Error("failed to move emails to deleted mailbox", "error", err)
+		if err := email.MoveToDeletedMailbox(mb.Email, messageIDs); err != nil {
+			slog.Error("failed to move emails to deleted mailbox", "mailbox", mailboxID, "error", err)
+		}
 	}
 }

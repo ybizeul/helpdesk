@@ -97,13 +97,14 @@ interface TicketListPageProps {
   activeTicketId?: string | null
   currentUser?: { role?: string; locale?: string } | null
   onSelectTicket?: (id: string) => void
+  mailbox?: any
 }
 
 export interface TicketListHandle {
   refresh: () => void
 }
 
-export const TicketListPage = forwardRef<TicketListHandle, TicketListPageProps>(function TicketListPage({ activeTicketId, currentUser, onSelectTicket }, ref) {
+export const TicketListPage = forwardRef<TicketListHandle, TicketListPageProps>(function TicketListPage({ activeTicketId, currentUser, onSelectTicket, mailbox }, ref) {
   const [tickets, setTickets] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [selected, setSelected] = useState<Set<string>>(new Set())
@@ -116,7 +117,8 @@ export const TicketListPage = forwardRef<TicketListHandle, TicketListPageProps>(
   const locale = currentUser?.locale || undefined
 
   const loadTickets = useCallback(() => {
-    api.tickets.list(getFilterParams(statusFilter)).then((data) => {
+    const params = { ...getFilterParams(statusFilter), ...(mailbox?.id ? { mailbox_id: mailbox.id } : {}) }
+    api.tickets.list(params).then((data) => {
       if (knownIdsRef.current !== null) {
         const newTickets = data.filter((t: any) => t.unread && !knownIdsRef.current!.has(t.id))
         if (newTickets.length > 0) notifyNewTickets(newTickets)
@@ -125,14 +127,14 @@ export const TicketListPage = forwardRef<TicketListHandle, TicketListPageProps>(
       setTickets(data)
       setLoading(false)
     }).catch(console.error)
-  }, [statusFilter])
+  }, [statusFilter, mailbox?.id])
 
   useImperativeHandle(ref, () => ({ refresh: loadTickets }), [loadTickets])
 
   const fetchAndRefresh = useCallback(async () => {
     setFetching(true)
     try {
-      await api.email.fetch()
+      if (mailbox?.id) await api.mailboxes.fetch(mailbox.id)
     } catch (e: any) {
       notifications.show({ title: 'Email fetch failed', message: e.message, color: 'red' })
     } finally {

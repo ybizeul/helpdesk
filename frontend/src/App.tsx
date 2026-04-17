@@ -22,12 +22,15 @@ function getInitialToken(): string | null {
   return url.searchParams.get('token')
 }
 
-function TicketPanes({ currentUser }: { currentUser: any }) {
-  const { id } = useParams<{ id: string }>()
+function TicketPanes({ currentUser, mailboxes }: { currentUser: any; mailboxes: any[] }) {
+  const { id, slug } = useParams<{ id: string; slug: string }>()
   const navigate = useNavigate()
   const isMobile = useMediaQuery('(max-width: 768px)')
   const listRef = useRef<TicketListHandle>(null)
   const refreshList = useCallback(() => listRef.current?.refresh(), [])
+
+  const mailbox = mailboxes.find((m: any) => m.slug === slug) || mailboxes[0]
+  const basePath = `/mailbox/${mailbox?.slug || 'default'}/tickets`
 
   // Hooks must be called unconditionally (before any early return)
   const [topHeight, setTopHeight] = useState(() => {
@@ -63,17 +66,18 @@ function TicketPanes({ currentUser }: { currentUser: any }) {
   if (isMobile) {
     return (
       <Box style={{ height: 'calc(100dvh - var(--app-shell-header-height, 50px))', position: 'relative', overflow: 'hidden' }}>
-        <Box style={{ display: id ? 'none' : 'flex', flexDirection: 'column', height: '100%' }}>
+        <Box key={mailbox?.id} style={{ display: id ? 'none' : 'flex', flexDirection: 'column', height: '100%' }}>
           <TicketListPage
             ref={listRef}
             activeTicketId={null}
             currentUser={currentUser}
-            onSelectTicket={(ticketId) => navigate(`/tickets/${ticketId}`)}
+            mailbox={mailbox}
+            onSelectTicket={(ticketId) => navigate(`${basePath}/${ticketId}`)}
           />
         </Box>
         {id && (
           <Box style={{ position: 'absolute', inset: 0 }}>
-            <TicketDetailPage ticketId={id} onBack={() => navigate('/tickets')} onTicketUpdate={refreshList} />
+            <TicketDetailPage ticketId={id} onBack={() => navigate(basePath)} onTicketUpdate={refreshList} mailbox={mailbox} />
           </Box>
         )}
       </Box>
@@ -85,12 +89,13 @@ function TicketPanes({ currentUser }: { currentUser: any }) {
 
   return (
     <Box ref={containerRef} style={{ display: 'flex', flexDirection: 'column', height: '100vh' }}>
-      <Box style={{ height: showDetail ? `${topHeight}%` : '100%', padding: 'var(--mantine-spacing-md)', paddingBottom: showDetail ? 0 : undefined, display: 'flex', flexDirection: 'column', minHeight: 0, overflow: 'hidden' }}>
+      <Box key={mailbox?.id} style={{ height: showDetail ? `${topHeight}%` : '100%', padding: 'var(--mantine-spacing-md)', paddingBottom: showDetail ? 0 : undefined, display: 'flex', flexDirection: 'column', minHeight: 0, overflow: 'hidden' }}>
         <TicketListPage
           ref={listRef}
           activeTicketId={id || null}
           currentUser={currentUser}
-          onSelectTicket={(ticketId) => navigate(`/tickets/${ticketId}`)}
+          mailbox={mailbox}
+          onSelectTicket={(ticketId) => navigate(`${basePath}/${ticketId}`)}
         />
       </Box>
       {showDetail && (
@@ -110,7 +115,7 @@ function TicketPanes({ currentUser }: { currentUser: any }) {
             <div style={{ height: 1, width: '100%', background: 'var(--mantine-color-default-border)', transition: 'background 150ms' }} />
           </Box>
           <Box style={{ flex: 1, padding: 'var(--mantine-spacing-md)', minHeight: 0, display: 'flex', flexDirection: 'column', position: 'relative' }}>
-            <TicketDetailPage ticketId={id} onTicketUpdate={refreshList} />
+            <TicketDetailPage ticketId={id} onTicketUpdate={refreshList} mailbox={mailbox} />
           </Box>
         </>
       )}
@@ -124,6 +129,7 @@ export default function App() {
   const [profileOpened, { open: openProfile, close: closeProfile }] = useDisclosure(false)
   const [currentUser, setCurrentUser] = useState<any>(null)
   const [siteName, setSiteName] = useState('Helpdesk')
+  const [mailboxes, setMailboxes] = useState<any[]>([])
   const isAdmin = currentUser?.role === 'admin'
 
   useEffect(() => {
@@ -147,12 +153,17 @@ export default function App() {
     window.history.replaceState({}, '', url.pathname + (url.search ? url.search : '') + url.hash)
   }, [])
 
+  const loadMailboxes = useCallback(() => {
+    api.mailboxes.list().then(setMailboxes).catch(console.error)
+  }, [])
+
   const handleLogin = useCallback((newToken: string, user: any) => {
     localStorage.setItem('token', newToken)
     setAuthToken(newToken)
     setToken(newToken)
     setCurrentUser(user)
-  }, [])
+    loadMailboxes()
+  }, [loadMailboxes])
 
   const handleLogout = useCallback(() => {
     localStorage.removeItem('token')
@@ -167,8 +178,9 @@ export default function App() {
   useEffect(() => {
     if (token && !currentUser) {
       api.me().then(setCurrentUser).catch(console.error)
+      loadMailboxes()
     }
-  }, [token])
+  }, [token, loadMailboxes])
 
   if (!token) {
     return <LoginPage onLogin={handleLogin} />
@@ -187,16 +199,18 @@ export default function App() {
         </Group>
       </AppShell.Header>
       <AppShell.Navbar>
-        <AppNavbar onLogout={handleLogout} onNavigate={closeNav} user={currentUser} onOpenProfile={openProfile} siteName={siteName} />
+        <AppNavbar onLogout={handleLogout} onNavigate={closeNav} user={currentUser} onOpenProfile={openProfile} siteName={siteName} mailboxes={mailboxes} />
       </AppShell.Navbar>
       <AppShell.Main style={{ overflow: 'hidden' }}>
         <Routes>
-          <Route path="/" element={<Navigate to="/tickets" replace />} />
+          <Route path="/" element={mailboxes.length > 0 ? <Navigate to={`/mailbox/${mailboxes[0].slug}/tickets`} replace /> : <Navigate to="/dashboard" replace />} />
           <Route path="/dashboard" element={<Box p="md"><DashboardPage /></Box>} />
-          <Route path="/tickets" element={<TicketPanes currentUser={currentUser} />} />
-          <Route path="/tickets/:id" element={<TicketPanes currentUser={currentUser} />} />
-          <Route path="/users" element={isAdmin ? <Box p="md"><UsersPage /></Box> : <Navigate to="/tickets" replace />} />
-          <Route path="/settings" element={isAdmin ? <Box p="md"><SettingsPage onSiteNameChange={setSiteName} /></Box> : <Navigate to="/tickets" replace />} />
+          <Route path="/mailbox/:slug/tickets" element={<TicketPanes currentUser={currentUser} mailboxes={mailboxes} />} />
+          <Route path="/mailbox/:slug/tickets/:id" element={<TicketPanes currentUser={currentUser} mailboxes={mailboxes} />} />
+          <Route path="/tickets" element={mailboxes.length > 0 ? <Navigate to={`/mailbox/${mailboxes[0].slug}/tickets`} replace /> : null} />
+          <Route path="/tickets/:id" element={mailboxes.length > 0 ? <Navigate to={`/mailbox/${mailboxes[0].slug}/tickets`} replace /> : null} />
+          <Route path="/users" element={isAdmin ? <Box p="md"><UsersPage mailboxes={mailboxes} /></Box> : <Navigate to="/" replace />} />
+          <Route path="/settings" element={isAdmin ? <Box p="md"><SettingsPage onSiteNameChange={setSiteName} mailboxes={mailboxes} onMailboxesChange={setMailboxes} /></Box> : <Navigate to="/" replace />} />
         </Routes>
       </AppShell.Main>
       <ProfileModal opened={profileOpened} onClose={closeProfile} user={currentUser} onAvatarChange={(avatar) => setCurrentUser((u: any) => u ? { ...u, avatar } : u)} onLocaleChange={(locale) => setCurrentUser((u: any) => u ? { ...u, locale } : u)} />

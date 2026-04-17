@@ -334,19 +334,42 @@ func (h *handlers) findOrCreateOIDCUser(ctx context.Context, info oidcUserInfo, 
 		role = models.RoleAgent
 	}
 
+	// Sync mailbox assignments based on OIDC groups
+	mailboxIDs := h.resolveMailboxIDsFromGroups(ctx, info.Groups)
+
 	var user models.User
 	err := h.db.Users().FindOne(ctx, bson.M{"email": info.Email}).Decode(&user)
 	if err == nil {
+		updates := bson.M{}
 		if user.Role != role {
+			updates["role"] = role
+			user.Role = role
+		}
+		// Add new mailbox IDs (additive — don't remove manually assigned ones)
+		if len(mailboxIDs) > 0 {
+			existing := make(map[string]bool, len(user.Mailboxes))
+			for _, id := range user.Mailboxes {
+				existing[id] = true
+			}
+			var toAdd []string
+			for _, id := range mailboxIDs {
+				if !existing[id] {
+					toAdd = append(toAdd, id)
+				}
+			}
+			if len(toAdd) > 0 {
+				updates["mailboxes"] = append(user.Mailboxes, toAdd...)
+			}
+		}
+		if len(updates) > 0 {
 			oid, convErr := bson.ObjectIDFromHex(user.ID)
 			if convErr != nil {
 				return models.User{}, convErr
 			}
-			_, updateErr := h.db.Users().UpdateByID(ctx, oid, bson.M{"$set": bson.M{"role": role}})
+			_, updateErr := h.db.Users().UpdateByID(ctx, oid, bson.M{"$set": updates})
 			if updateErr != nil {
 				return models.User{}, updateErr
 			}
-			user.Role = role
 		}
 		return user, nil
 	}
@@ -360,6 +383,7 @@ func (h *handlers) findOrCreateOIDCUser(ctx context.Context, info oidcUserInfo, 
 		Email:        info.Email,
 		Role:         role,
 		PasswordHash: store.HashPassword(generatedPwd),
+		Mailboxes:    mailboxIDs,
 		CreatedAt:    time.Now(),
 	}
 	result, err := h.db.Users().InsertOne(ctx, newUser)
@@ -369,6 +393,42 @@ func (h *handlers) findOrCreateOIDCUser(ctx context.Context, info oidcUserInfo, 
 
 	newUser.ID = result.InsertedID.(bson.ObjectID).Hex()
 	return newUser, nil
+}
+
+// resolveMailboxIDsFromGroups finds all mailboxes whose oidc_group matches any
+// of the user's OIDC groups and returns their IDs.
+func (h *handlers) resolveMailboxIDsFromGroups(ctx context.Context, groups []string) []string {
+	if len(groups) == 0 {
+		return nil
+	}
+	lowerGroups := make([]string, len(groups))
+	for i, g := range groups {
+		lowerGroups[i] = strings.ToLower(strings.TrimSpace(g))
+	}
+
+	cur, err := h.db.Mailboxes().Find(ctx, bson.M{
+		"oidc_group": bson.M{"$ne": ""},
+	})
+	if err != nil {
+		return nil
+	}
+	defer cur.Close(ctx)
+
+	var ids []string
+	for cur.Next(ctx) {
+		var mb models.Mailbox
+		if err := cur.Decode(&mb); err != nil {
+			continue
+		}
+		mbGroup := strings.ToLower(strings.TrimSpace(mb.OIDCGroup))
+		for _, g := range lowerGroups {
+			if g == mbGroup {
+				ids = append(ids, mb.ID)
+				break
+			}
+		}
+	}
+	return ids
 }
 
 func fetchOIDCDiscovery(ctx context.Context, endpoint string) (*oidcDiscoveryDocument, error) {

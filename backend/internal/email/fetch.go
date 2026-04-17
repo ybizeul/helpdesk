@@ -17,7 +17,6 @@ import (
 	"github.com/helpdesk/backend/internal/models"
 	"go.mongodb.org/mongo-driver/v2/bson"
 	"go.mongodb.org/mongo-driver/v2/mongo"
-	"go.mongodb.org/mongo-driver/v2/mongo/options"
 )
 
 type FetchResult struct {
@@ -29,15 +28,16 @@ type FetchResult struct {
 type TicketStore interface {
 	Tickets() *mongo.Collection
 	Settings() *mongo.Collection
+	Mailboxes() *mongo.Collection
 	NextTicketNumber(ctx context.Context) (int, error)
 	EnsureCounterAtLeast(ctx context.Context, val int) error
 }
 
-func FetchEmails(ctx context.Context, cfg models.EmailSettings, db TicketStore) (*FetchResult, error) {
+func FetchEmails(ctx context.Context, cfg models.EmailSettings, db TicketStore, mailboxID string, lastFetchedAt *time.Time) (*FetchResult, error) {
 	var result *FetchResult
 	err := withIMAPRetry(ctx, func() error {
 		var runErr error
-		result, runErr = fetchEmailsOnce(ctx, cfg, db)
+		result, runErr = fetchEmailsOnce(ctx, cfg, db, mailboxID, lastFetchedAt)
 		return runErr
 	})
 	if err != nil {
@@ -46,7 +46,7 @@ func FetchEmails(ctx context.Context, cfg models.EmailSettings, db TicketStore) 
 	return result, nil
 }
 
-func fetchEmailsOnce(ctx context.Context, cfg models.EmailSettings, db TicketStore) (*FetchResult, error) {
+func fetchEmailsOnce(ctx context.Context, cfg models.EmailSettings, db TicketStore, mailboxID string, lastFetchedAt *time.Time) (*FetchResult, error) {
 	c, err := connect(cfg)
 	if err != nil {
 		return nil, err
@@ -70,13 +70,6 @@ func fetchEmailsOnce(ctx context.Context, cfg models.EmailSettings, db TicketSto
 
 	if _, err := c.Select(mailbox, nil).Wait(); err != nil {
 		return nil, fmt.Errorf("imap select %s: %w", mailbox, err)
-	}
-
-	// Load last fetched date from settings
-	var settings models.Settings
-	var lastFetchedAt *time.Time
-	if err := db.Settings().FindOne(ctx, bson.M{"_id": "global"}).Decode(&settings); err == nil {
-		lastFetchedAt = settings.LastFetchedAt
 	}
 
 	// If we have a last fetched date, search for emails since that date
@@ -103,7 +96,7 @@ func fetchEmailsOnce(ctx context.Context, cfg models.EmailSettings, db TicketSto
 	}
 
 	// Search succeeded — update last_fetched_at regardless of what happens next
-	defer updateFetchedAt(ctx, db)
+	defer updateFetchedAt(ctx, db, mailboxID)
 
 	uids := searchData.AllUIDs()
 	if len(uids) == 0 {
@@ -351,6 +344,7 @@ func fetchEmailsOnce(ctx context.Context, cfg models.EmailSettings, db TicketSto
 			}
 			ticket := models.Ticket{
 				Number:        num,
+				MailboxID:     mailboxID,
 				Subject:       subject,
 				Status:        models.TicketStatusUnassigned,
 				Priority:      models.PriorityNormal,
@@ -410,11 +404,15 @@ func fetchEmailsOnce(ctx context.Context, cfg models.EmailSettings, db TicketSto
 	return result, nil
 }
 
-func updateFetchedAt(ctx context.Context, db TicketStore) {
+func updateFetchedAt(ctx context.Context, db TicketStore, mailboxID string) {
 	now := time.Now()
-	db.Settings().UpdateOne(ctx, bson.M{"_id": "global"}, bson.M{
+	oid, err := bson.ObjectIDFromHex(mailboxID)
+	if err != nil {
+		return
+	}
+	db.Mailboxes().UpdateByID(ctx, oid, bson.M{
 		"$set": bson.M{"last_fetched_at": now},
-	}, options.UpdateOne().SetUpsert(true))
+	})
 }
 
 func stripRePrefix(subject string) string {

@@ -2,19 +2,12 @@ import { Stack, Text, Avatar, Menu, Group, UnstyledButton, Box } from '@mantine/
 import { useLocation, useNavigate } from 'react-router-dom'
 import {
   IconDashboard,
-  IconTicket,
+  IconInbox,
   IconUsers,
   IconSettings,
   IconLogout,
   IconUser,
 } from '@tabler/icons-react'
-
-const links = [
-  { label: 'Dashboard', icon: IconDashboard, to: '/dashboard' },
-  { label: 'Cases', icon: IconTicket, to: '/tickets' },
-  { label: 'Users', icon: IconUsers, to: '/users' },
-  { label: 'Settings', icon: IconSettings, to: '/settings' },
-]
 
 interface AppNavbarProps {
   onLogout?: () => void
@@ -22,13 +15,13 @@ interface AppNavbarProps {
   user?: { id: string; name: string; email: string; role: string; avatar?: string } | null
   onOpenProfile?: () => void
   siteName?: string
+  mailboxes?: any[]
 }
 
-export function AppNavbar({ onLogout, onNavigate, user, onOpenProfile, siteName = 'Helpdesk' }: AppNavbarProps) {
+export function AppNavbar({ onLogout, onNavigate, user, onOpenProfile, siteName = 'Helpdesk', mailboxes = [] }: AppNavbarProps) {
   const location = useLocation()
   const navigate = useNavigate()
   const isAdmin = user?.role === 'admin'
-  const visibleLinks = isAdmin ? links : links.filter((link) => link.to !== '/users' && link.to !== '/settings')
 
   const handleNav = (to: string) => {
     navigate(to)
@@ -38,6 +31,27 @@ export function AppNavbar({ onLogout, onNavigate, user, onOpenProfile, siteName 
   const initials = user?.name
     ? user.name.split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2)
     : '?'
+
+  // Build nav links dynamically
+  const navItems: { label: string; icon: typeof IconDashboard; to: string; adminOnly?: boolean }[] = []
+
+  navItems.push({ label: 'Dashboard', icon: IconDashboard, to: '/dashboard' })
+
+  if (mailboxes.length <= 1) {
+    // Single mailbox: show "Cases" like before
+    const slug = mailboxes[0]?.slug || 'default'
+    navItems.push({ label: 'Cases', icon: IconInbox, to: `/mailbox/${slug}/tickets` })
+  } else {
+    // Multiple mailboxes: one entry per mailbox
+    for (const mb of mailboxes) {
+      navItems.push({ label: mb.name, icon: IconInbox, to: `/mailbox/${mb.slug}/tickets` })
+    }
+  }
+
+  if (isAdmin) {
+    navItems.push({ label: 'Users', icon: IconUsers, to: '/users' })
+    navItems.push({ label: 'Settings', icon: IconSettings, to: '/settings' })
+  }
 
   return (
     <Stack gap={0} p="sm" justify="space-between" h="100%">
@@ -62,7 +76,7 @@ export function AppNavbar({ onLogout, onNavigate, user, onOpenProfile, siteName 
           </Menu>
           <Text fw={700} size="lg">{user?.name || siteName}</Text>
         </Group>
-        {visibleLinks.map((link) => {
+        {navItems.map((link) => {
           const active = location.pathname.startsWith(link.to)
           return (
             <UnstyledButton

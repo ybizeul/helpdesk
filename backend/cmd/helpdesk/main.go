@@ -133,11 +133,13 @@ func pollEmails(db *store.DB, stop <-chan struct{}) {
 	const defaultInterval = 60 * time.Second
 
 	for {
-		// Load settings to get poll interval and email config
-		var s models.Settings
-		err := db.Settings().FindOne(context.Background(), bson.M{"_id": "global"}).Decode(&s)
-		if err != nil || s.Email.IMAPHost == "" {
-			// No email configured yet, check again later
+		// Load all mailboxes
+		ctx := context.Background()
+		cur, err := db.Mailboxes().Find(ctx, bson.M{
+			"email.imap_host": bson.M{"$ne": ""},
+			"enabled":         true,
+		})
+		if err != nil {
 			select {
 			case <-stop:
 				return
@@ -146,24 +148,39 @@ func pollEmails(db *store.DB, stop <-chan struct{}) {
 			}
 		}
 
-		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
-		result, err := email.FetchEmails(ctx, s.Email, db)
-		cancel()
-		if err != nil {
-			slog.Error("background email fetch failed", "error", err)
-		} else if result.Count > 0 {
-			slog.Info("background email fetch", "created", result.Created, "updated", result.Updated)
+		var mailboxes []models.Mailbox
+		if err := cur.All(ctx, &mailboxes); err != nil || len(mailboxes) == 0 {
+			cur.Close(ctx)
+			select {
+			case <-stop:
+				return
+			case <-time.After(defaultInterval):
+				continue
+			}
 		}
+		cur.Close(ctx)
 
-		interval := time.Duration(s.Email.PollIntervalSeconds) * time.Second
-		if interval <= 0 {
-			interval = defaultInterval
+		minInterval := defaultInterval
+		for _, mb := range mailboxes {
+			fetchCtx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
+			result, fetchErr := email.FetchEmails(fetchCtx, mb.Email, db, mb.ID, mb.LastFetchedAt)
+			cancel()
+			if fetchErr != nil {
+				slog.Error("background email fetch failed", "mailbox", mb.Name, "error", fetchErr)
+			} else if result.Count > 0 {
+				slog.Info("background email fetch", "mailbox", mb.Name, "created", result.Created, "updated", result.Updated)
+			}
+
+			interval := time.Duration(mb.Email.PollIntervalSeconds) * time.Second
+			if interval > 0 && interval < minInterval {
+				minInterval = interval
+			}
 		}
 
 		select {
 		case <-stop:
 			return
-		case <-time.After(interval):
+		case <-time.After(minInterval):
 		}
 	}
 }

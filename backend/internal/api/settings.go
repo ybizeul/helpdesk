@@ -5,7 +5,6 @@ import (
 	"os"
 	"time"
 
-	"github.com/helpdesk/backend/internal/email"
 	"github.com/helpdesk/backend/internal/models"
 	"github.com/helpdesk/backend/internal/store"
 	"go.mongodb.org/mongo-driver/v2/bson"
@@ -29,43 +28,19 @@ func (h *handlers) getSettings(w http.ResponseWriter, r *http.Request) {
 	}
 
 	resp := map[string]any{
-		"id":              s.ID,
-		"site_name":       s.SiteName,
-		"email":           s.Email,
-		"llm":             s.LLM,
-		"auth":            s.Auth,
-		"signature":       s.Signature,
-		"last_fetched_at": s.LastFetchedAt,
-		"updated_at":      s.UpdatedAt,
-		"debug":           os.Getenv("DEBUG") != "",
+		"id":         s.ID,
+		"site_name":  s.SiteName,
+		"llm":        s.LLM,
+		"auth":       s.Auth,
+		"updated_at": s.UpdatedAt,
+		"debug":      os.Getenv("DEBUG") != "",
 	}
 	writeJSON(w, http.StatusOK, resp)
 }
 
 func (h *handlers) updateEmailSettings(w http.ResponseWriter, r *http.Request) {
-	if !requireAdmin(r) {
-		writeError(w, http.StatusForbidden, "FORBIDDEN", "admin role required")
-		return
-	}
-
-	ctx := r.Context()
-
-	var email models.EmailSettings
-	if err := readJSON(r, &email); err != nil {
-		writeError(w, http.StatusBadRequest, "INVALID_JSON", err.Error())
-		return
-	}
-
-	_, err := h.db.Settings().UpdateOne(ctx,
-		bson.M{"_id": "global"},
-		bson.M{"$set": bson.M{"email": email, "updated_at": time.Now()}},
-		options.UpdateOne().SetUpsert(true),
-	)
-	if err != nil {
-		writeError(w, http.StatusInternalServerError, "DB_ERROR", err.Error())
-		return
-	}
-	w.WriteHeader(http.StatusNoContent)
+	// Deprecated: email settings are now per-mailbox. Keep for backward compat.
+	writeError(w, http.StatusGone, "MOVED", "email settings are now per-mailbox; use PUT /api/v1/mailboxes/{id}")
 }
 
 func (h *handlers) updateLLMSettings(w http.ResponseWriter, r *http.Request) {
@@ -135,31 +110,8 @@ func (h *handlers) getOIDCCallbackInfo(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *handlers) updateSignature(w http.ResponseWriter, r *http.Request) {
-	if !requireAdmin(r) {
-		writeError(w, http.StatusForbidden, "FORBIDDEN", "admin role required")
-		return
-	}
-
-	ctx := r.Context()
-
-	var body struct {
-		Signature string `json:"signature"`
-	}
-	if err := readJSON(r, &body); err != nil {
-		writeError(w, http.StatusBadRequest, "INVALID_JSON", err.Error())
-		return
-	}
-
-	_, err := h.db.Settings().UpdateOne(ctx,
-		bson.M{"_id": "global"},
-		bson.M{"$set": bson.M{"signature": body.Signature, "updated_at": time.Now()}},
-		options.UpdateOne().SetUpsert(true),
-	)
-	if err != nil {
-		writeError(w, http.StatusInternalServerError, "DB_ERROR", err.Error())
-		return
-	}
-	w.WriteHeader(http.StatusNoContent)
+	// Deprecated: signature is now per-mailbox. Keep for backward compat.
+	writeError(w, http.StatusGone, "MOVED", "signature is now per-mailbox; use PUT /api/v1/mailboxes/{id}")
 }
 
 func (h *handlers) getPublicSettings(w http.ResponseWriter, r *http.Request) {
@@ -211,12 +163,34 @@ func (h *handlers) emailStatus(w http.ResponseWriter, r *http.Request) {
 func (h *handlers) getStats(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 
-	total, _ := h.db.Tickets().CountDocuments(ctx, bson.M{})
-	unassigned, _ := h.db.Tickets().CountDocuments(ctx, bson.M{"status": "unassigned"})
-	active, _ := h.db.Tickets().CountDocuments(ctx, bson.M{"status": "active"})
-	waiting, _ := h.db.Tickets().CountDocuments(ctx, bson.M{"status": "waiting"})
-	closed, _ := h.db.Tickets().CountDocuments(ctx, bson.M{"status": "closed"})
-	parked, _ := h.db.Tickets().CountDocuments(ctx, bson.M{"status": "parked"})
+	// Filter stats by user's accessible mailboxes
+	ids, isAdmin := userMailboxIDs(h, r)
+	filter := bson.M{}
+	if !isAdmin && len(ids) > 0 {
+		filter["mailbox_id"] = bson.M{"$in": ids}
+	} else if !isAdmin {
+		// Agent with no mailboxes sees nothing
+		writeJSON(w, http.StatusOK, map[string]int64{
+			"total": 0, "unassigned": 0, "active": 0,
+			"waiting": 0, "closed": 0, "parked": 0,
+		})
+		return
+	}
+
+	statusFilter := func(status string) bson.M {
+		f := bson.M{"status": status}
+		for k, v := range filter {
+			f[k] = v
+		}
+		return f
+	}
+
+	total, _ := h.db.Tickets().CountDocuments(ctx, filter)
+	unassigned, _ := h.db.Tickets().CountDocuments(ctx, statusFilter("unassigned"))
+	active, _ := h.db.Tickets().CountDocuments(ctx, statusFilter("active"))
+	waiting, _ := h.db.Tickets().CountDocuments(ctx, statusFilter("waiting"))
+	closed, _ := h.db.Tickets().CountDocuments(ctx, statusFilter("closed"))
+	parked, _ := h.db.Tickets().CountDocuments(ctx, statusFilter("parked"))
 
 	writeJSON(w, http.StatusOK, map[string]int64{
 		"total":      total,
@@ -270,37 +244,4 @@ func (h *handlers) login(w http.ResponseWriter, r *http.Request) {
 		"user":  user,
 		"token": token,
 	})
-}
-
-func (h *handlers) listMailboxes(w http.ResponseWriter, r *http.Request) {
-	var cfg models.EmailSettings
-	if err := readJSON(r, &cfg); err != nil {
-		writeError(w, http.StatusBadRequest, "INVALID_JSON", err.Error())
-		return
-	}
-
-	mailboxes, err := email.ListMailboxes(cfg)
-	if err != nil {
-		writeError(w, http.StatusBadGateway, "IMAP_ERROR", err.Error())
-		return
-	}
-	writeJSON(w, http.StatusOK, mailboxes)
-}
-
-func (h *handlers) fetchNow(w http.ResponseWriter, r *http.Request) {
-	ctx := r.Context()
-
-	var s models.Settings
-	err := h.db.Settings().FindOne(ctx, bson.M{"_id": "global"}).Decode(&s)
-	if err != nil {
-		writeError(w, http.StatusBadRequest, "NO_EMAIL_CONFIG", "email settings not configured")
-		return
-	}
-
-	result, err := email.FetchEmails(ctx, s.Email, h.db)
-	if err != nil {
-		writeError(w, http.StatusBadGateway, "IMAP_ERROR", err.Error())
-		return
-	}
-	writeJSON(w, http.StatusOK, result)
 }
