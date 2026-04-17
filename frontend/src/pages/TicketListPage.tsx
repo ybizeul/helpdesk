@@ -419,8 +419,8 @@ export const TicketListPage = forwardRef<TicketListHandle, TicketListPageProps>(
           <Table.Tr>
             <Table.Th w={40}><Checkbox size="xs" checked={tickets.length > 0 && selected.size === tickets.length} indeterminate={selected.size > 0 && selected.size < tickets.length} onChange={toggleAll} /></Table.Th>
             <Table.Th w={1} style={{ whiteSpace: 'nowrap' }}>Owner</Table.Th>
-            <Table.Th w={1}></Table.Th>
             <Table.Th w={1} style={{ whiteSpace: 'nowrap' }}>#</Table.Th>
+            <Table.Th w={1}></Table.Th>
             <Table.Th>Subject</Table.Th>
             <Table.Th>Requester</Table.Th>
             <Table.Th w={1} style={{ whiteSpace: 'nowrap' }}>Updated</Table.Th>
@@ -454,8 +454,8 @@ export const TicketListPage = forwardRef<TicketListHandle, TicketListPageProps>(
               <Table.Tr key={i}>
                 <Table.Td><Skeleton height={14} width={14} radius="sm" /></Table.Td>
                 <Table.Td><Skeleton circle height={26} width={26} /></Table.Td>
-                <Table.Td><Skeleton height={18} width={24} radius="xl" /></Table.Td>
                 <Table.Td><Skeleton height={12} width={30} radius="sm" /></Table.Td>
+                <Table.Td><Skeleton height={18} width={24} radius="xl" /></Table.Td>
                 <Table.Td><Skeleton height={12} radius="sm" width={`${50 + (i * 17) % 35}%`} /></Table.Td>
                 <Table.Td><Skeleton height={12} radius="sm" width="80%" /></Table.Td>
                 <Table.Td><Skeleton height={12} width={48} radius="sm" /></Table.Td>
@@ -477,10 +477,10 @@ export const TicketListPage = forwardRef<TicketListHandle, TicketListPageProps>(
                     </Avatar>
                   </Tooltip>
                 ) })()}</Table.Td>
+                <Table.Td onClick={handleClick}>{t.number}</Table.Td>
                 <Table.Td onClick={handleClick} style={{ whiteSpace: 'nowrap', textAlign: 'center' }}>
                   <Badge size="xs" color="gray.5" variant="filled" radius="xl" styles={{ label: { overflow: 'visible', textOverflow: 'unset' } }}>{t.messages?.length ?? 0}</Badge>
                 </Table.Td>
-                <Table.Td onClick={handleClick}>{t.number}</Table.Td>
                 <Table.Td onClick={handleClick}>{t.subject}</Table.Td>
                 <Table.Td onClick={handleClick}>{t.requester?.name || t.requester?.email}</Table.Td>
                 <Table.Td onClick={handleClick} style={{ whiteSpace: 'nowrap' }}>{formatDate(t.updated_at, locale)}</Table.Td>
