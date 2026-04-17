@@ -14,11 +14,7 @@ const statusColors: Record<string, string> = {
 }
 
 const statusShort: Record<string, string> = {
-  unassigned: 'U',
-  active: 'A',
-  waiting: 'W',
-  closed: 'C',
-  parked: 'P',
+  unassigned: 'U', active: 'A', waiting: 'W', closed: 'C', parked: 'P',
 }
 
 type StatusFilter = 'all_open' | 'all' | 'unassigned' | 'active' | 'waiting' | 'closed' | 'parked'
@@ -149,9 +145,18 @@ export const TicketListPage = forwardRef<TicketListHandle, TicketListPageProps>(
   const scrollRef = useRef<HTMLDivElement>(null)
   const touchStartY = useRef(0)
   const [pullY, setPullY] = useState(0)
+  const [releasing, setReleasing] = useState(false)
   const PULL_THRESHOLD = 65
   const fetchAndRefreshRef = useRef(fetchAndRefresh)
   useEffect(() => { fetchAndRefreshRef.current = fetchAndRefresh }, [fetchAndRefresh])
+
+  // When releasing, transition is already applied — animate height to 0 in next frame
+  useEffect(() => {
+    if (!releasing) return
+    const raf = requestAnimationFrame(() => setPullY(0))
+    const timer = setTimeout(() => setReleasing(false), 350)
+    return () => { cancelAnimationFrame(raf); clearTimeout(timer) }
+  }, [releasing])
 
   const onTouchStart = useCallback((e: React.TouchEvent) => {
     if (scrollRef.current?.scrollTop !== 0) return
@@ -168,8 +173,8 @@ export const TicketListPage = forwardRef<TicketListHandle, TicketListPageProps>(
 
   const onTouchEnd = useCallback(() => {
     if (pullY >= PULL_THRESHOLD) fetchAndRefreshRef.current()
-    setPullY(0)
     touchStartY.current = 0
+    if (pullY > 0) setReleasing(true)
   }, [pullY])
 
   // Non-passive touchmove to block browser native pull-to-refresh when pulling from top
@@ -316,13 +321,13 @@ export const TicketListPage = forwardRef<TicketListHandle, TicketListPageProps>(
         onTouchMove={isMobile ? onTouchMove : undefined}
         onTouchEnd={isMobile ? onTouchEnd : undefined}
       >
-        {isMobile && (pullY > 0 || fetching) && (
+        {isMobile && (pullY > 0 || releasing || fetching) && (
           <Box style={{
             position: 'absolute', top: 0, left: 0, right: 0, zIndex: 10,
             height: fetching ? PULL_THRESHOLD : pullY,
             display: 'flex', alignItems: 'flex-end', justifyContent: 'center',
             paddingBottom: 8,
-            transition: fetching ? 'height 0.2s ease' : undefined,
+            transition: (releasing || fetching) ? 'height 0.3s ease-in' : undefined,
             background: 'var(--mantine-color-body)',
             borderBottom: '1px solid var(--mantine-color-default-border)',
           }}>
@@ -332,8 +337,8 @@ export const TicketListPage = forwardRef<TicketListHandle, TicketListPageProps>(
             }
           </Box>
         )}
-        {isMobile && (pullY > 0 || fetching) && (
-          <Box style={{ height: fetching ? PULL_THRESHOLD : pullY, transition: fetching ? 'height 0.2s ease' : undefined }} />
+        {isMobile && (pullY > 0 || releasing || fetching) && (
+          <Box style={{ height: fetching ? PULL_THRESHOLD : pullY, transition: (releasing || fetching) ? 'height 0.3s ease-in' : undefined }} />
         )}
       {isMobile ? (
         <Stack gap={0}>
@@ -375,6 +380,7 @@ export const TicketListPage = forwardRef<TicketListHandle, TicketListPageProps>(
                       {owner?.avatar ? null : (owner ? getInitials(owner.name) : 'U')}
                     </Avatar>
                   ) })()}
+                  <Badge size="xs" color="gray" variant="light" radius="xl" style={{ flexShrink: 0 }}>{t.messages?.length ?? 0}</Badge>
                   <Box style={{ minWidth: 0, flex: 1 }}>
                     <Text size="sm" fw={t.unread ? 700 : 400} truncate>#{t.number} {t.subject}</Text>
                     <Text size="xs" c="dimmed" truncate>{t.requester?.name || t.requester?.email}</Text>
@@ -399,11 +405,11 @@ export const TicketListPage = forwardRef<TicketListHandle, TicketListPageProps>(
           <Table.Tr>
             <Table.Th w={40}><Checkbox size="xs" checked={tickets.length > 0 && selected.size === tickets.length} indeterminate={selected.size > 0 && selected.size < tickets.length} onChange={toggleAll} /></Table.Th>
             <Table.Th w={40}>Owner</Table.Th>
+            <Table.Th w={40}></Table.Th>
             <Table.Th>#</Table.Th>
             <Table.Th>Subject</Table.Th>
             <Table.Th>Requester</Table.Th>
             <Table.Th>Updated</Table.Th>
-            <Table.Th>Priority</Table.Th>
             <Table.Th>
               <Menu shadow="md" width={160}>
                 <Menu.Target>
@@ -434,11 +440,11 @@ export const TicketListPage = forwardRef<TicketListHandle, TicketListPageProps>(
               <Table.Tr key={i}>
                 <Table.Td><Skeleton height={14} width={14} radius="sm" /></Table.Td>
                 <Table.Td><Skeleton circle height={26} width={26} /></Table.Td>
+                <Table.Td><Skeleton height={18} width={24} radius="xl" /></Table.Td>
                 <Table.Td><Skeleton height={12} width={30} radius="sm" /></Table.Td>
                 <Table.Td><Skeleton height={12} radius="sm" width={`${50 + (i * 17) % 35}%`} /></Table.Td>
                 <Table.Td><Skeleton height={12} radius="sm" width="80%" /></Table.Td>
                 <Table.Td><Skeleton height={12} width={48} radius="sm" /></Table.Td>
-                <Table.Td><Skeleton height={12} width={40} radius="sm" /></Table.Td>
                 <Table.Td><Skeleton height={18} width={60} radius="sm" /></Table.Td>
               </Table.Tr>
             ))
@@ -457,12 +463,14 @@ export const TicketListPage = forwardRef<TicketListHandle, TicketListPageProps>(
                     </Avatar>
                   </Tooltip>
                 ) })()}</Table.Td>
+                <Table.Td onClick={handleClick}>
+                  <Badge size="xs" color="gray" variant="light" radius="xl">{t.messages?.length ?? 0}</Badge>
+                </Table.Td>
                 <Table.Td onClick={handleClick}>{t.number}</Table.Td>
                 <Table.Td onClick={handleClick}>{t.subject}</Table.Td>
                 <Table.Td onClick={handleClick}>{t.requester?.name || t.requester?.email}</Table.Td>
                 <Table.Td onClick={handleClick}>{formatDate(t.updated_at, locale)}</Table.Td>
-                <Table.Td onClick={handleClick}>{t.priority}</Table.Td>
-                <Table.Td onClick={handleClick}><Badge size="xs" color={statusColors[t.status] || 'gray'}>{t.status}</Badge></Table.Td>
+                <Table.Td onClick={handleClick}><Badge size="xs" color={statusColors[t.status] || 'gray'} style={{ whiteSpace: 'nowrap' }}>{t.status}</Badge></Table.Td>
               </Table.Tr>
             )
           })}
