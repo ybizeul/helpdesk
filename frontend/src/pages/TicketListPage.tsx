@@ -98,13 +98,14 @@ interface TicketListPageProps {
   currentUser?: { role?: string; locale?: string } | null
   onSelectTicket?: (id: string) => void
   mailbox?: any
+  onMailboxCountChange?: () => void
 }
 
 export interface TicketListHandle {
   refresh: () => void
 }
 
-export const TicketListPage = forwardRef<TicketListHandle, TicketListPageProps>(function TicketListPage({ activeTicketId, currentUser, onSelectTicket, mailbox }, ref) {
+export const TicketListPage = forwardRef<TicketListHandle, TicketListPageProps>(function TicketListPage({ activeTicketId, currentUser, onSelectTicket, mailbox, onMailboxCountChange }, ref) {
   const [tickets, setTickets] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [selected, setSelected] = useState<Set<string>>(new Set())
@@ -245,6 +246,7 @@ export const TicketListPage = forwardRef<TicketListHandle, TicketListPageProps>(
       await api.tickets.bulk(ids, action, extra)
       setSelected(new Set())
       loadTickets()
+      if (action === 'mark_read' || action === 'mark_unread') onMailboxCountChange?.()
       const labels: Record<string, string> = { delete: 'Deleted', mark_read: 'Marked as read', mark_unread: 'Marked as unread', set_status: `Status changed` }
       notifications.show({ title: labels[action] || action, message: `${ids.length} case(s)`, color: 'green' })
     } catch (e: any) {

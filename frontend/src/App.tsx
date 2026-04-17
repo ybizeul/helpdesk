@@ -22,12 +22,12 @@ function getInitialToken(): string | null {
   return url.searchParams.get('token')
 }
 
-function TicketPanes({ currentUser, mailboxes }: { currentUser: any; mailboxes: any[] }) {
+function TicketPanes({ currentUser, mailboxes, onMailboxCountChange }: { currentUser: any; mailboxes: any[]; onMailboxCountChange?: () => void }) {
   const { id, slug } = useParams<{ id: string; slug: string }>()
   const navigate = useNavigate()
   const isMobile = useMediaQuery('(max-width: 768px)')
   const listRef = useRef<TicketListHandle>(null)
-  const refreshList = useCallback(() => listRef.current?.refresh(), [])
+  const refreshList = useCallback(() => { listRef.current?.refresh(); onMailboxCountChange?.() }, [onMailboxCountChange])
 
   const mailbox = mailboxes.find((m: any) => m.slug === slug) || mailboxes[0]
   const basePath = `/mailbox/${mailbox?.slug || 'default'}/tickets`
@@ -73,6 +73,7 @@ function TicketPanes({ currentUser, mailboxes }: { currentUser: any; mailboxes: 
             currentUser={currentUser}
             mailbox={mailbox}
             onSelectTicket={(ticketId) => navigate(`${basePath}/${ticketId}`)}
+            onMailboxCountChange={onMailboxCountChange}
           />
         </Box>
         {id && (
@@ -95,8 +96,9 @@ function TicketPanes({ currentUser, mailboxes }: { currentUser: any; mailboxes: 
           activeTicketId={id || null}
           currentUser={currentUser}
           mailbox={mailbox}
-          onSelectTicket={(ticketId) => navigate(`${basePath}/${ticketId}`)}
-        />
+            onSelectTicket={(ticketId) => navigate(`${basePath}/${ticketId}`)}
+            onMailboxCountChange={onMailboxCountChange}
+          />
       </Box>
       {showDetail && (
         <>
@@ -205,8 +207,8 @@ export default function App() {
         <Routes>
           <Route path="/" element={mailboxes.length > 0 ? <Navigate to={`/mailbox/${mailboxes[0].slug}/tickets`} replace /> : <Navigate to="/dashboard" replace />} />
           <Route path="/dashboard" element={<Box p="md"><DashboardPage /></Box>} />
-          <Route path="/mailbox/:slug/tickets" element={<TicketPanes currentUser={currentUser} mailboxes={mailboxes} />} />
-          <Route path="/mailbox/:slug/tickets/:id" element={<TicketPanes currentUser={currentUser} mailboxes={mailboxes} />} />
+          <Route path="/mailbox/:slug/tickets" element={<TicketPanes currentUser={currentUser} mailboxes={mailboxes} onMailboxCountChange={loadMailboxes} />} />
+          <Route path="/mailbox/:slug/tickets/:id" element={<TicketPanes currentUser={currentUser} mailboxes={mailboxes} onMailboxCountChange={loadMailboxes} />} />
           <Route path="/tickets" element={mailboxes.length > 0 ? <Navigate to={`/mailbox/${mailboxes[0].slug}/tickets`} replace /> : null} />
           <Route path="/tickets/:id" element={mailboxes.length > 0 ? <Navigate to={`/mailbox/${mailboxes[0].slug}/tickets`} replace /> : null} />
           <Route path="/users" element={isAdmin ? <Box p="md"><UsersPage mailboxes={mailboxes} /></Box> : <Navigate to="/" replace />} />

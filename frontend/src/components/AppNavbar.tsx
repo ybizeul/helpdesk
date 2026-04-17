@@ -1,4 +1,4 @@
-import { Stack, Text, Avatar, Menu, Group, UnstyledButton, Box } from '@mantine/core'
+import { Stack, Text, Avatar, Menu, Group, UnstyledButton, Box, Badge } from '@mantine/core'
 import { useLocation, useNavigate } from 'react-router-dom'
 import {
   IconDashboard,
@@ -33,18 +33,19 @@ export function AppNavbar({ onLogout, onNavigate, user, onOpenProfile, siteName 
     : '?'
 
   // Build nav links dynamically
-  const navItems: { label: string; icon: typeof IconDashboard; to: string; adminOnly?: boolean }[] = []
+  const navItems: { label: string; icon: typeof IconDashboard; to: string; adminOnly?: boolean; unreadCount?: number }[] = []
 
   navItems.push({ label: 'Dashboard', icon: IconDashboard, to: '/dashboard' })
 
   if (mailboxes.length <= 1) {
     // Single mailbox: show "Cases" like before
-    const slug = mailboxes[0]?.slug || 'default'
-    navItems.push({ label: 'Cases', icon: IconInbox, to: `/mailbox/${slug}/tickets` })
+    const mb = mailboxes[0]
+    const slug = mb?.slug || 'default'
+    navItems.push({ label: 'Cases', icon: IconInbox, to: `/mailbox/${slug}/tickets`, unreadCount: mb?.unread_count || 0 })
   } else {
     // Multiple mailboxes: one entry per mailbox
     for (const mb of mailboxes) {
-      navItems.push({ label: mb.name, icon: IconInbox, to: `/mailbox/${mb.slug}/tickets` })
+      navItems.push({ label: mb.name, icon: IconInbox, to: `/mailbox/${mb.slug}/tickets`, unreadCount: mb.unread_count || 0 })
     }
   }
 
@@ -94,7 +95,10 @@ export function AppNavbar({ onLogout, onNavigate, user, onOpenProfile, siteName 
               <Box style={{ color: active ? 'var(--mantine-primary-color-filled)' : 'var(--mantine-color-dimmed)', display: 'flex' }}>
                 <link.icon size={18} />
               </Box>
-              <Text size="sm" fw={active ? 600 : 400}>{link.label}</Text>
+              <Text size="sm" fw={active ? 600 : 400} style={{ flex: 1 }}>{link.label}</Text>
+              {(link.unreadCount ?? 0) > 0 && (
+                <Badge size="sm" variant="filled" circle>{link.unreadCount}</Badge>
+              )}
             </UnstyledButton>
           )
         })}

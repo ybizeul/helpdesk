@@ -138,7 +138,7 @@ export function TicketDetailPage({ ticketId: propId, onBack, onTicketUpdate, mai
   const [resendIdx, setResendIdx] = useState<number | null>(null)
 
   useEffect(() => {
-    if (id) api.tickets.get(id).then(setTicket).catch(console.error)
+    if (id) api.tickets.get(id).then((t) => { setTicket(t); onTicketUpdate?.() }).catch(console.error)
     api.users.list().then(setUsers).catch(() => {})
   }, [id])
 

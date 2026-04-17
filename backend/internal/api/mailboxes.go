@@ -9,6 +9,7 @@ import (
 	"github.com/helpdesk/backend/internal/email"
 	"github.com/helpdesk/backend/internal/models"
 	"go.mongodb.org/mongo-driver/v2/bson"
+	"go.mongodb.org/mongo-driver/v2/mongo"
 )
 
 var slugRe = regexp.MustCompile(`[^a-z0-9]+`)
@@ -80,7 +81,39 @@ func (h *handlers) listMailboxesAPI(w http.ResponseWriter, r *http.Request) {
 	if mailboxes == nil {
 		mailboxes = []models.Mailbox{}
 	}
-	writeJSON(w, http.StatusOK, mailboxes)
+
+	// Compute unread counts per mailbox
+	unreadFilter := bson.M{"unread": true, "status": bson.M{"$nin": bson.A{"closed", "parked"}}}
+	if !isAdmin {
+		unreadFilter["mailbox_id"] = bson.M{"$in": ids}
+	}
+	pipeline := mongo.Pipeline{
+		{{Key: "$match", Value: unreadFilter}},
+		{{Key: "$group", Value: bson.M{"_id": "$mailbox_id", "count": bson.M{"$sum": 1}}}},
+	}
+	cursor, err := h.db.Tickets().Aggregate(ctx, pipeline)
+	unreadMap := map[string]int64{}
+	if err == nil {
+		var results []struct {
+			ID    string `bson:"_id"`
+			Count int64  `bson:"count"`
+		}
+		if cursor.All(ctx, &results) == nil {
+			for _, r := range results {
+				unreadMap[r.ID] = r.Count
+			}
+		}
+	}
+
+	type mailboxWithCount struct {
+		models.Mailbox `bson:",inline"`
+		UnreadCount    int64 `json:"unread_count"`
+	}
+	resp := make([]mailboxWithCount, len(mailboxes))
+	for i, mb := range mailboxes {
+		resp[i] = mailboxWithCount{Mailbox: mb, UnreadCount: unreadMap[mb.ID]}
+	}
+	writeJSON(w, http.StatusOK, resp)
 }
 
 func (h *handlers) getMailboxAPI(w http.ResponseWriter, r *http.Request) {
