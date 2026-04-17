@@ -246,7 +246,7 @@ export const TicketListPage = forwardRef<TicketListHandle, TicketListPageProps>(
       await api.tickets.bulk(ids, action, extra)
       setSelected(new Set())
       loadTickets()
-      if (action === 'mark_read' || action === 'mark_unread') onMailboxCountChange?.()
+      if (action === 'mark_read' || action === 'mark_unread' || action === 'delete') onMailboxCountChange?.()
       const labels: Record<string, string> = { delete: 'Deleted', mark_read: 'Marked as read', mark_unread: 'Marked as unread', set_status: `Status changed` }
       notifications.show({ title: labels[action] || action, message: `${ids.length} case(s)`, color: 'green' })
     } catch (e: any) {
