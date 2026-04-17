@@ -279,6 +279,7 @@ export function TicketDetailPage({ ticketId: propId, onBack, onTicketUpdate }: T
           <Group gap={4} wrap="nowrap" style={{ minWidth: 0 }}>
             <Title order={4} style={{ flexShrink: 0 }}>#{ticket.number}</Title>
             <TextInput
+              key={ticket.id}
               defaultValue={ticket.subject}
               onBlur={(e) => handleRename(e.currentTarget.value)}
               onKeyDown={(e) => { if (e.key === 'Enter') e.currentTarget.blur() }}
@@ -309,6 +310,7 @@ export function TicketDetailPage({ ticketId: propId, onBack, onTicketUpdate }: T
           </Tooltip>
           <Title order={2} style={{ flexShrink: 0 }}>#{ticket.number}</Title>
           <TextInput
+            key={ticket.id}
             defaultValue={ticket.subject}
             onBlur={(e) => handleRename(e.currentTarget.value)}
             onKeyDown={(e) => { if (e.key === 'Enter') e.currentTarget.blur() }}
