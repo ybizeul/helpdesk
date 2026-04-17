@@ -60,6 +60,7 @@ export const api = {
     assign: (id: string, assigneeId: string) => request<void>(`/tickets/${id}/assign`, { method: 'PUT', body: JSON.stringify({ assignee_id: assigneeId }) }),
     claim: (id: string) => request<void>(`/tickets/${id}/claim`, { method: 'PUT' }),
     setStatus: (id: string, status: string) => request<void>(`/tickets/${id}/status`, { method: 'PUT', body: JSON.stringify({ status }) }),
+    rename: (id: string, subject: string) => request<void>(`/tickets/${id}/subject`, { method: 'PUT', body: JSON.stringify({ subject }) }),
   },
   users: {
     list: () => request<any[]>('/users'),

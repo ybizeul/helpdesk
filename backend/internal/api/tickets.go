@@ -263,6 +263,44 @@ func (h *handlers) updateTicket(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNoContent)
 }
 
+func (h *handlers) renameTicket(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	id := r.PathValue("id")
+
+	oid, err := bson.ObjectIDFromHex(id)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "INVALID_ID", "invalid ticket ID format")
+		return
+	}
+
+	var body struct {
+		Subject string `json:"subject"`
+	}
+	if err := readJSON(r, &body); err != nil {
+		writeError(w, http.StatusBadRequest, "INVALID_JSON", err.Error())
+		return
+	}
+	body.Subject = strings.TrimSpace(body.Subject)
+	if body.Subject == "" {
+		writeError(w, http.StatusBadRequest, "SUBJECT_REQUIRED", "subject must not be empty")
+		return
+	}
+
+	result, err := h.db.Tickets().UpdateByID(ctx, oid, bson.M{"$set": bson.M{
+		"subject":    body.Subject,
+		"updated_at": time.Now(),
+	}})
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "DB_ERROR", err.Error())
+		return
+	}
+	if result.MatchedCount == 0 {
+		writeError(w, http.StatusNotFound, "TICKET_NOT_FOUND", "ticket not found")
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
+}
+
 func (h *handlers) deleteTicket(w http.ResponseWriter, r *http.Request) {
 	if !requireAdmin(r) {
 		writeError(w, http.StatusForbidden, "FORBIDDEN", "admin role required")

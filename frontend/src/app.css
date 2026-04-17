@@ -6,3 +6,12 @@ html, body, #root {
   overscroll-behavior: none;
   height: 100%;
 }
+
+.inline-edit-subject input {
+  border: 1px solid transparent !important;
+  background: transparent !important;
+  border-radius: 4px;
+}
+.inline-edit-subject input:focus {
+  border-color: var(--mantine-color-gray-5) !important;
+}

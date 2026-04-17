@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useMemo, useCallback } from 'react'
 import { useParams } from 'react-router-dom'
-import { Title, Text, Paper, Badge, Stack, Group, Box, ActionIcon, Tooltip, Alert, Button as MButton, Modal, Menu, Avatar, Skeleton } from '@mantine/core'
+import { Title, Text, Paper, Badge, Stack, Group, Box, ActionIcon, Tooltip, Alert, Button as MButton, Modal, Menu, Avatar, Skeleton, TextInput } from '@mantine/core'
 import { IconRefresh, IconSend, IconPaperclip, IconArrowLeft } from '@tabler/icons-react'
 import { api } from '../api/client'
 import { ReplyEditor } from '../components/ReplyEditor'
@@ -227,6 +227,18 @@ export function TicketDetailPage({ ticketId: propId, onBack, onTicketUpdate }: T
     onTicketUpdate?.()
   }
 
+  const handleRename = async (newSubject: string) => {
+    const trimmed = newSubject.trim()
+    if (!id || !trimmed || trimmed === ticket.subject) return
+    try {
+      await api.tickets.rename(id, trimmed)
+      setTicket((t: any) => ({ ...t, subject: trimmed }))
+      onTicketUpdate?.()
+    } catch {
+      notifications.show({ title: 'Rename failed', message: 'Could not update subject', color: 'red' })
+    }
+  }
+
   return (
     <Box style={{ display: 'flex', flexDirection: 'column', position: 'absolute', inset: 0 }}>
       {isMobile ? (
@@ -264,11 +276,21 @@ export function TicketDetailPage({ ticketId: propId, onBack, onTicketUpdate }: T
               </Menu.Dropdown>
             </Menu>
           </Group>
-          <Title order={4} lineClamp={2}>#{ticket.number} {ticket.subject}</Title>
+          <Group gap={4} wrap="nowrap" style={{ minWidth: 0 }}>
+            <Title order={4} style={{ flexShrink: 0 }}>#{ticket.number}</Title>
+            <TextInput
+              defaultValue={ticket.subject}
+              onBlur={(e) => handleRename(e.currentTarget.value)}
+              onKeyDown={(e) => { if (e.key === 'Enter') e.currentTarget.blur() }}
+              className="inline-edit-subject"
+              styles={{ input: { fontSize: 'var(--mantine-h4-font-size)', fontWeight: 700, lineHeight: 'var(--mantine-h4-line-height)', padding: '0 4px' } }}
+              style={{ flex: 1, minWidth: 0 }}
+            />
+          </Group>
         </Box>
       ) : (
-      <Group justify="space-between" style={{ flexShrink: 0, padding: 'var(--mantine-spacing-md)', paddingBottom: 'var(--mantine-spacing-xs)', boxShadow: '0 2px 8px rgba(0,0,0,0.15)', position: 'relative', zIndex: 1 }}>
-        <Group gap="xs">
+      <Group justify="space-between" wrap="nowrap" style={{ flexShrink: 0, padding: 'var(--mantine-spacing-md)', paddingBottom: 'var(--mantine-spacing-xs)', boxShadow: '0 2px 8px rgba(0,0,0,0.15)', position: 'relative', zIndex: 1 }}>
+        <Group gap="xs" style={{ flex: 1, minWidth: 0 }} wrap="nowrap">
           {onBack && (
             <ActionIcon variant="subtle" onClick={onBack}>
               <IconArrowLeft size={18} />
@@ -285,9 +307,17 @@ export function TicketDetailPage({ ticketId: propId, onBack, onTicketUpdate }: T
               {isOwned && ownerUser?.avatar ? null : (isOwned ? getInitials(ownerUser?.name || '?') : 'U')}
             </Avatar>
           </Tooltip>
-          <Title order={2}>#{ticket.number} {ticket.subject}</Title>
+          <Title order={2} style={{ flexShrink: 0 }}>#{ticket.number}</Title>
+          <TextInput
+            defaultValue={ticket.subject}
+            onBlur={(e) => handleRename(e.currentTarget.value)}
+            onKeyDown={(e) => { if (e.key === 'Enter') e.currentTarget.blur() }}
+            className="inline-edit-subject"
+            styles={{ input: { fontSize: 'var(--mantine-h2-font-size)', fontWeight: 700, lineHeight: 'var(--mantine-h2-line-height)', padding: '0 4px' } }}
+            style={{ flex: 1, minWidth: 0 }}
+          />
         </Group>
-        <Group gap="sm">
+        <Group gap="sm" style={{ flexShrink: 0 }}>
           <Menu shadow="md" width={160}>
             <Menu.Target>
               <Badge color={statusColors[ticket.status] || 'gray'} size="lg" style={{ cursor: 'pointer' }}>{ticket.status}</Badge>
