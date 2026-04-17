@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
-import { TextInput, PasswordInput, Button, Paper, Title, Stack, Center, Alert, Divider } from '@mantine/core'
+import { TextInput, PasswordInput, Button, Paper, Title, Stack, Center, Alert, Divider, Text, Loader, Group } from '@mantine/core'
+import { IconUserCheck } from '@tabler/icons-react'
 import { startAuthentication } from '@simplewebauthn/browser'
 import { api } from '../api/client'
 
@@ -77,11 +78,12 @@ export function LoginPage({ onLogin }: LoginPageProps) {
       <Paper withBorder shadow="md" p="xl" radius="md" w={400} maw="100%">
         <Title order={2} ta="center" mb="lg">{siteName}</Title>
         {disableLocalLogin && oidcEnabled ? (
-          <Stack>
-            <Alert color="blue" variant="light">Redirecting to OIDC login...</Alert>
-            <Button variant="default" fullWidth loading={oidcLoading} onClick={handleOIDCLogin}>
-              Continue with OIDC
-            </Button>
+          <Stack align="center" gap="md" py="md">
+            <Loader size="sm" />
+            <Group gap={8} justify="center">
+              <IconUserCheck size={18} style={{ color: 'var(--mantine-color-dimmed)' }} />
+              <Text size="sm" c="dimmed">Redirecting to your corporate authentication</Text>
+            </Group>
           </Stack>
         ) : (
         <form onSubmit={handleSubmit}>
