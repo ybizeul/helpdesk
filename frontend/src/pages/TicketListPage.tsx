@@ -145,18 +145,26 @@ export const TicketListPage = forwardRef<TicketListHandle, TicketListPageProps>(
   const scrollRef = useRef<HTMLDivElement>(null)
   const touchStartY = useRef(0)
   const [pullY, setPullY] = useState(0)
-  const [releasing, setReleasing] = useState(false)
+  const [displayHeight, setDisplayHeight] = useState(0)
+  const [isCollapsing, setIsCollapsing] = useState(false)
+  const wasFetchingRef = useRef(false)
   const PULL_THRESHOLD = 65
   const fetchAndRefreshRef = useRef(fetchAndRefresh)
   useEffect(() => { fetchAndRefreshRef.current = fetchAndRefresh }, [fetchAndRefresh])
 
-  // When releasing, transition is already applied — animate height to 0 in next frame
+  const triggerCollapse = useCallback(() => {
+    setIsCollapsing(true)
+    requestAnimationFrame(() => {
+      setDisplayHeight(0)
+      setTimeout(() => { setIsCollapsing(false); setPullY(0) }, 350)
+    })
+  }, [])
+
+  // When fetch completes, animate the indicator back to 0
   useEffect(() => {
-    if (!releasing) return
-    const raf = requestAnimationFrame(() => setPullY(0))
-    const timer = setTimeout(() => setReleasing(false), 350)
-    return () => { cancelAnimationFrame(raf); clearTimeout(timer) }
-  }, [releasing])
+    if (wasFetchingRef.current && !fetching) triggerCollapse()
+    wasFetchingRef.current = fetching
+  }, [fetching, triggerCollapse])
 
   const onTouchStart = useCallback((e: React.TouchEvent) => {
     if (scrollRef.current?.scrollTop !== 0) return
@@ -167,15 +175,21 @@ export const TicketListPage = forwardRef<TicketListHandle, TicketListPageProps>(
     if (!touchStartY.current) return
     if ((scrollRef.current?.scrollTop ?? 0) > 0) { touchStartY.current = 0; return }
     const delta = e.touches[0].clientY - touchStartY.current
-    if (delta <= 0) { setPullY(0); return }
-    setPullY(Math.min(delta * 0.45, PULL_THRESHOLD + 20))
+    if (delta <= 0) { setPullY(0); setDisplayHeight(0); return }
+    const h = Math.min(delta * 0.45, PULL_THRESHOLD + 20)
+    setPullY(h)
+    setDisplayHeight(h)
   }, [])
 
   const onTouchEnd = useCallback(() => {
-    if (pullY >= PULL_THRESHOLD) fetchAndRefreshRef.current()
     touchStartY.current = 0
-    if (pullY > 0) setReleasing(true)
-  }, [pullY])
+    if (pullY >= PULL_THRESHOLD) {
+      setDisplayHeight(PULL_THRESHOLD)
+      fetchAndRefreshRef.current()
+    } else if (pullY > 0) {
+      triggerCollapse()
+    }
+  }, [pullY, triggerCollapse])
 
   // Non-passive touchmove to block browser native pull-to-refresh when pulling from top
   useEffect(() => {
@@ -321,13 +335,13 @@ export const TicketListPage = forwardRef<TicketListHandle, TicketListPageProps>(
         onTouchMove={isMobile ? onTouchMove : undefined}
         onTouchEnd={isMobile ? onTouchEnd : undefined}
       >
-        {isMobile && (pullY > 0 || releasing || fetching) && (
+        {isMobile && (displayHeight > 0 || isCollapsing || fetching) && (
           <Box style={{
             position: 'absolute', top: 0, left: 0, right: 0, zIndex: 10,
-            height: fetching ? PULL_THRESHOLD : pullY,
+            height: displayHeight,
             display: 'flex', alignItems: 'flex-end', justifyContent: 'center',
             paddingBottom: 8,
-            transition: (releasing || fetching) ? 'height 0.3s ease-in' : undefined,
+            transition: (isCollapsing || fetching) ? 'height 0.3s ease-in' : undefined,
             background: 'var(--mantine-color-body)',
             borderBottom: '1px solid var(--mantine-color-default-border)',
           }}>
@@ -337,8 +351,8 @@ export const TicketListPage = forwardRef<TicketListHandle, TicketListPageProps>(
             }
           </Box>
         )}
-        {isMobile && (pullY > 0 || releasing || fetching) && (
-          <Box style={{ height: fetching ? PULL_THRESHOLD : pullY, transition: (releasing || fetching) ? 'height 0.3s ease-in' : undefined }} />
+        {isMobile && (displayHeight > 0 || isCollapsing || fetching) && (
+          <Box style={{ height: displayHeight, transition: (isCollapsing || fetching) ? 'height 0.3s ease-in' : undefined }} />
         )}
       {isMobile ? (
         <Stack gap={0}>
@@ -400,17 +414,17 @@ export const TicketListPage = forwardRef<TicketListHandle, TicketListPageProps>(
           )}
         </Stack>
       ) : (
-      <Table striped highlightOnHover fz="xs">
-        <Table.Thead>
+      <Table striped highlightOnHover fz="xs" stickyHeader>
+        <Table.Thead style={{ background: 'var(--mantine-color-body)' }}>
           <Table.Tr>
             <Table.Th w={40}><Checkbox size="xs" checked={tickets.length > 0 && selected.size === tickets.length} indeterminate={selected.size > 0 && selected.size < tickets.length} onChange={toggleAll} /></Table.Th>
-            <Table.Th w={40}>Owner</Table.Th>
-            <Table.Th w={40}></Table.Th>
-            <Table.Th>#</Table.Th>
+            <Table.Th w={1} style={{ whiteSpace: 'nowrap' }}>Owner</Table.Th>
+            <Table.Th w={1}></Table.Th>
+            <Table.Th w={1} style={{ whiteSpace: 'nowrap' }}>#</Table.Th>
             <Table.Th>Subject</Table.Th>
             <Table.Th>Requester</Table.Th>
-            <Table.Th>Updated</Table.Th>
-            <Table.Th>
+            <Table.Th w={1} style={{ whiteSpace: 'nowrap' }}>Updated</Table.Th>
+            <Table.Th w={1} style={{ whiteSpace: 'nowrap' }}>
               <Menu shadow="md" width={160}>
                 <Menu.Target>
                   <Group gap={4} style={{ cursor: 'pointer', userSelect: 'none', flexWrap: 'nowrap' }} wrap="nowrap">
@@ -463,14 +477,14 @@ export const TicketListPage = forwardRef<TicketListHandle, TicketListPageProps>(
                     </Avatar>
                   </Tooltip>
                 ) })()}</Table.Td>
-                <Table.Td onClick={handleClick}>
-                  <Badge size="xs" color="gray" variant="light" radius="xl">{t.messages?.length ?? 0}</Badge>
+                <Table.Td onClick={handleClick} style={{ whiteSpace: 'nowrap', textAlign: 'center' }}>
+                  <Badge size="xs" color="gray" variant="light" radius="xl" styles={{ label: { overflow: 'visible', textOverflow: 'unset' } }}>{t.messages?.length ?? 0}</Badge>
                 </Table.Td>
                 <Table.Td onClick={handleClick}>{t.number}</Table.Td>
                 <Table.Td onClick={handleClick}>{t.subject}</Table.Td>
                 <Table.Td onClick={handleClick}>{t.requester?.name || t.requester?.email}</Table.Td>
-                <Table.Td onClick={handleClick}>{formatDate(t.updated_at, locale)}</Table.Td>
-                <Table.Td onClick={handleClick}><Badge size="xs" color={statusColors[t.status] || 'gray'} style={{ whiteSpace: 'nowrap' }}>{t.status}</Badge></Table.Td>
+                <Table.Td onClick={handleClick} style={{ whiteSpace: 'nowrap' }}>{formatDate(t.updated_at, locale)}</Table.Td>
+                <Table.Td onClick={handleClick} style={{ whiteSpace: 'nowrap' }}><Badge size="xs" color={statusColors[t.status] || 'gray'} styles={{ label: { overflow: 'visible', textOverflow: 'unset' } }}>{t.status}</Badge></Table.Td>
               </Table.Tr>
             )
           })}
