@@ -2,8 +2,10 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
 	"net/http"
+	"net/url"
 	"os"
 	"os/signal"
 	"strings"
@@ -169,6 +171,9 @@ func pollEmails(db *store.DB, stop <-chan struct{}) {
 				slog.Error("background email fetch failed", "mailbox", mb.Name, "error", fetchErr)
 			} else if result.Count > 0 {
 				slog.Info("background email fetch", "mailbox", mb.Name, "created", result.Created, "updated", result.Updated)
+				if result.Created > 0 || result.Updated > 0 {
+					go sendPushoverNotifications(db, mb, result)
+				}
 			}
 
 			interval := time.Duration(mb.Email.PollIntervalSeconds) * time.Second
@@ -183,4 +188,84 @@ func pollEmails(db *store.DB, stop <-chan struct{}) {
 		case <-time.After(minInterval):
 		}
 	}
+}
+
+func sendPushoverNotifications(db *store.DB, mb models.Mailbox, result *email.FetchResult) {
+	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	defer cancel()
+
+	// Load the Pushover app token from global settings
+	var s models.Settings
+	if err := db.Settings().FindOne(ctx, bson.M{"_id": "global"}).Decode(&s); err != nil || s.PushoverAppToken == "" {
+		return
+	}
+
+	// Find users who have a pushover key and access to this mailbox
+	// Admins have access to all mailboxes; agents only if mailbox is in their list
+	filter := bson.M{"pushover_key": bson.M{"$ne": ""}}
+	cur, err := db.Users().Find(ctx, filter)
+	if err != nil {
+		slog.Error("pushover: failed to query users", "error", err)
+		return
+	}
+	defer cur.Close(ctx)
+
+	var users []models.User
+	if err := cur.All(ctx, &users); err != nil {
+		slog.Error("pushover: failed to decode users", "error", err)
+		return
+	}
+
+	// Build messages from events
+	var messages []string
+	for _, ev := range result.Events {
+		sender := ev.FromName
+		if sender == "" {
+			sender = ev.FromEmail
+		}
+		if ev.IsNew {
+			messages = append(messages, fmt.Sprintf("New case in %s from %s", mb.Name, sender))
+		} else {
+			messages = append(messages, fmt.Sprintf("%s replied to case #%d", sender, ev.Number))
+		}
+	}
+	if len(messages) == 0 {
+		return
+	}
+
+	for _, u := range users {
+		if u.Role != models.RoleAdmin {
+			hasAccess := false
+			for _, mid := range u.Mailboxes {
+				if mid == mb.ID {
+					hasAccess = true
+					break
+				}
+			}
+			if !hasAccess {
+				continue
+			}
+		}
+		for _, msg := range messages {
+			if err := sendPushover(s.PushoverAppToken, u.PushoverKey, msg); err != nil {
+				slog.Error("pushover: failed to send", "user", u.Email, "error", err)
+			}
+		}
+	}
+}
+
+func sendPushover(appToken, userKey, message string) error {
+	resp, err := http.PostForm("https://api.pushover.net/1/messages.json", url.Values{
+		"token":   {appToken},
+		"user":    {userKey},
+		"message": {message},
+	})
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("pushover API returned status %d", resp.StatusCode)
+	}
+	return nil
 }

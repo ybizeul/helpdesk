@@ -57,6 +57,7 @@ func NewRouter(db *store.DB) http.Handler {
 	mux.HandleFunc("GET /api/v1/settings/general/public", h.getPublicSettings)
 	mux.HandleFunc("GET /api/v1/settings/auth/oidc-callback", h.getOIDCCallbackInfo)
 	mux.HandleFunc("PUT /api/v1/settings/general", h.updateGeneralSettings)
+	mux.HandleFunc("PUT /api/v1/settings/notifications", h.updateNotificationSettings)
 	mux.HandleFunc("PUT /api/v1/settings/llm", h.updateLLMSettings)
 	mux.HandleFunc("PUT /api/v1/settings/auth", h.updateAuthSettings)
 
@@ -71,6 +72,7 @@ func NewRouter(db *store.DB) http.Handler {
 	mux.HandleFunc("PUT /api/v1/auth/password", h.changePassword)
 	mux.HandleFunc("PUT /api/v1/auth/avatar", h.updateAvatar)
 	mux.HandleFunc("PUT /api/v1/auth/locale", h.updateLocale)
+	mux.HandleFunc("PUT /api/v1/auth/pushover", h.updatePushoverKey)
 	mux.HandleFunc("GET /api/v1/auth/me", h.getMe)
 
 	// Passkeys

@@ -50,7 +50,7 @@ const LOCALES = [
 interface ProfileModalProps {
   opened: boolean
   onClose: () => void
-  user: { id: string; name: string; email: string; role: string; avatar?: string; locale?: string } | null
+  user: { id: string; name: string; email: string; role: string; avatar?: string; locale?: string; pushover_key?: string } | null
   onAvatarChange?: (avatar: string) => void
   onLocaleChange?: (locale: string) => void
 }
@@ -62,6 +62,8 @@ export function ProfileModal({ opened, onClose, user, onAvatarChange, onLocaleCh
   const [changingPassword, setChangingPassword] = useState(false)
   const [locale, setLocale] = useState<string>(user?.locale ?? '')
   const [savingLocale, setSavingLocale] = useState(false)
+  const [pushoverKey, setPushoverKey] = useState<string>(user?.pushover_key ?? '')
+  const [savingPushover, setSavingPushover] = useState(false)
 
   const [passkeys, setPasskeys] = useState<any[]>([])
   const [passkeyName, setPasskeyName] = useState('')
@@ -102,6 +104,7 @@ export function ProfileModal({ opened, onClose, user, onAvatarChange, onLocaleCh
   useEffect(() => {
     if (!opened) return
     setLocale(user?.locale ?? '')
+    setPushoverKey(user?.pushover_key ?? '')
     if (supportsPasskey) {
       api.passkeys.list().then(setPasskeys).catch(console.error)
     }
@@ -326,6 +329,35 @@ export function ProfileModal({ opened, onClose, user, onAvatarChange, onLocaleCh
             {typeof Notification !== 'undefined' && Notification.permission === 'denied' && (
               <Text size="sm" c="red">Notifications are blocked by your browser. Please allow them in your browser settings.</Text>
             )}
+
+            <Text fw={500} mt="md">Pushover notifications</Text>
+            <Text size="sm" c="dimmed">Receive push notifications on your phone when new messages arrive in your mailboxes.</Text>
+            <Group align="flex-end">
+              <TextInput
+                label="Pushover user key"
+                placeholder="Your Pushover user key"
+                value={pushoverKey}
+                onChange={(e) => setPushoverKey(e.currentTarget.value)}
+                style={{ flex: 1 }}
+              />
+              <Button
+                loading={savingPushover}
+                disabled={pushoverKey === (user?.pushover_key ?? '')}
+                onClick={async () => {
+                  setSavingPushover(true)
+                  try {
+                    await api.updatePushoverKey(pushoverKey)
+                    notifications.show({ title: 'Saved', message: 'Pushover key updated', color: 'green' })
+                  } catch (e: any) {
+                    notifications.show({ title: 'Error', message: e.message, color: 'red' })
+                  } finally {
+                    setSavingPushover(false)
+                  }
+                }}
+              >
+                Save
+              </Button>
+            </Group>
           </Stack>
         </Tabs.Panel>
       </Tabs>

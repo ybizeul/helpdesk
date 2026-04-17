@@ -240,6 +240,38 @@ func (h *handlers) updateAvatar(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNoContent)
 }
 
+func (h *handlers) updatePushoverKey(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	claims := ctx.Value(claimsKey).(*jwtClaims)
+
+	var body struct {
+		PushoverKey string `json:"pushover_key"`
+	}
+	if err := readJSON(r, &body); err != nil {
+		writeError(w, http.StatusBadRequest, "INVALID_JSON", err.Error())
+		return
+	}
+
+	oid, err := bson.ObjectIDFromHex(claims.Sub)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "INVALID_ID", "invalid user ID")
+		return
+	}
+
+	var update bson.M
+	if body.PushoverKey == "" {
+		update = bson.M{"$unset": bson.M{"pushover_key": ""}}
+	} else {
+		update = bson.M{"$set": bson.M{"pushover_key": body.PushoverKey}}
+	}
+
+	if _, err := h.db.Users().UpdateByID(ctx, oid, update); err != nil {
+		writeError(w, http.StatusInternalServerError, "DB_ERROR", err.Error())
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
+}
+
 func authMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// Skip auth for login and passkey login endpoints

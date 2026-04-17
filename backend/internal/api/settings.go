@@ -28,12 +28,13 @@ func (h *handlers) getSettings(w http.ResponseWriter, r *http.Request) {
 	}
 
 	resp := map[string]any{
-		"id":         s.ID,
-		"site_name":  s.SiteName,
-		"llm":        s.LLM,
-		"auth":       s.Auth,
-		"updated_at": s.UpdatedAt,
-		"debug":      os.Getenv("DEBUG") != "",
+		"id":                 s.ID,
+		"site_name":          s.SiteName,
+		"pushover_app_token": s.PushoverAppToken,
+		"llm":                s.LLM,
+		"auth":               s.Auth,
+		"updated_at":         s.UpdatedAt,
+		"debug":              os.Getenv("DEBUG") != "",
 	}
 	writeJSON(w, http.StatusOK, resp)
 }
@@ -150,6 +151,48 @@ func (h *handlers) updateGeneralSettings(w http.ResponseWriter, r *http.Request)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "DB_ERROR", err.Error())
 		return
+	}
+	w.WriteHeader(http.StatusNoContent)
+}
+
+func (h *handlers) updateNotificationSettings(w http.ResponseWriter, r *http.Request) {
+	if !requireAdmin(r) {
+		writeError(w, http.StatusForbidden, "FORBIDDEN", "admin role required")
+		return
+	}
+
+	ctx := r.Context()
+
+	var body struct {
+		PushoverAppToken string `json:"pushover_app_token"`
+	}
+	if err := readJSON(r, &body); err != nil {
+		writeError(w, http.StatusBadRequest, "INVALID_JSON", err.Error())
+		return
+	}
+
+	update := bson.M{"updated_at": time.Now()}
+	if body.PushoverAppToken == "" {
+		_, err := h.db.Settings().UpdateOne(ctx,
+			bson.M{"_id": "global"},
+			bson.M{"$set": update, "$unset": bson.M{"pushover_app_token": ""}},
+			options.UpdateOne().SetUpsert(true),
+		)
+		if err != nil {
+			writeError(w, http.StatusInternalServerError, "DB_ERROR", err.Error())
+			return
+		}
+	} else {
+		update["pushover_app_token"] = body.PushoverAppToken
+		_, err := h.db.Settings().UpdateOne(ctx,
+			bson.M{"_id": "global"},
+			bson.M{"$set": update},
+			options.UpdateOne().SetUpsert(true),
+		)
+		if err != nil {
+			writeError(w, http.StatusInternalServerError, "DB_ERROR", err.Error())
+			return
+		}
 	}
 	w.WriteHeader(http.StatusNoContent)
 }

@@ -19,10 +19,18 @@ import (
 	"go.mongodb.org/mongo-driver/v2/mongo"
 )
 
+type TicketEvent struct {
+	IsNew     bool   `json:"is_new"`
+	Number    int    `json:"number"`
+	FromName  string `json:"from_name"`
+	FromEmail string `json:"from_email"`
+}
+
 type FetchResult struct {
-	Created int `json:"created"`
-	Updated int `json:"updated"`
-	Count   int `json:"count"`
+	Created int           `json:"created"`
+	Updated int           `json:"updated"`
+	Count   int           `json:"count"`
+	Events  []TicketEvent `json:"events,omitempty"`
 }
 
 type TicketStore interface {
@@ -319,6 +327,12 @@ func fetchEmailsOnce(ctx context.Context, cfg models.EmailSettings, db TicketSto
 				continue
 			}
 			result.Updated++
+			result.Events = append(result.Events, TicketEvent{
+				IsNew:     false,
+				Number:    existingTicket.Number,
+				FromName:  fromName,
+				FromEmail: from,
+			})
 		} else {
 			// Create a new ticket
 			// Check if the subject contains a ticket number like [#1234]
@@ -363,6 +377,12 @@ func fetchEmailsOnce(ctx context.Context, cfg models.EmailSettings, db TicketSto
 				continue
 			}
 			result.Created++
+			result.Events = append(result.Events, TicketEvent{
+				IsNew:     true,
+				Number:    num,
+				FromName:  fromName,
+				FromEmail: from,
+			})
 		}
 
 		if uidIdx < len(uids) {

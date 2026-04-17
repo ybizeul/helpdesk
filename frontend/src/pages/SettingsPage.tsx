@@ -147,6 +147,7 @@ export function SettingsPage({ onSiteNameChange, mailboxes: propMailboxes = [], 
           <Tabs defaultValue="general">
             <Tabs.List>
               <Tabs.Tab value="general">General</Tabs.Tab>
+              <Tabs.Tab value="notifications">Notifications</Tabs.Tab>
               <Tabs.Tab value="auth">Authentication</Tabs.Tab>
               <Tabs.Tab value="llm">LLM</Tabs.Tab>
               {settings?.debug && <Tabs.Tab value="tools">Tools</Tabs.Tab>}
@@ -162,6 +163,27 @@ export function SettingsPage({ onSiteNameChange, mailboxes: propMailboxes = [], 
                   onChange={(e) => setSettings({ ...settings, site_name: e.currentTarget.value })}
                 />
                 <Group><Button onClick={saveGeneral}>Save General Settings</Button></Group>
+              </Stack>
+            </Tabs.Panel>
+
+            <Tabs.Panel value="notifications" pt="md">
+              <Stack maw={500}>
+                <Title order={4}>Pushover</Title>
+                <TextInput
+                  label="Pushover API token"
+                  description="Application API token from pushover.net. Users configure their own user key in their profile."
+                  placeholder="Your Pushover application token"
+                  value={settings.pushover_app_token || ''}
+                  onChange={(e) => setSettings({ ...settings, pushover_app_token: e.currentTarget.value })}
+                />
+                <Group><Button onClick={async () => {
+                  try {
+                    await api.settings.updateNotifications({ pushover_app_token: settings.pushover_app_token || '' })
+                    notifications.show({ title: 'Saved', message: 'Notification settings updated', color: 'green' })
+                  } catch (e: any) {
+                    notifications.show({ title: 'Error', message: e.message, color: 'red' })
+                  }
+                }}>Save Notification Settings</Button></Group>
               </Stack>
             </Tabs.Panel>
 

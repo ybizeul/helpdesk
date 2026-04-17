@@ -84,6 +84,7 @@ type User struct {
 	Role         UserRole  `bson:"role" json:"role"`
 	Locale       string    `bson:"locale,omitempty" json:"locale,omitempty"`
 	Avatar       string    `bson:"avatar,omitempty" json:"avatar,omitempty"`
+	PushoverKey  string    `bson:"pushover_key,omitempty" json:"pushover_key,omitempty"`
 	PasswordHash string    `bson:"password_hash" json:"-"`
 	Mailboxes    []string  `bson:"mailboxes,omitempty" json:"mailboxes,omitempty"`
 	CreatedAt    time.Time `bson:"created_at" json:"created_at"`
@@ -151,11 +152,12 @@ type AuthSettings struct {
 }
 
 type Settings struct {
-	ID        string       `bson:"_id" json:"id"`
-	SiteName  string       `bson:"site_name,omitempty" json:"site_name,omitempty"`
-	LLM       LLMSettings  `bson:"llm" json:"llm"`
-	Auth      AuthSettings `bson:"auth" json:"auth"`
-	UpdatedAt time.Time    `bson:"updated_at" json:"updated_at"`
+	ID               string       `bson:"_id" json:"id"`
+	SiteName         string       `bson:"site_name,omitempty" json:"site_name,omitempty"`
+	PushoverAppToken string       `bson:"pushover_app_token,omitempty" json:"pushover_app_token,omitempty"`
+	LLM              LLMSettings  `bson:"llm" json:"llm"`
+	Auth             AuthSettings `bson:"auth" json:"auth"`
+	UpdatedAt        time.Time    `bson:"updated_at" json:"updated_at"`
 }
 
 type Mailbox struct {

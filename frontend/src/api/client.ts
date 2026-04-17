@@ -74,6 +74,7 @@ export const api = {
     getPublic: () => fetch('/api/v1/settings/general/public').then(r => r.json()) as Promise<{ site_name: string }>,
     getOIDCCallbackInfo: () => request<{ callback_endpoint: string }>('/settings/auth/oidc-callback'),
     updateGeneral: (data: { site_name: string }) => request<void>('/settings/general', { method: 'PUT', body: JSON.stringify(data) }),
+    updateNotifications: (data: { pushover_app_token: string }) => request<void>('/settings/notifications', { method: 'PUT', body: JSON.stringify(data) }),
     updateLLM: (data: any) => request<void>('/settings/llm', { method: 'PUT', body: JSON.stringify(data) }),
     updateAuth: (data: any) => request<void>('/settings/auth', { method: 'PUT', body: JSON.stringify(data) }),
   },
@@ -100,6 +101,7 @@ export const api = {
   changePassword: (currentPassword: string, newPassword: string) => request<void>('/auth/password', { method: 'PUT', body: JSON.stringify({ current_password: currentPassword, new_password: newPassword }) }),
   updateAvatar: (avatar: string) => request<void>('/auth/avatar', { method: 'PUT', body: JSON.stringify({ avatar }) }),
   updateLocale: (locale: string) => request<void>('/auth/locale', { method: 'PUT', body: JSON.stringify({ locale }) }),
+  updatePushoverKey: (pushoverKey: string) => request<void>('/auth/pushover', { method: 'PUT', body: JSON.stringify({ pushover_key: pushoverKey }) }),
   passkeys: {
     list: () => request<any[]>('/auth/passkeys'),
     delete: (id: string) => request<void>(`/auth/passkeys/${id}`, { method: 'DELETE' }),
