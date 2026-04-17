@@ -276,7 +276,7 @@ export function TicketDetailPage({ ticketId: propId, onBack, onTicketUpdate }: T
               </Menu.Dropdown>
             </Menu>
           </Group>
-          <Group gap={4} wrap="nowrap" style={{ minWidth: 0 }}>
+          <Group gap={4} wrap="nowrap" align="center" style={{ minWidth: 0 }}>
             <Title order={4} style={{ flexShrink: 0 }}>#{ticket.number}</Title>
             <TextInput
               key={ticket.id}
@@ -284,8 +284,7 @@ export function TicketDetailPage({ ticketId: propId, onBack, onTicketUpdate }: T
               onBlur={(e) => handleRename(e.currentTarget.value)}
               onKeyDown={(e) => { if (e.key === 'Enter') e.currentTarget.blur() }}
               className="inline-edit-subject"
-              styles={{ input: { fontSize: 'var(--mantine-h4-font-size)', fontWeight: 700, lineHeight: 'var(--mantine-h4-line-height)', padding: '0 4px' } }}
-              style={{ flex: 1, minWidth: 0 }}
+              styles={{ root: { flex: 1, minWidth: 0 }, input: { fontSize: 'var(--mantine-h4-font-size)', fontWeight: 700, lineHeight: 'var(--mantine-h4-line-height)', padding: '0 4px', height: 'auto', minHeight: 'unset' } }}
             />
           </Group>
         </Box>
@@ -315,8 +314,7 @@ export function TicketDetailPage({ ticketId: propId, onBack, onTicketUpdate }: T
             onBlur={(e) => handleRename(e.currentTarget.value)}
             onKeyDown={(e) => { if (e.key === 'Enter') e.currentTarget.blur() }}
             className="inline-edit-subject"
-            styles={{ input: { fontSize: 'var(--mantine-h2-font-size)', fontWeight: 700, lineHeight: 'var(--mantine-h2-line-height)', padding: '0 4px' } }}
-            style={{ flex: 1, minWidth: 0 }}
+            styles={{ root: { flex: 1, minWidth: 0 }, input: { fontSize: 'var(--mantine-h2-font-size)', fontWeight: 700, lineHeight: 'var(--mantine-h2-line-height)', padding: '0 4px', height: 'auto', minHeight: 'unset' } }}
           />
         </Group>
         <Group gap="sm" style={{ flexShrink: 0 }}>
