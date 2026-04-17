@@ -321,15 +321,15 @@ export function TicketDetailPage({ ticketId: propId, onBack, onTicketUpdate }: T
           const isOutgoing = msg.from === 'agent' || (smtpFrom && msg.from === smtpFrom)
           const displayFrom = msg.from === 'agent' ? smtpFrom || 'agent' : msg.from
           const headerBg = msg.private
-            ? 'light-dark(#fff5f5, var(--mantine-color-red-7))'
+            ? 'light-dark(var(--mantine-color-red-1), var(--mantine-color-red-7))'
             : 'light-dark(var(--mantine-color-gray-1), var(--mantine-color-dark-6))'
           return (<React.Fragment key={i}>
           <Paper withBorder p={0} radius="md" style={{ overflow: 'hidden' }}>
             <Box p="xs" style={{ background: headerBg, position: 'relative' }}>
               {msg.private ? (
                 <Box style={{ display: 'flex', alignItems: 'center', minHeight: 24 }}>
-                  <Badge color="red" variant="light" size="sm">Private Note</Badge>
-                  <Text size="xs" style={{ position: 'absolute', top: '50%', transform: 'translateY(-50%)', right: 8, opacity: 0.6 }}>{formatDate(msg.created_at)}</Text>
+                  <Badge color="red" variant="filled" size="sm" style={{ '--badge-bg': 'light-dark(var(--mantine-color-red-6), white)', '--badge-color': 'light-dark(white, var(--mantine-color-red-7))' } as React.CSSProperties}>Private Note</Badge>
+                  <Text size="xs" style={{ position: 'absolute', top: '50%', transform: 'translateY(-50%)', right: 8, color: 'light-dark(var(--mantine-color-gray-6), var(--mantine-color-red-2))' }}>{formatDate(msg.created_at)}</Text>
                 </Box>
               ) : (
                 <>
