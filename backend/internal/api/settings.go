@@ -30,6 +30,7 @@ func (h *handlers) getSettings(w http.ResponseWriter, r *http.Request) {
 	resp := map[string]any{
 		"id":                 s.ID,
 		"site_name":          s.SiteName,
+		"website_url":        s.WebsiteURL,
 		"pushover_app_token": s.PushoverAppToken,
 		"llm":                s.LLM,
 		"auth":               s.Auth,
@@ -136,7 +137,8 @@ func (h *handlers) updateGeneralSettings(w http.ResponseWriter, r *http.Request)
 	ctx := r.Context()
 
 	var body struct {
-		SiteName string `json:"site_name"`
+		SiteName   string `json:"site_name"`
+		WebsiteURL string `json:"website_url"`
 	}
 	if err := readJSON(r, &body); err != nil {
 		writeError(w, http.StatusBadRequest, "INVALID_JSON", err.Error())
@@ -145,7 +147,7 @@ func (h *handlers) updateGeneralSettings(w http.ResponseWriter, r *http.Request)
 
 	_, err := h.db.Settings().UpdateOne(ctx,
 		bson.M{"_id": "global"},
-		bson.M{"$set": bson.M{"site_name": body.SiteName, "updated_at": time.Now()}},
+		bson.M{"$set": bson.M{"site_name": body.SiteName, "website_url": body.WebsiteURL, "updated_at": time.Now()}},
 		options.UpdateOne().SetUpsert(true),
 	)
 	if err != nil {

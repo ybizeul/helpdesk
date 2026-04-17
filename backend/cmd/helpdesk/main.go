@@ -216,20 +216,30 @@ func sendPushoverNotifications(db *store.DB, mb models.Mailbox, result *email.Fe
 		return
 	}
 
-	// Build messages from events
-	var messages []string
+	// Build notifications from events
+	type pushoverMsg struct {
+		text string
+		url  string
+	}
+	var notifications []pushoverMsg
 	for _, ev := range result.Events {
 		sender := ev.FromName
 		if sender == "" {
 			sender = ev.FromEmail
 		}
+		var text string
 		if ev.IsNew {
-			messages = append(messages, fmt.Sprintf("New case in %s from %s", mb.Name, sender))
+			text = fmt.Sprintf("New case in %s from %s", mb.Name, sender)
 		} else {
-			messages = append(messages, fmt.Sprintf("%s replied to case #%d", sender, ev.Number))
+			text = fmt.Sprintf("%s replied to case #%d", sender, ev.Number)
 		}
+		var ticketURL string
+		if s.WebsiteURL != "" {
+			ticketURL = fmt.Sprintf("%s/#/mailbox/%s/tickets/%s", strings.TrimRight(s.WebsiteURL, "/"), mb.Slug, ev.TicketID)
+		}
+		notifications = append(notifications, pushoverMsg{text: text, url: ticketURL})
 	}
-	if len(messages) == 0 {
+	if len(notifications) == 0 {
 		return
 	}
 
@@ -246,20 +256,25 @@ func sendPushoverNotifications(db *store.DB, mb models.Mailbox, result *email.Fe
 				continue
 			}
 		}
-		for _, msg := range messages {
-			if err := sendPushover(s.PushoverAppToken, u.PushoverKey, msg); err != nil {
+		for _, n := range notifications {
+			if err := sendPushover(s.PushoverAppToken, u.PushoverKey, n.text, n.url); err != nil {
 				slog.Error("pushover: failed to send", "user", u.Email, "error", err)
 			}
 		}
 	}
 }
 
-func sendPushover(appToken, userKey, message string) error {
-	resp, err := http.PostForm("https://api.pushover.net/1/messages.json", url.Values{
+func sendPushover(appToken, userKey, message, ticketURL string) error {
+	params := url.Values{
 		"token":   {appToken},
 		"user":    {userKey},
 		"message": {message},
-	})
+	}
+	if ticketURL != "" {
+		params.Set("url", ticketURL)
+		params.Set("url_title", "Open case")
+	}
+	resp, err := http.PostForm("https://api.pushover.net/1/messages.json", params)
 	if err != nil {
 		return err
 	}

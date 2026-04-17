@@ -73,7 +73,7 @@ export const api = {
     get: () => request<any>('/settings'),
     getPublic: () => fetch('/api/v1/settings/general/public').then(r => r.json()) as Promise<{ site_name: string }>,
     getOIDCCallbackInfo: () => request<{ callback_endpoint: string }>('/settings/auth/oidc-callback'),
-    updateGeneral: (data: { site_name: string }) => request<void>('/settings/general', { method: 'PUT', body: JSON.stringify(data) }),
+    updateGeneral: (data: { site_name: string; website_url: string }) => request<void>('/settings/general', { method: 'PUT', body: JSON.stringify(data) }),
     updateNotifications: (data: { pushover_app_token: string }) => request<void>('/settings/notifications', { method: 'PUT', body: JSON.stringify(data) }),
     updateLLM: (data: any) => request<void>('/settings/llm', { method: 'PUT', body: JSON.stringify(data) }),
     updateAuth: (data: any) => request<void>('/settings/auth', { method: 'PUT', body: JSON.stringify(data) }),

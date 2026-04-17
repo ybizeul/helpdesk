@@ -154,6 +154,7 @@ type AuthSettings struct {
 type Settings struct {
 	ID               string       `bson:"_id" json:"id"`
 	SiteName         string       `bson:"site_name,omitempty" json:"site_name,omitempty"`
+	WebsiteURL       string       `bson:"website_url,omitempty" json:"website_url,omitempty"`
 	PushoverAppToken string       `bson:"pushover_app_token,omitempty" json:"pushover_app_token,omitempty"`
 	LLM              LLMSettings  `bson:"llm" json:"llm"`
 	Auth             AuthSettings `bson:"auth" json:"auth"`

@@ -21,6 +21,7 @@ import (
 
 type TicketEvent struct {
 	IsNew     bool   `json:"is_new"`
+	TicketID  string `json:"ticket_id"`
 	Number    int    `json:"number"`
 	FromName  string `json:"from_name"`
 	FromEmail string `json:"from_email"`
@@ -329,6 +330,7 @@ func fetchEmailsOnce(ctx context.Context, cfg models.EmailSettings, db TicketSto
 			result.Updated++
 			result.Events = append(result.Events, TicketEvent{
 				IsNew:     false,
+				TicketID:  existingTicket.ID,
 				Number:    existingTicket.Number,
 				FromName:  fromName,
 				FromEmail: from,
@@ -371,7 +373,7 @@ func fetchEmailsOnce(ctx context.Context, cfg models.EmailSettings, db TicketSto
 				CreatedAt:     date,
 				UpdatedAt:     date,
 			}
-			_, err := db.Tickets().InsertOne(ctx, ticket)
+			insRes, err := db.Tickets().InsertOne(ctx, ticket)
 			if err != nil {
 				slog.Error("failed to create ticket", "subject", subject, "error", err)
 				continue
@@ -379,6 +381,7 @@ func fetchEmailsOnce(ctx context.Context, cfg models.EmailSettings, db TicketSto
 			result.Created++
 			result.Events = append(result.Events, TicketEvent{
 				IsNew:     true,
+				TicketID:  insRes.InsertedID.(bson.ObjectID).Hex(),
 				Number:    num,
 				FromName:  fromName,
 				FromEmail: from,

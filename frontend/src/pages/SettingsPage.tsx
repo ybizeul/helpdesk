@@ -62,7 +62,7 @@ export function SettingsPage({ onSiteNameChange, mailboxes: propMailboxes = [], 
 
   const saveGeneral = async () => {
     try {
-      await api.settings.updateGeneral({ site_name: settings.site_name || '' })
+      await api.settings.updateGeneral({ site_name: settings.site_name || '', website_url: settings.website_url || '' })
       onSiteNameChange?.(settings.site_name || '')
       notifications.show({ title: 'Saved', message: 'General settings updated', color: 'green' })
     } catch (e: any) {
@@ -161,6 +161,13 @@ export function SettingsPage({ onSiteNameChange, mailboxes: propMailboxes = [], 
                   placeholder="Helpdesk"
                   value={settings.site_name || ''}
                   onChange={(e) => setSettings({ ...settings, site_name: e.currentTarget.value })}
+                />
+                <TextInput
+                  label="Website URL"
+                  description="Externally visible URL of this helpdesk. Used in notification links."
+                  placeholder="https://helpdesk.example.com"
+                  value={settings.website_url || ''}
+                  onChange={(e) => setSettings({ ...settings, website_url: e.currentTarget.value })}
                 />
                 <Group><Button onClick={saveGeneral}>Save General Settings</Button></Group>
               </Stack>
