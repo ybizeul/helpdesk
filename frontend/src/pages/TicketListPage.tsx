@@ -394,7 +394,7 @@ export const TicketListPage = forwardRef<TicketListHandle, TicketListPageProps>(
                       {owner?.avatar ? null : (owner ? getInitials(owner.name) : 'U')}
                     </Avatar>
                   ) })()}
-                  <Badge size="xs" color="gray" variant="light" radius="xl" style={{ flexShrink: 0 }}>{t.messages?.length ?? 0}</Badge>
+                  <Badge size="xs" color="gray.5" variant="filled" radius="xl" style={{ flexShrink: 0 }}>{t.messages?.length ?? 0}</Badge>
                   <Box style={{ minWidth: 0, flex: 1 }}>
                     <Text size="sm" fw={t.unread ? 700 : 400} truncate>#{t.number} {t.subject}</Text>
                     <Text size="xs" c="dimmed" truncate>{t.requester?.name || t.requester?.email}</Text>
@@ -478,7 +478,7 @@ export const TicketListPage = forwardRef<TicketListHandle, TicketListPageProps>(
                   </Tooltip>
                 ) })()}</Table.Td>
                 <Table.Td onClick={handleClick} style={{ whiteSpace: 'nowrap', textAlign: 'center' }}>
-                  <Badge size="xs" color="gray" variant="light" radius="xl" styles={{ label: { overflow: 'visible', textOverflow: 'unset' } }}>{t.messages?.length ?? 0}</Badge>
+                  <Badge size="xs" color="gray.5" variant="filled" radius="xl" styles={{ label: { overflow: 'visible', textOverflow: 'unset' } }}>{t.messages?.length ?? 0}</Badge>
                 </Table.Td>
                 <Table.Td onClick={handleClick}>{t.number}</Table.Td>
                 <Table.Td onClick={handleClick}>{t.subject}</Table.Td>
