@@ -70,6 +70,7 @@ type Ticket struct {
 	Tags          []string       `bson:"tags,omitempty" json:"tags,omitempty"`
 	EmailThreadID string         `bson:"email_thread_id,omitempty" json:"email_thread_id,omitempty"`
 	ThreadTopic   string         `bson:"thread_topic,omitempty" json:"thread_topic,omitempty"`
+	ThreadIndex   string         `bson:"thread_index,omitempty" json:"thread_index,omitempty"`
 	Unread        bool           `bson:"unread" json:"unread"`
 	CreatedAt     time.Time      `bson:"created_at" json:"created_at"`
 	UpdatedAt     time.Time      `bson:"updated_at" json:"updated_at"`

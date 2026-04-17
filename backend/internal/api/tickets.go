@@ -61,6 +61,7 @@ func buildReplySubject(number int, subject string) string {
 func buildReplyHeaders(ticket models.Ticket) email.ReplyHeaders {
 	h := email.ReplyHeaders{
 		ThreadTopic: ticket.ThreadTopic,
+		ThreadIndex: ticket.ThreadIndex,
 	}
 	// Collect all Message-IDs for the References chain
 	for _, m := range ticket.Messages {

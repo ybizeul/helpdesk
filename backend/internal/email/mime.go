@@ -36,6 +36,7 @@ type ParsedBody struct {
 	Cc           []string
 	Attachments  []Attachment
 	ThreadTopic  string
+	ThreadIndex  string   // Raw Thread-Index header (base64)
 	References   []string // Message-IDs from the References header
 	inlineImages []string // base64 <img> tags for inline images without Content-ID
 }
@@ -61,6 +62,10 @@ func ParseMIMEBody(raw []byte) ParsedBody {
 
 	if topic := entity.Header.Get("Thread-Topic"); topic != "" {
 		result.ThreadTopic = topic
+	}
+
+	if ti := entity.Header.Get("Thread-Index"); ti != "" {
+		result.ThreadIndex = strings.TrimSpace(ti)
 	}
 
 	// Parse To header

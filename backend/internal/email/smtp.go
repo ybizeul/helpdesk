@@ -22,6 +22,47 @@ type ReplyHeaders struct {
 	InReplyTo   string   // Message-ID of the last message in the thread
 	References  []string // All Message-IDs in the thread, in order
 	ThreadTopic string   // Thread-Topic header (Outlook threading)
+	ThreadIndex string   // Base Thread-Index from inbound (base64)
+}
+
+// buildChildThreadIndex creates a child Thread-Index by appending a 5-byte
+// FILETIME-based timestamp delta to the parent's base value. If the parent
+// index is missing or invalid, it returns an empty string.
+func buildChildThreadIndex(parentBase64 string) string {
+	if parentBase64 == "" {
+		return ""
+	}
+	parent, err := base64.StdEncoding.DecodeString(parentBase64)
+	if err != nil {
+		// Try with padding stripped (some mailers omit padding)
+		parent, err = base64.RawStdEncoding.DecodeString(parentBase64)
+		if err != nil {
+			return ""
+		}
+	}
+	if len(parent) < 22 {
+		return ""
+	}
+
+	// FILETIME: 100-nanosecond intervals since 1601-01-01
+	epoch := time.Date(1601, 1, 1, 0, 0, 0, 0, time.UTC)
+	ft := uint64(time.Since(epoch)) / 100 // convert to FILETIME units
+
+	// Child response bytes: 5 bytes containing the high 30 bits of (FILETIME >> 18)
+	// plus 1 bit for random and 1 reserved bit.
+	delta := ft >> 18
+	var child [5]byte
+	child[0] = byte(delta >> 24)
+	child[1] = byte(delta >> 16)
+	child[2] = byte(delta >> 8)
+	child[3] = byte(delta)
+	// 5th byte: top 2 bits from the delta's low bits, rest random
+	randByte := make([]byte, 1)
+	rand.Read(randByte)
+	child[4] = byte(delta<<6) | (randByte[0] & 0x3F)
+
+	result := append(parent, child[:]...)
+	return base64.StdEncoding.EncodeToString(result)
 }
 
 // SendReply sends an email reply to the ticket requester (and Cc recipients) via SMTP.
@@ -81,6 +122,9 @@ func SendReply(cfg models.EmailSettings, to string, cc []string, subject, textBo
 	}
 	if headers.ThreadTopic != "" {
 		msg.WriteString("Thread-Topic: " + headers.ThreadTopic + "\r\n")
+	}
+	if childIdx := buildChildThreadIndex(headers.ThreadIndex); childIdx != "" {
+		msg.WriteString("Thread-Index: " + childIdx + "\r\n")
 	}
 	msg.WriteString("Date: " + time.Now().UTC().Format(time.RFC1123Z) + "\r\n")
 	msg.WriteString("MIME-Version: 1.0\r\n")

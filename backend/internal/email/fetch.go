@@ -316,6 +316,10 @@ func fetchEmailsOnce(ctx context.Context, cfg models.EmailSettings, db TicketSto
 			if existingTicket.Requester.Name == "" && fromName != "" {
 				update["$set"].(bson.M)["requester.name"] = fromName
 			}
+			// Update Thread-Index to the latest value for accurate reply chaining
+			if parsed.ThreadIndex != "" {
+				update["$set"].(bson.M)["thread_index"] = parsed.ThreadIndex
+			}
 			_, err := db.Tickets().UpdateByID(ctx, oid, update)
 			if err != nil {
 				slog.Error("failed to update ticket", "id", existingTicket.ID, "error", err)
@@ -354,6 +358,7 @@ func fetchEmailsOnce(ctx context.Context, cfg models.EmailSettings, db TicketSto
 				Messages:      []models.Message{newMsg},
 				EmailThreadID: messageID,
 				ThreadTopic:   parsed.ThreadTopic,
+				ThreadIndex:   parsed.ThreadIndex,
 				Unread:        true,
 				CreatedAt:     date,
 				UpdatedAt:     date,
@@ -416,7 +421,7 @@ func stripRePrefix(subject string) string {
 	prefixes := []string{
 		"Re: ", "RE: ", "re: ", "Re:", "RE:", "re:",
 		"AW: ", "Aw: ", "aw: ", "AW:", // German Antwort
-		"WG: ", "Wg: ", "WG:",         // German Weitergeleitet
+		"WG: ", "Wg: ", "WG:", // German Weitergeleitet
 		"Fwd: ", "FWD: ", "fwd: ", "Fwd:", "FW:", "FW: ",
 		"SV: ", "Sv: ", // Scandinavian
 		"VS: ", "Vs: ", // Scandinavian forward
