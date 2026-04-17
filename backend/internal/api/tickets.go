@@ -287,8 +287,7 @@ func (h *handlers) renameTicket(w http.ResponseWriter, r *http.Request) {
 	}
 
 	result, err := h.db.Tickets().UpdateByID(ctx, oid, bson.M{"$set": bson.M{
-		"subject":    body.Subject,
-		"updated_at": time.Now(),
+		"subject": body.Subject,
 	}})
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "DB_ERROR", err.Error())
