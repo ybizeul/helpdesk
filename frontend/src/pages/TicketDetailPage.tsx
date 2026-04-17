@@ -87,10 +87,16 @@ function MessageBody({ msg, isOutgoing }: { msg: any; isOutgoing?: boolean }) {
     const refCallback = useCallback((node: HTMLDivElement | null) => {
       if (!node) return
       node.querySelectorAll('img').forEach((img) => {
-        img.style.cursor = 'pointer'
-        img.onclick = (e) => {
-          e.preventDefault()
-          openImageWindow(img.src)
+        if (img.closest('a')) {
+          const link = img.closest('a')!
+          link.target = '_blank'
+          link.rel = 'noopener noreferrer'
+        } else {
+          img.style.cursor = 'pointer'
+          img.onclick = (e) => {
+            e.preventDefault()
+            openImageWindow(img.src)
+          }
         }
       })
     }, [safe])
