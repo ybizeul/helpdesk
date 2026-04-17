@@ -16,9 +16,11 @@ export function LoginPage({ onLogin }: LoginPageProps) {
   const [oidcEnabled, setOIDCEnabled] = useState(false)
   const [disableLocalLogin, setDisableLocalLogin] = useState(false)
   const [oidcLoading, setOIDCLoading] = useState(false)
+  const [siteName, setSiteName] = useState('Helpdesk')
   const supportsPasskey = typeof window !== 'undefined' && !!window.PublicKeyCredential
 
   useEffect(() => {
+    api.settings.getPublic().then(s => { if (s.site_name) setSiteName(s.site_name) }).catch(() => {})
     api.oidc.status()
       .then((s) => {
         setOIDCEnabled(!!s.enabled)
@@ -73,7 +75,7 @@ export function LoginPage({ onLogin }: LoginPageProps) {
   return (
     <Center h="100vh" px="md">
       <Paper withBorder shadow="md" p="xl" radius="md" w={400} maw="100%">
-        <Title order={2} ta="center" mb="lg">Helpdesk</Title>
+        <Title order={2} ta="center" mb="lg">{siteName}</Title>
         {disableLocalLogin && oidcEnabled ? (
           <Stack>
             <Alert color="blue" variant="light">Redirecting to OIDC login...</Alert>
