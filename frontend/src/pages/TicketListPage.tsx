@@ -142,7 +142,8 @@ export const TicketListPage = forwardRef<TicketListHandle, TicketListPageProps>(
       setFetching(false)
     }
     loadTickets()
-  }, [loadTickets])
+    onMailboxCountChange?.()
+  }, [loadTickets, onMailboxCountChange])
 
   // Pull-to-refresh
   const scrollRef = useRef<HTMLDivElement>(null)

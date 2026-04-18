@@ -187,6 +187,13 @@ export default function App() {
     }
   }, [token, loadMailboxes])
 
+  // Periodically refresh all mailbox unread counts
+  useEffect(() => {
+    if (!token) return
+    const interval = setInterval(loadMailboxes, 60_000)
+    return () => clearInterval(interval)
+  }, [token, loadMailboxes])
+
   if (!token) {
     return <LoginPage onLogin={handleLogin} />
   }
