@@ -97,6 +97,7 @@ interface TicketListPageProps {
   activeTicketId?: string | null
   currentUser?: { role?: string; locale?: string } | null
   onSelectTicket?: (id: string) => void
+  onDeselectTicket?: () => void
   mailbox?: any
   onMailboxCountChange?: () => void
 }
@@ -105,7 +106,7 @@ export interface TicketListHandle {
   refresh: () => void
 }
 
-export const TicketListPage = forwardRef<TicketListHandle, TicketListPageProps>(function TicketListPage({ activeTicketId, currentUser, onSelectTicket, mailbox, onMailboxCountChange }, ref) {
+export const TicketListPage = forwardRef<TicketListHandle, TicketListPageProps>(function TicketListPage({ activeTicketId, currentUser, onSelectTicket, onDeselectTicket, mailbox, onMailboxCountChange }, ref) {
   const [tickets, setTickets] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [selected, setSelected] = useState<Set<string>>(new Set())
@@ -247,6 +248,7 @@ export const TicketListPage = forwardRef<TicketListHandle, TicketListPageProps>(
       await api.tickets.bulk(ids, action, extra)
       setSelected(new Set())
       loadTickets()
+      if (action === 'delete' && activeTicketId && ids.includes(activeTicketId)) onDeselectTicket?.()
       if (action === 'mark_read' || action === 'mark_unread' || action === 'delete') onMailboxCountChange?.()
       const labels: Record<string, string> = { delete: 'Deleted', mark_read: 'Marked as read', mark_unread: 'Marked as unread', set_status: `Status changed` }
       notifications.show({ title: labels[action] || action, message: `${ids.length} case(s)`, color: 'green' })
@@ -305,6 +307,7 @@ export const TicketListPage = forwardRef<TicketListHandle, TicketListPageProps>(
                       const result = await api.tickets.merge(ids)
                       setSelected(new Set())
                       loadTickets()
+                      if (activeTicketId && ids.includes(activeTicketId)) onDeselectTicket?.()
                       notifications.show({ title: 'Cases merged', message: `Merged ${ids.length} cases into #${result.ticket_number}`, color: 'green' })
                     } catch (e: any) {
                       notifications.show({ title: 'Merge failed', message: e.message, color: 'red' })
