@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
+	netmail "net/mail"
 	"strconv"
 	"strings"
 	"time"
@@ -115,13 +116,18 @@ func buildReplyHeaders(ticket models.Ticket) email.ReplyHeaders {
 // collectCc gathers Cc addresses from the last inbound message on the ticket,
 // excluding the helpdesk's own address and the requester (already in To).
 func collectCc(ticket models.Ticket, emailCfg models.EmailSettings) []string {
-	ownAddr := strings.ToLower(emailCfg.SMTPFrom)
+	ownAddr := emailCfg.SMTPFrom
 	if ownAddr == "" {
-		ownAddr = strings.ToLower(emailCfg.SMTPUser)
+		ownAddr = emailCfg.SMTPUser
 	}
 	if ownAddr == "" {
-		ownAddr = strings.ToLower(emailCfg.IMAPUser)
+		ownAddr = emailCfg.IMAPUser
 	}
+	// Extract bare email so "Name" <addr> format matches stripped Cc addresses.
+	if parsed, err := netmail.ParseAddress(ownAddr); err == nil {
+		ownAddr = parsed.Address
+	}
+	ownAddr = strings.ToLower(ownAddr)
 	requester := strings.ToLower(ticket.Requester.Email)
 
 	// Walk messages in reverse to find the last inbound message with Cc

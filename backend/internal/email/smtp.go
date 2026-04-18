@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"mime"
 	"net"
+	netmail "net/mail"
 	"net/smtp"
 	"regexp"
 	"strings"
@@ -298,7 +299,12 @@ func smtpSend(c *smtp.Client, cfg models.EmailSettings, from, to string, cc []st
 			return fmt.Errorf("smtp auth: %w", err)
 		}
 	}
-	if err := c.Mail(from); err != nil {
+	// MAIL FROM requires a bare email address, not "Name" <addr> format.
+	envelopeFrom := from
+	if parsed, err := netmail.ParseAddress(from); err == nil {
+		envelopeFrom = parsed.Address
+	}
+	if err := c.Mail(envelopeFrom); err != nil {
 		return fmt.Errorf("smtp mail: %w", err)
 	}
 	if err := c.Rcpt(to); err != nil {
