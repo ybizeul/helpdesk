@@ -1,5 +1,5 @@
 import { useEffect, useState, useRef, useCallback, useImperativeHandle, forwardRef } from 'react'
-import { Title, Table, Badge, Group, Text, Checkbox, Button, Tooltip, Menu, ActionIcon, Stack, Box, Avatar, Skeleton, Loader } from '@mantine/core'
+import { Title, Table, Badge, Group, Text, Checkbox, Button, Tooltip, Menu, ActionIcon, Stack, Box, Avatar, Skeleton, Loader, Modal } from '@mantine/core'
 import { IconTrash, IconEye, IconEyeOff, IconCircle, IconRefresh, IconArrowMerge, IconFilter, IconArrowDown } from '@tabler/icons-react'
 import { useMediaQuery } from '@mantine/hooks'
 import { notifications } from '@mantine/notifications'
@@ -113,6 +113,7 @@ export const TicketListPage = forwardRef<TicketListHandle, TicketListPageProps>(
   const [usersMap, setUsersMap] = useState<Record<string, any>>({})
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all_open')
   const [fetching, setFetching] = useState(false)
+  const [confirmDelete, setConfirmDelete] = useState(false)
   const knownIdsRef = useRef<Set<string> | null>(null)
   const isMobile = useMediaQuery('(max-width: 768px)')
   const canDelete = currentUser?.role === 'admin'
@@ -317,7 +318,7 @@ export const TicketListPage = forwardRef<TicketListHandle, TicketListPageProps>(
               )}
               {canDelete && (
                 <Tooltip label="Delete selected">
-                  <Button variant="light" color="red" size="xs" leftSection={<IconTrash size={14} />} onClick={() => bulkAction('delete')}>Delete</Button>
+                  <Button variant="light" color="red" size="xs" leftSection={<IconTrash size={14} />} onClick={() => setConfirmDelete(true)}>Delete</Button>
                 </Tooltip>
               )}
               <Menu shadow="md" width={150}>
@@ -507,6 +508,13 @@ export const TicketListPage = forwardRef<TicketListHandle, TicketListPageProps>(
       </Table>
       )}
       </Box>
+      <Modal opened={confirmDelete} onClose={() => setConfirmDelete(false)} title="Delete cases">
+        <Text>Are you sure you want to delete {selected.size} selected case(s)? This action cannot be undone.</Text>
+        <Group justify="flex-end" mt="lg">
+          <Button variant="default" onClick={() => setConfirmDelete(false)}>Cancel</Button>
+          <Button color="red" onClick={() => { setConfirmDelete(false); bulkAction('delete') }}>Delete</Button>
+        </Group>
+      </Modal>
     </Box>
   )
 })
