@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Title, Table, Badge, Text, Stack, PasswordInput, Button, Group, Modal, TextInput, Select, ActionIcon, Checkbox } from '@mantine/core'
+import { useMediaQuery } from '@mantine/hooks'
 import { notifications } from '@mantine/notifications'
 import { IconEdit, IconTrash, IconPlus } from '@tabler/icons-react'
 import { api } from '../api/client'
@@ -18,6 +19,8 @@ export function UsersPage({ mailboxes = [] }: { mailboxes?: any[] }) {
   // Delete confirmation state
   const [deleteTarget, setDeleteTarget] = useState<any | null>(null)
   const [deleting, setDeleting] = useState(false)
+
+  const isMobile = useMediaQuery('(max-width: 48em)')
 
   const loadUsers = () => api.users.list().then(setUsers).catch(console.error)
 
@@ -98,8 +101,9 @@ export function UsersPage({ mailboxes = [] }: { mailboxes?: any[] }) {
       <Table striped highlightOnHover>
         <Table.Thead>
           <Table.Tr>
-            <Table.Th>Name</Table.Th>
-            <Table.Th>Email</Table.Th>
+            <Table.Th>Name{isMobile ? ' / Email' : ''}</Table.Th>
+            {!isMobile && <Table.Th>Email</Table.Th>}
+            {!isMobile && <Table.Th>Mailboxes</Table.Th>}
             <Table.Th>Role</Table.Th>
             <Table.Th w={100}>Actions</Table.Th>
           </Table.Tr>
@@ -109,8 +113,18 @@ export function UsersPage({ mailboxes = [] }: { mailboxes?: any[] }) {
             const isLastAdmin = u.role === 'admin' && adminCount <= 1
             return (
               <Table.Tr key={u.id}>
-                <Table.Td>{u.name}</Table.Td>
-                <Table.Td>{u.email}</Table.Td>
+                <Table.Td>
+                  <Text>{u.name}</Text>
+                  {isMobile && <Text size="sm" c="dimmed">{u.email}</Text>}
+                </Table.Td>
+                {!isMobile && <Table.Td>{u.email}</Table.Td>}
+                {!isMobile && <Table.Td>
+                  {u.role === 'admin'
+                    ? <Text c="dimmed" size="sm">–</Text>
+                    : (u.mailboxes?.length
+                        ? u.mailboxes.map((mid: string) => mailboxes.find((mb: any) => mb.id === mid)?.name).filter(Boolean).join(', ') || <Text c="dimmed" size="sm">–</Text>
+                        : <Text c="dimmed" size="sm">–</Text>)}
+                </Table.Td>}
                 <Table.Td><Badge>{u.role}</Badge></Table.Td>
                 <Table.Td>
                   <Group gap="xs">
@@ -123,7 +137,7 @@ export function UsersPage({ mailboxes = [] }: { mailboxes?: any[] }) {
           })}
           {users.length === 0 && (
             <Table.Tr>
-              <Table.Td colSpan={4}><Text c="dimmed" ta="center">No users</Text></Table.Td>
+              <Table.Td colSpan={isMobile ? 3 : 5}><Text c="dimmed" ta="center">No users</Text></Table.Td>
             </Table.Tr>
           )}
         </Table.Tbody>
