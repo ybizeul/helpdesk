@@ -30,6 +30,21 @@ func (h *handlers) loadTicketMailbox(ctx context.Context, ticket models.Ticket) 
 	return mb, err
 }
 
+// requireTicketAccess loads a ticket by OID and verifies the requesting user
+// has access to its mailbox. Writes an HTTP error when access is denied.
+func (h *handlers) requireTicketAccess(w http.ResponseWriter, r *http.Request, oid bson.ObjectID) (models.Ticket, bool) {
+	var t models.Ticket
+	if err := h.db.Tickets().FindOne(r.Context(), bson.M{"_id": oid}).Decode(&t); err != nil {
+		writeError(w, http.StatusNotFound, "TICKET_NOT_FOUND", "ticket not found")
+		return t, false
+	}
+	if t.MailboxID != "" && !userCanAccessMailbox(h, r, t.MailboxID) {
+		writeError(w, http.StatusForbidden, "FORBIDDEN", "no access to this ticket's mailbox")
+		return t, false
+	}
+	return t, true
+}
+
 // replyPrefixes lists multilingual reply/forward prefixes to strip when normalising subjects.
 var replyPrefixes = []string{
 	"Re: ", "RE: ", "re: ",
@@ -211,6 +226,11 @@ func (h *handlers) createTicket(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if t.MailboxID != "" && !userCanAccessMailbox(h, r, t.MailboxID) {
+		writeError(w, http.StatusForbidden, "FORBIDDEN", "no access to this mailbox")
+		return
+	}
+
 	now := time.Now()
 	t.ID = ""
 	t.Status = models.TicketStatusUnassigned
@@ -246,10 +266,8 @@ func (h *handlers) getTicket(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var t models.Ticket
-	err = h.db.Tickets().FindOne(ctx, bson.M{"_id": oid}).Decode(&t)
-	if err != nil {
-		writeError(w, http.StatusNotFound, "TICKET_NOT_FOUND", "ticket not found")
+	t, ok := h.requireTicketAccess(w, r, oid)
+	if !ok {
 		return
 	}
 
@@ -272,6 +290,10 @@ func (h *handlers) updateTicket(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if _, ok := h.requireTicketAccess(w, r, oid); !ok {
+		return
+	}
+
 	var updates map[string]any
 	if err := readJSON(r, &updates); err != nil {
 		writeError(w, http.StatusBadRequest, "INVALID_JSON", err.Error())
@@ -280,6 +302,13 @@ func (h *handlers) updateTicket(w http.ResponseWriter, r *http.Request) {
 	updates["updated_at"] = time.Now()
 	delete(updates, "_id")
 	delete(updates, "id")
+	delete(updates, "mailbox_id")
+	delete(updates, "messages")
+	delete(updates, "number")
+	delete(updates, "created_at")
+	delete(updates, "email_thread_id")
+	delete(updates, "thread_topic")
+	delete(updates, "thread_index")
 
 	result, err := h.db.Tickets().UpdateByID(ctx, oid, bson.M{"$set": updates})
 	if err != nil {
@@ -300,6 +329,10 @@ func (h *handlers) renameTicket(w http.ResponseWriter, r *http.Request) {
 	oid, err := bson.ObjectIDFromHex(id)
 	if err != nil {
 		writeError(w, http.StatusBadRequest, "INVALID_ID", "invalid ticket ID format")
+		return
+	}
+
+	if _, ok := h.requireTicketAccess(w, r, oid); !ok {
 		return
 	}
 
@@ -379,9 +412,8 @@ func (h *handlers) replyTicket(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Load the ticket to get requester email and thread ID
-	var ticket models.Ticket
-	if err := h.db.Tickets().FindOne(ctx, bson.M{"_id": oid}).Decode(&ticket); err != nil {
-		writeError(w, http.StatusNotFound, "TICKET_NOT_FOUND", "ticket not found")
+	ticket, ok := h.requireTicketAccess(w, r, oid)
+	if !ok {
 		return
 	}
 
@@ -468,9 +500,8 @@ func (h *handlers) retrySend(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var ticket models.Ticket
-	if err := h.db.Tickets().FindOne(ctx, bson.M{"_id": oid}).Decode(&ticket); err != nil {
-		writeError(w, http.StatusNotFound, "TICKET_NOT_FOUND", "ticket not found")
+	ticket, ok := h.requireTicketAccess(w, r, oid)
+	if !ok {
 		return
 	}
 
@@ -523,6 +554,10 @@ func (h *handlers) assignTicket(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if _, ok := h.requireTicketAccess(w, r, oid); !ok {
+		return
+	}
+
 	var body struct {
 		AssigneeID string `json:"assignee_id"`
 	}
@@ -555,12 +590,16 @@ func (h *handlers) claimTicket(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	ticket, ok := h.requireTicketAccess(w, r, oid)
+	if !ok {
+		return
+	}
+
 	claims := ctx.Value(claimsKey).(*jwtClaims)
 
 	updateFields := bson.M{"owner_id": claims.Sub, "updated_at": time.Now()}
 	// If unassigned, transition to active
-	var ticket models.Ticket
-	if err := h.db.Tickets().FindOne(ctx, bson.M{"_id": oid}).Decode(&ticket); err == nil && ticket.Status == models.TicketStatusUnassigned {
+	if ticket.Status == models.TicketStatusUnassigned {
 		updateFields["status"] = models.TicketStatusActive
 	}
 	result, err := h.db.Tickets().UpdateByID(ctx, oid, bson.M{
@@ -584,6 +623,10 @@ func (h *handlers) changeTicketStatus(w http.ResponseWriter, r *http.Request) {
 	oid, err := bson.ObjectIDFromHex(id)
 	if err != nil {
 		writeError(w, http.StatusBadRequest, "INVALID_ID", "invalid ticket ID format")
+		return
+	}
+
+	if _, ok := h.requireTicketAccess(w, r, oid); !ok {
 		return
 	}
 
@@ -616,6 +659,10 @@ func (h *handlers) addNote(w http.ResponseWriter, r *http.Request) {
 	oid, err := bson.ObjectIDFromHex(id)
 	if err != nil {
 		writeError(w, http.StatusBadRequest, "INVALID_ID", "invalid ticket ID format")
+		return
+	}
+
+	if _, ok := h.requireTicketAccess(w, r, oid); !ok {
 		return
 	}
 
@@ -653,7 +700,6 @@ func (h *handlers) addNote(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *handlers) downloadAttachment(w http.ResponseWriter, r *http.Request) {
-	ctx := r.Context()
 	id := r.PathValue("id")
 
 	oid, err := bson.ObjectIDFromHex(id)
@@ -673,9 +719,8 @@ func (h *handlers) downloadAttachment(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var ticket models.Ticket
-	if err := h.db.Tickets().FindOne(ctx, bson.M{"_id": oid}).Decode(&ticket); err != nil {
-		writeError(w, http.StatusNotFound, "TICKET_NOT_FOUND", "ticket not found")
+	ticket, ok := h.requireTicketAccess(w, r, oid)
+	if !ok {
 		return
 	}
 
@@ -697,6 +742,11 @@ func (h *handlers) downloadAttachment(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *handlers) reparseEmails(w http.ResponseWriter, r *http.Request) {
+	if !requireAdmin(r) {
+		writeError(w, http.StatusForbidden, "FORBIDDEN", "admin role required")
+		return
+	}
+
 	ctx := r.Context()
 
 	cursor, err := h.db.Tickets().Find(ctx, bson.M{
@@ -824,6 +874,14 @@ func (h *handlers) mergeTickets(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Verify access to all tickets' mailboxes
+	for _, t := range tickets {
+		if t.MailboxID != "" && !userCanAccessMailbox(h, r, t.MailboxID) {
+			writeError(w, http.StatusForbidden, "FORBIDDEN", "no access to one or more tickets' mailboxes")
+			return
+		}
+	}
+
 	// Collect all messages and find the latest one to determine subject
 	var allMessages []models.Message
 	var latestMsg models.Message
@@ -920,6 +978,12 @@ func (h *handlers) bulkTicketAction(w http.ResponseWriter, r *http.Request) {
 	}
 
 	filter := bson.M{"_id": bson.M{"$in": oids}}
+
+	// Restrict to tickets in user's accessible mailboxes
+	mbIDs, isAdmin := userMailboxIDs(h, r)
+	if !isAdmin {
+		filter["mailbox_id"] = bson.M{"$in": mbIDs}
+	}
 
 	switch req.Action {
 	case "delete":
