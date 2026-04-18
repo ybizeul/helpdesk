@@ -134,13 +134,16 @@ export default function App() {
   const [mailboxes, setMailboxes] = useState<any[]>([])
   const isAdmin = currentUser?.role === 'admin'
 
+  // When single mailbox: use its name; otherwise use the site_name setting
+  const displayName = mailboxes.length === 1 ? mailboxes[0].name : siteName
+
   useEffect(() => {
     api.settings.getPublic().then(s => { if (s.site_name) setSiteName(s.site_name) }).catch(() => {})
   }, [])
 
   useEffect(() => {
-    document.title = siteName
-  }, [siteName])
+    document.title = displayName
+  }, [displayName])
 
   useEffect(() => {
     const url = new URL(window.location.href)
@@ -197,11 +200,11 @@ export default function App() {
       <AppShell.Header>
         <Group h="100%" px="md">
           <Burger opened={navOpened} onClick={toggleNav} size="sm" hiddenFrom="sm" />
-          <Text fw={700} size="lg">{siteName}</Text>
+          <Text fw={700} size="lg">{displayName}</Text>
         </Group>
       </AppShell.Header>
       <AppShell.Navbar>
-        <AppNavbar onLogout={handleLogout} onNavigate={closeNav} user={currentUser} onOpenProfile={openProfile} siteName={siteName} mailboxes={mailboxes} />
+        <AppNavbar onLogout={handleLogout} onNavigate={closeNav} user={currentUser} onOpenProfile={openProfile} siteName={displayName} mailboxes={mailboxes} />
       </AppShell.Navbar>
       <AppShell.Main style={{ overflow: 'hidden' }}>
         <Routes>
@@ -212,7 +215,7 @@ export default function App() {
           <Route path="/tickets" element={mailboxes.length > 0 ? <Navigate to={`/mailbox/${mailboxes[0].slug}/tickets`} replace /> : null} />
           <Route path="/tickets/:id" element={mailboxes.length > 0 ? <Navigate to={`/mailbox/${mailboxes[0].slug}/tickets`} replace /> : null} />
           <Route path="/users" element={isAdmin ? <Box p="md"><UsersPage mailboxes={mailboxes} /></Box> : <Navigate to="/" replace />} />
-          <Route path="/settings" element={isAdmin ? <Box p="md"><SettingsPage onSiteNameChange={setSiteName} mailboxes={mailboxes} onMailboxesChange={setMailboxes} /></Box> : <Navigate to="/" replace />} />
+          <Route path="/settings" element={isAdmin ? <Box p="md" style={{ overflow: 'auto', height: 'calc(100dvh - var(--app-shell-header-height, 50px))' }}><SettingsPage onSiteNameChange={setSiteName} mailboxes={mailboxes} onMailboxesChange={setMailboxes} /></Box> : <Navigate to="/" replace />} />
         </Routes>
       </AppShell.Main>
       <ProfileModal opened={profileOpened} onClose={closeProfile} user={currentUser} onAvatarChange={(avatar) => setCurrentUser((u: any) => u ? { ...u, avatar } : u)} onLocaleChange={(locale) => setCurrentUser((u: any) => u ? { ...u, locale } : u)} />

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Title, Tabs, TextInput, NumberInput, Switch, Button, Stack, Group, PasswordInput, Modal, NavLink, Text, Loader, Fieldset, Code, ActionIcon } from '@mantine/core'
+import { Title, Tabs, TextInput, NumberInput, Switch, Button, Stack, Group, PasswordInput, Modal, NavLink, Text, Loader, Fieldset, Code, ActionIcon, Paper } from '@mantine/core'
 import { notifications } from '@mantine/notifications'
 import { IconFolder, IconPlus, IconTrash } from '@tabler/icons-react'
 import { useEditor } from '@tiptap/react'
@@ -23,12 +23,19 @@ export function SettingsPage({ onSiteNameChange, mailboxes: propMailboxes = [], 
   const [loadError, setLoadError] = useState<string | null>(null)
   const [toolResponse, setToolResponse] = useState<string | null>(null)
   const [oidcCallbackEndpoint, setOIDCCallbackEndpoint] = useState('')
-  const [activeTab, setActiveTab] = useState<string>('global')
+  const [activeTab, setActiveTab] = useState<string | null>(null)
   const [createModalOpen, setCreateModalOpen] = useState(false)
   const [newMailboxName, setNewMailboxName] = useState('')
 
   // Local mailbox state for editing
   const [mailboxStates, setMailboxStates] = useState<Record<string, any>>({})
+
+  // Auto-select first mailbox if none selected
+  useEffect(() => {
+    if (propMailboxes.length > 0 && (!activeTab || !propMailboxes.some((mb: any) => `mb-${mb.id}` === activeTab))) {
+      setActiveTab(`mb-${propMailboxes[0].id}`)
+    }
+  }, [propMailboxes])
 
   // Init mailbox states from prop
   useEffect(() => {
@@ -109,7 +116,7 @@ export function SettingsPage({ onSiteNameChange, mailboxes: propMailboxes = [], 
       await api.mailboxes.delete(id)
       const updated = propMailboxes.filter((m: any) => m.id !== id)
       onMailboxesChange?.(updated)
-      setActiveTab('global')
+      setActiveTab(updated.length > 0 ? `mb-${updated[0].id}` : null)
       notifications.show({ title: 'Deleted', message: 'Mailbox deleted', color: 'green' })
     } catch (e: any) {
       notifications.show({ title: 'Error', message: e.message, color: 'red' })
@@ -131,24 +138,15 @@ export function SettingsPage({ onSiteNameChange, mailboxes: propMailboxes = [], 
   return (
     <>
       <Title order={2} mb="lg">Settings</Title>
-      <Tabs value={activeTab} onChange={(v) => setActiveTab(v || 'global')}>
-        <Tabs.List>
-          <Tabs.Tab value="global">Global</Tabs.Tab>
-          {propMailboxes.map((mb: any) => (
-            <Tabs.Tab key={mb.id} value={`mb-${mb.id}`}>{mb.name}</Tabs.Tab>
-          ))}
-          <ActionIcon variant="subtle" size="sm" mt={8} ml={4} onClick={() => { setNewMailboxName(''); setCreateModalOpen(true) }}>
-            <IconPlus size={16} />
-          </ActionIcon>
-        </Tabs.List>
 
-        {/* ── Global Tab ── */}
-        <Tabs.Panel value="global" pt="md">
-          <Tabs defaultValue="general">
+      {/* ── Global Settings ── */}
+      <Paper withBorder p="md" mb="xl">
+        <Title order={3} mb="md">Global</Title>
+        <Tabs defaultValue="general">
             <Tabs.List>
               <Tabs.Tab value="general">General</Tabs.Tab>
               <Tabs.Tab value="notifications">Notifications</Tabs.Tab>
-              <Tabs.Tab value="auth">Authentication</Tabs.Tab>
+              <Tabs.Tab value="auth">OIDC</Tabs.Tab>
               <Tabs.Tab value="llm">LLM</Tabs.Tab>
               {settings?.debug && <Tabs.Tab value="tools">Tools</Tabs.Tab>}
             </Tabs.List>
@@ -175,7 +173,6 @@ export function SettingsPage({ onSiteNameChange, mailboxes: propMailboxes = [], 
 
             <Tabs.Panel value="notifications" pt="md">
               <Stack maw={500}>
-                <Title order={4}>Pushover</Title>
                 <TextInput
                   label="Pushover API token"
                   description="Application API token from pushover.net. Users configure their own user key in their profile."
@@ -196,7 +193,6 @@ export function SettingsPage({ onSiteNameChange, mailboxes: propMailboxes = [], 
 
             <Tabs.Panel value="auth" pt="md">
               <Stack maw={600}>
-                <Title order={4}>OIDC</Title>
                 <Switch
                   label="Enable OIDC login"
                   checked={settings.auth?.oidc_enabled ?? false}
@@ -269,23 +265,41 @@ export function SettingsPage({ onSiteNameChange, mailboxes: propMailboxes = [], 
               </Tabs.Panel>
             )}
           </Tabs>
-        </Tabs.Panel>
+      </Paper>
 
-        {/* ── Per-Mailbox Tabs ── */}
-        {propMailboxes.map((mb: any) => (
-          <Tabs.Panel key={mb.id} value={`mb-${mb.id}`} pt="md">
-            <MailboxSettingsPanel
-              mailbox={mailboxStates[mb.id] || mb}
-              onChange={(updated) => setMailboxStates(prev => ({ ...prev, [mb.id]: updated }))}
-              onDelete={() => deleteMailbox(mb.id)}
-              onSaved={(updated) => {
-                const newList = propMailboxes.map((m: any) => m.id === mb.id ? updated : m)
-                onMailboxesChange?.(newList)
-              }}
-            />
-          </Tabs.Panel>
-        ))}
-      </Tabs>
+      {/* ── Mailboxes ── */}
+      <Paper withBorder p="md">
+        <Group mb="md">
+          <Title order={3}>Mailboxes</Title>
+          <ActionIcon variant="subtle" size="sm" onClick={() => { setNewMailboxName(''); setCreateModalOpen(true) }}>
+            <IconPlus size={16} />
+          </ActionIcon>
+        </Group>
+        {propMailboxes.length === 0 ? (
+          <Text c="dimmed">No mailboxes configured yet.</Text>
+        ) : (
+          <Tabs variant="outline" value={activeTab} onChange={(v) => setActiveTab(v || `mb-${propMailboxes[0]?.id}`)}>
+            <Tabs.List>
+              {propMailboxes.map((mb: any) => (
+                <Tabs.Tab key={mb.id} value={`mb-${mb.id}`}>{mb.name}</Tabs.Tab>
+              ))}
+            </Tabs.List>
+            {propMailboxes.map((mb: any) => (
+              <Tabs.Panel key={mb.id} value={`mb-${mb.id}`} pt="md">
+                <MailboxSettingsPanel
+                  mailbox={mailboxStates[mb.id] || mb}
+                  onChange={(updated) => setMailboxStates(prev => ({ ...prev, [mb.id]: updated }))}
+                  onDelete={() => deleteMailbox(mb.id)}
+                  onSaved={(updated) => {
+                    const newList = propMailboxes.map((m: any) => m.id === mb.id ? updated : m)
+                    onMailboxesChange?.(newList)
+                  }}
+                />
+              </Tabs.Panel>
+            ))}
+          </Tabs>
+        )}
+      </Paper>
 
       {/* Create Mailbox Modal */}
       <Modal opened={createModalOpen} onClose={() => setCreateModalOpen(false)} title="Create Mailbox" size="sm">
