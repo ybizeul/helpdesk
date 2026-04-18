@@ -27,6 +27,13 @@ func (h *handlers) listUsers(w http.ResponseWriter, r *http.Request) {
 	if users == nil {
 		users = []models.User{}
 	}
+	// Strip sensitive fields for non-admin users
+	if !requireAdmin(r) {
+		for i := range users {
+			users[i].PushoverKey = ""
+			users[i].Mailboxes = nil
+		}
+	}
 	writeJSON(w, http.StatusOK, users)
 }
 
@@ -70,6 +77,11 @@ func (h *handlers) createUser(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *handlers) getUser(w http.ResponseWriter, r *http.Request) {
+	if !requireAdmin(r) {
+		writeError(w, http.StatusForbidden, "FORBIDDEN", "admin role required")
+		return
+	}
+
 	ctx := r.Context()
 	id := r.PathValue("id")
 

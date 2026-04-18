@@ -14,6 +14,12 @@ import (
 
 var slugRe = regexp.MustCompile(`[^a-z0-9]+`)
 
+// sanitizeMailboxForAgent removes sensitive email credentials from a mailbox.
+func sanitizeMailboxForAgent(mb models.Mailbox) models.Mailbox {
+	mb.Email = models.EmailSettings{}
+	return mb
+}
+
 func toSlug(name string) string {
 	s := strings.ToLower(strings.TrimSpace(name))
 	s = slugRe.ReplaceAllString(s, "-")
@@ -111,6 +117,9 @@ func (h *handlers) listMailboxesAPI(w http.ResponseWriter, r *http.Request) {
 	}
 	resp := make([]mailboxWithCount, len(mailboxes))
 	for i, mb := range mailboxes {
+		if !isAdmin {
+			mb = sanitizeMailboxForAgent(mb)
+		}
 		resp[i] = mailboxWithCount{Mailbox: mb, UnreadCount: unreadMap[mb.ID]}
 	}
 	writeJSON(w, http.StatusOK, resp)
@@ -136,6 +145,9 @@ func (h *handlers) getMailboxAPI(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusNotFound, "MAILBOX_NOT_FOUND", "mailbox not found")
 		return
 	}
+	if !requireAdmin(r) {
+		mb = sanitizeMailboxForAgent(mb)
+	}
 	writeJSON(w, http.StatusOK, mb)
 }
 
@@ -154,6 +166,9 @@ func (h *handlers) getMailboxBySlug(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if !requireAdmin(r) {
+		mb = sanitizeMailboxForAgent(mb)
+	}
 	writeJSON(w, http.StatusOK, mb)
 }
 
