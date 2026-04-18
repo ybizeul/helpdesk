@@ -440,9 +440,6 @@ func (h *handlers) replyTicket(w http.ResponseWriter, r *http.Request) {
 	if ticket.OwnerID == "" {
 		setFields["owner_id"] = claims.Sub
 	}
-	if ticket.Status == models.TicketStatusUnassigned {
-		setFields["status"] = models.TicketStatusActive
-	}
 
 	_, err = h.db.Tickets().UpdateByID(ctx, oid, bson.M{
 		"$push": bson.M{"messages": msg},
