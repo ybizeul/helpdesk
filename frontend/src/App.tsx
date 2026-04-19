@@ -103,6 +103,7 @@ function TicketPanes({ currentUser, mailboxes, onMailboxCountChange }: { current
             activeTicketId={null}
             currentUser={currentUser}
             mailbox={mailbox}
+            mailboxCount={mailboxes.length}
             onSelectTicket={(ticketId) => navigate(`${basePath}/${ticketId}`)}
             onDeselectTicket={() => navigate(basePath)}
             onMailboxCountChange={onMailboxCountChange}
@@ -128,6 +129,7 @@ function TicketPanes({ currentUser, mailboxes, onMailboxCountChange }: { current
           activeTicketId={id || null}
           currentUser={currentUser}
           mailbox={mailbox}
+          mailboxCount={mailboxes.length}
             onSelectTicket={(ticketId) => navigate(`${basePath}/${ticketId}`)}
             onDeselectTicket={() => navigate(basePath)}
             onMailboxCountChange={onMailboxCountChange}
