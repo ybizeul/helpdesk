@@ -123,10 +123,11 @@ interface TicketDetailPageProps {
   ticketId?: string
   onBack?: () => void
   onTicketUpdate?: () => void
+  onNotFound?: () => void
   mailbox?: any
 }
 
-export function TicketDetailPage({ ticketId: propId, onBack, onTicketUpdate, mailbox }: TicketDetailPageProps = {}) {
+export function TicketDetailPage({ ticketId: propId, onBack, onTicketUpdate, onNotFound, mailbox }: TicketDetailPageProps = {}) {
   const { id: paramId } = useParams<{ id: string }>()
   const id = propId || paramId
   const isMobile = useMediaQuery('(max-width: 768px)')
@@ -139,7 +140,7 @@ export function TicketDetailPage({ ticketId: propId, onBack, onTicketUpdate, mai
   const [deleteOpened, { open: openDelete, close: closeDelete }] = useDisclosure(false)
 
   useEffect(() => {
-    if (id) api.tickets.get(id).then((t) => { setTicket(t); onTicketUpdate?.() }).catch(console.error)
+    if (id) api.tickets.get(id).then((t) => { setTicket(t); onTicketUpdate?.() }).catch(() => onNotFound?.())
     api.users.list().then(setUsers).catch(() => {})
   }, [id])
 

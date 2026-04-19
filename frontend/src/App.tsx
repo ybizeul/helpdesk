@@ -47,7 +47,8 @@ function TicketPanes({ currentUser, mailboxes, onMailboxCountChange }: { current
   const listRef = useRef<TicketListHandle>(null)
   const refreshList = useCallback(() => { listRef.current?.refresh(); onMailboxCountChange?.() }, [onMailboxCountChange])
 
-  const mailbox = mailboxes.find((m: any) => m.slug === slug) || mailboxes[0]
+  const exactMatch = mailboxes.find((m: any) => m.slug === slug)
+  const mailbox = exactMatch || mailboxes[0]
   const basePath = `/mailbox/${mailbox?.slug || 'default'}/tickets`
 
   // Hooks must be called unconditionally (before any early return)
@@ -80,7 +81,17 @@ function TicketPanes({ currentUser, mailboxes, onMailboxCountChange }: { current
     document.addEventListener('mouseup', onMouseUp)
   }, [])
 
-  if (!mailbox) return null
+  // Redirect if mailbox slug not found or mailboxes not loaded yet
+  useEffect(() => {
+    if (mailboxes.length === 0) return
+    if (!exactMatch) {
+      navigate(mailboxes.length > 0 ? `/mailbox/${mailboxes[0].slug}/tickets` : '/dashboard', { replace: true })
+    }
+  }, [exactMatch, mailboxes, navigate])
+
+  if (!mailbox || !exactMatch) return null
+
+  const handleTicketNotFound = () => navigate(basePath, { replace: true })
 
   // Mobile: render both panes, toggle visibility so list stays mounted (preserves scroll/state)
   if (isMobile) {
@@ -99,7 +110,7 @@ function TicketPanes({ currentUser, mailboxes, onMailboxCountChange }: { current
         </Box>
         {id && (
           <Box style={{ position: 'absolute', inset: 0 }}>
-            <TicketDetailPage ticketId={id} onBack={() => navigate(basePath)} onTicketUpdate={refreshList} mailbox={mailbox} />
+            <TicketDetailPage ticketId={id} onBack={() => navigate(basePath)} onTicketUpdate={refreshList} mailbox={mailbox} onNotFound={handleTicketNotFound} />
           </Box>
         )}
       </Box>
@@ -139,7 +150,7 @@ function TicketPanes({ currentUser, mailboxes, onMailboxCountChange }: { current
             <div style={{ height: 1, width: '100%', background: 'var(--mantine-color-default-border)', transition: 'background 150ms' }} />
           </Box>
           <Box style={{ flex: 1, padding: 'var(--mantine-spacing-md)', minHeight: 0, display: 'flex', flexDirection: 'column', position: 'relative' }}>
-            <TicketDetailPage ticketId={id} onTicketUpdate={refreshList} mailbox={mailbox} />
+            <TicketDetailPage ticketId={id} onTicketUpdate={refreshList} mailbox={mailbox} onNotFound={handleTicketNotFound} />
           </Box>
         </>
       )}
