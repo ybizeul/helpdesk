@@ -4,6 +4,7 @@ import { IconTrash, IconEye, IconEyeOff, IconCircle, IconRefresh, IconArrowMerge
 import { useMediaQuery } from '@mantine/hooks'
 import { notifications } from '@mantine/notifications'
 import { api } from '../api/client'
+import { formatDistanceToNow } from 'date-fns'
 
 const statusColors: Record<string, string> = {
   unassigned: 'gray',
@@ -49,13 +50,8 @@ function getInitials(name: string): string {
   return name.slice(0, 2).toUpperCase()
 }
 
-function formatDate(d: string | Date, locale?: string): string {
-  const date = new Date(d)
-  const today = new Date()
-  if (date.toDateString() === today.toDateString()) {
-    return date.toLocaleTimeString(locale || undefined, { hour: '2-digit', minute: '2-digit' })
-  }
-  return date.toLocaleDateString(locale || undefined)
+function formatDate(d: string | Date): string {
+  return formatDistanceToNow(new Date(d), { addSuffix: true })
 }
 
 function showInAppTicketNotifications(newTickets: any[]) {
@@ -118,7 +114,6 @@ export const TicketListPage = forwardRef<TicketListHandle, TicketListPageProps>(
   const knownIdsRef = useRef<Set<string> | null>(null)
   const isMobile = useMediaQuery('(max-width: 768px)')
   const canDelete = currentUser?.role === 'admin'
-  const locale = currentUser?.locale || undefined
 
   const loadTickets = useCallback(() => {
     const params = { ...getFilterParams(statusFilter), ...(mailbox?.id ? { mailbox_id: mailbox.id } : {}) }
@@ -417,7 +412,7 @@ export const TicketListPage = forwardRef<TicketListHandle, TicketListPageProps>(
                     <Text size="xs" c="dimmed" truncate>{t.requester?.name || t.requester?.email}</Text>
                   </Box>
                   <Group gap={6} wrap="nowrap" style={{ flexShrink: 0 }}>
-                    <Text size="xs" c="dimmed">{formatDate(t.updated_at, locale)}</Text>
+                    <Text size="xs" c="dimmed">{formatDate(t.updated_at)}</Text>
                     <Badge size="xs" color={statusColors[t.status] || 'gray'}>{statusShort[t.status] || t.status[0]?.toUpperCase()}</Badge>
                   </Group>
                 </Group>
@@ -504,7 +499,7 @@ export const TicketListPage = forwardRef<TicketListHandle, TicketListPageProps>(
                 </Table.Td>
                 <Table.Td onClick={handleClick}>{t.subject}</Table.Td>
                 <Table.Td onClick={handleClick}>{t.requester?.name || t.requester?.email}</Table.Td>
-                <Table.Td onClick={handleClick} style={{ whiteSpace: 'nowrap' }}>{formatDate(t.updated_at, locale)}</Table.Td>
+                <Table.Td onClick={handleClick} style={{ whiteSpace: 'nowrap' }}>{formatDate(t.updated_at)}</Table.Td>
                 <Table.Td onClick={handleClick} style={{ whiteSpace: 'nowrap' }}><Badge size="xs" color={statusColors[t.status] || 'gray'} styles={{ label: { overflow: 'visible', textOverflow: 'unset' } }}>{t.status}</Badge></Table.Td>
               </Table.Tr>
             )

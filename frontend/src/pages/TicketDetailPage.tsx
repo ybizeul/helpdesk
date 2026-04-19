@@ -3,6 +3,7 @@ import { useParams } from 'react-router-dom'
 import { Title, Text, Paper, Badge, Stack, Group, Box, ActionIcon, Tooltip, Alert, Button as MButton, Modal, Menu, Avatar, Skeleton, TextInput } from '@mantine/core'
 import { IconRefresh, IconSend, IconPaperclip, IconArrowLeft, IconTrash } from '@tabler/icons-react'
 import { api } from '../api/client'
+import { formatDistanceToNow } from 'date-fns'
 import { ReplyEditor } from '../components/ReplyEditor'
 import { notifications } from '@mantine/notifications'
 import { useDisclosure, useMediaQuery } from '@mantine/hooks'
@@ -52,12 +53,7 @@ function getInitials(name: string): string {
 }
 
 function formatDate(d: string | Date): string {
-  const date = new Date(d)
-  const today = new Date()
-  if (date.toDateString() === today.toDateString()) {
-    return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-  }
-  return date.toLocaleString()
+  return formatDistanceToNow(new Date(d), { addSuffix: true })
 }
 
 function sanitizeHtml(html: string): string {
