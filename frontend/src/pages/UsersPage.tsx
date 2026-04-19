@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
-import { Title, Table, Badge, Text, Stack, PasswordInput, Button, Group, Modal, TextInput, Select, ActionIcon, Checkbox } from '@mantine/core'
+import { Title, Table, Text, Stack, PasswordInput, Button, Group, Modal, TextInput, Select, ActionIcon, Checkbox } from '@mantine/core'
+import { InitialPill } from '../components/InitialPill'
 import { useMediaQuery } from '@mantine/hooks'
 import { notifications } from '@mantine/notifications'
 import { IconEdit, IconTrash, IconPlus } from '@tabler/icons-react'
@@ -125,7 +126,7 @@ export function UsersPage({ mailboxes = [] }: { mailboxes?: any[] }) {
                         ? u.mailboxes.map((mid: string) => mailboxes.find((mb: any) => mb.id === mid)?.name).filter(Boolean).join(', ') || <Text c="dimmed" size="sm">–</Text>
                         : <Text c="dimmed" size="sm">–</Text>)}
                 </Table.Td>}
-                <Table.Td><Badge>{u.role === 'agent' ? 'User' : u.role}</Badge></Table.Td>
+                <Table.Td><InitialPill short={isMobile}>{u.role === 'agent' ? 'User' : u.role}</InitialPill></Table.Td>
                 <Table.Td>
                   <Group gap="xs">
                     <ActionIcon variant="subtle" onClick={() => openEdit(u)}><IconEdit size={16} /></ActionIcon>
