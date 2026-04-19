@@ -90,7 +90,7 @@ function TicketPanes({ currentUser, mailboxes, onMailboxCountChange }: { current
   const showDetail = !!id
 
   return (
-    <Box ref={containerRef} style={{ display: 'flex', flexDirection: 'column', height: '100vh' }}>
+    <Box ref={containerRef} style={{ display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden' }}>
       <Box key={mailbox?.id} style={{ height: showDetail ? `${topHeight}%` : '100%', padding: 'var(--mantine-spacing-md)', paddingBottom: showDetail ? 0 : undefined, display: 'flex', flexDirection: 'column', minHeight: 0, overflow: 'hidden' }}>
         <TicketListPage
           ref={listRef}
@@ -215,7 +215,7 @@ export default function App() {
       <AppShell.Navbar>
         <AppNavbar onLogout={handleLogout} onNavigate={closeNav} user={currentUser} onOpenProfile={openProfile} siteName={displayName} mailboxes={mailboxes} />
       </AppShell.Navbar>
-      <AppShell.Main style={{ overflow: 'hidden' }}>
+      <AppShell.Main style={{ overflow: 'hidden', height: '100dvh', display: 'flex', flexDirection: 'column' }}>
         <Routes>
           <Route path="/" element={mailboxes.length > 0 ? <Navigate to={`/mailbox/${mailboxes[0].slug}/tickets`} replace /> : <Navigate to="/dashboard" replace />} />
           <Route path="/dashboard" element={<Box p="md"><DashboardPage /></Box>} />

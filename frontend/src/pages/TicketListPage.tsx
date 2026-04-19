@@ -1,6 +1,6 @@
 import { useEffect, useState, useRef, useCallback, useImperativeHandle, forwardRef } from 'react'
 import { Title, Table, Badge, Group, Text, Checkbox, Button, Tooltip, Menu, ActionIcon, Stack, Box, Avatar, Skeleton, Loader, Modal } from '@mantine/core'
-import { IconTrash, IconEye, IconEyeOff, IconCircle, IconRefresh, IconArrowMerge, IconFilter, IconArrowDown } from '@tabler/icons-react'
+import { IconTrash, IconEye, IconEyeOff, IconCircle, IconRefresh, IconArrowMerge, IconFilter, IconArrowDown, IconMessageCircleOff } from '@tabler/icons-react'
 import { useMediaQuery } from '@mantine/hooks'
 import { notifications } from '@mantine/notifications'
 import { api } from '../api/client'
@@ -225,6 +225,13 @@ export const TicketListPage = forwardRef<TicketListHandle, TicketListPageProps>(
     return () => clearInterval(interval)
   }, [loadTickets])
 
+  // If active ticket is no longer in the filtered list, deselect it
+  useEffect(() => {
+    if (activeTicketId && !loading && tickets.length >= 0 && !tickets.some(t => t.id === activeTicketId)) {
+      onDeselectTicket?.()
+    }
+  }, [tickets, activeTicketId, loading, onDeselectTicket])
+
   const toggleSelect = (id: string) => {
     setSelected(prev => {
       const next = new Set(prev)
@@ -339,7 +346,7 @@ export const TicketListPage = forwardRef<TicketListHandle, TicketListPageProps>(
       </Group>
       <Box
         ref={scrollRef}
-        style={{ flex: 1, overflowY: 'auto', minHeight: 0, position: 'relative' }}
+        style={{ flex: 1, overflowY: tickets.length > 0 || loading ? 'auto' : 'hidden', minHeight: 0, position: 'relative', display: 'flex', flexDirection: 'column' }}
         onTouchStart={isMobile ? onTouchStart : undefined}
         onTouchMove={isMobile ? onTouchMove : undefined}
         onTouchEnd={isMobile ? onTouchEnd : undefined}
@@ -417,12 +424,16 @@ export const TicketListPage = forwardRef<TicketListHandle, TicketListPageProps>(
             )
           })}
           {tickets.length === 0 && (
-            <Text c="dimmed" ta="center" py="md">No cases found</Text>
+            <Stack align="center" py="xl" gap="xs">
+              <IconMessageCircleOff size={48} stroke={1.5} color="var(--mantine-color-dimmed)" />
+              <Text c="dimmed" size="sm">No cases found</Text>
+            </Stack>
           )}
           </>
           )}
         </Stack>
       ) : (
+      <>
       <Table striped highlightOnHover fz="xs" stickyHeader>
         <Table.Thead style={{ background: 'var(--mantine-color-body)' }}>
           <Table.Tr>
@@ -497,15 +508,17 @@ export const TicketListPage = forwardRef<TicketListHandle, TicketListPageProps>(
               </Table.Tr>
             )
           })}
-          {tickets.length === 0 && (
-            <Table.Tr>
-              <Table.Td colSpan={8}><Text c="dimmed" ta="center">No cases found</Text></Table.Td>
-            </Table.Tr>
-          )}
           </>
           )}
         </Table.Tbody>
       </Table>
+      {tickets.length === 0 && !loading && (
+        <Stack align="center" justify="center" gap="xs" style={{ flex: 1 }}>
+          <IconMessageCircleOff size={48} stroke={1.5} color="var(--mantine-color-dimmed)" />
+          <Text c="dimmed" size="sm">No cases found</Text>
+        </Stack>
+      )}
+      </>
       )}
       </Box>
       <Modal opened={confirmDelete} onClose={() => setConfirmDelete(false)} title="Delete cases">
