@@ -22,6 +22,24 @@ function getInitialToken(): string | null {
   return url.searchParams.get('token')
 }
 
+function TicketRedirect({ mailboxes }: { mailboxes: any[] }) {
+  const { id } = useParams<{ id: string }>()
+  const navigate = useNavigate()
+
+  useEffect(() => {
+    if (mailboxes.length === 0) return
+    if (!id) { navigate(`/mailbox/${mailboxes[0].slug}/tickets`, { replace: true }); return }
+    api.tickets.get(id).then((ticket: any) => {
+      const mb = mailboxes.find((m: any) => m.id === ticket.mailbox_id) || mailboxes[0]
+      navigate(`/mailbox/${mb.slug}/tickets/${id}`, { replace: true })
+    }).catch(() => {
+      navigate(`/mailbox/${mailboxes[0].slug}/tickets`, { replace: true })
+    })
+  }, [id, mailboxes, navigate])
+
+  return null
+}
+
 function TicketPanes({ currentUser, mailboxes, onMailboxCountChange }: { currentUser: any; mailboxes: any[]; onMailboxCountChange?: () => void }) {
   const { id, slug } = useParams<{ id: string; slug: string }>()
   const navigate = useNavigate()
@@ -61,6 +79,8 @@ function TicketPanes({ currentUser, mailboxes, onMailboxCountChange }: { current
     document.addEventListener('mousemove', onMouseMove)
     document.addEventListener('mouseup', onMouseUp)
   }, [])
+
+  if (!mailbox) return null
 
   // Mobile: render both panes, toggle visibility so list stays mounted (preserves scroll/state)
   if (isMobile) {
@@ -160,8 +180,10 @@ export default function App() {
     window.history.replaceState({}, '', url.pathname + (url.search ? url.search : '') + url.hash)
   }, [])
 
+  const [mailboxesLoaded, setMailboxesLoaded] = useState(false)
+
   const loadMailboxes = useCallback(() => {
-    api.mailboxes.list().then(setMailboxes).catch(console.error)
+    api.mailboxes.list().then(mb => { setMailboxes(mb); setMailboxesLoaded(true) }).catch(console.error)
   }, [])
 
   const handleLogin = useCallback((newToken: string, user: any) => {
@@ -217,12 +239,12 @@ export default function App() {
       </AppShell.Navbar>
       <AppShell.Main style={{ overflow: 'hidden', height: '100dvh', display: 'flex', flexDirection: 'column' }}>
         <Routes>
-          <Route path="/" element={mailboxes.length > 0 ? <Navigate to={`/mailbox/${mailboxes[0].slug}/tickets`} replace /> : <Navigate to="/dashboard" replace />} />
+          <Route path="/" element={mailboxesLoaded ? (mailboxes.length > 0 ? <Navigate to={`/mailbox/${mailboxes[0].slug}/tickets`} replace /> : <Navigate to="/dashboard" replace />) : null} />
           <Route path="/dashboard" element={<Box p="md"><DashboardPage /></Box>} />
           <Route path="/mailbox/:slug/tickets" element={<TicketPanes currentUser={currentUser} mailboxes={mailboxes} onMailboxCountChange={loadMailboxes} />} />
           <Route path="/mailbox/:slug/tickets/:id" element={<TicketPanes currentUser={currentUser} mailboxes={mailboxes} onMailboxCountChange={loadMailboxes} />} />
-          <Route path="/tickets" element={mailboxes.length > 0 ? <Navigate to={`/mailbox/${mailboxes[0].slug}/tickets`} replace /> : null} />
-          <Route path="/tickets/:id" element={mailboxes.length > 0 ? <Navigate to={`/mailbox/${mailboxes[0].slug}/tickets`} replace /> : null} />
+          <Route path="/tickets" element={<TicketRedirect mailboxes={mailboxes} />} />
+          <Route path="/tickets/:id" element={<TicketRedirect mailboxes={mailboxes} />} />
           <Route path="/users" element={isAdmin ? <Box p="md"><UsersPage mailboxes={mailboxes} /></Box> : <Navigate to="/" replace />} />
           <Route path="/settings" element={isAdmin ? <Box p="md" style={{ overflow: 'auto', height: 'calc(100dvh - var(--app-shell-header-height, 50px))' }}><SettingsPage onSiteNameChange={setSiteName} mailboxes={mailboxes} onMailboxesChange={setMailboxes} /></Box> : <Navigate to="/" replace />} />
         </Routes>
