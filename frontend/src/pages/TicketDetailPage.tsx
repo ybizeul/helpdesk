@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useMemo, useCallback } from 'react'
 import { useParams } from 'react-router-dom'
 import { Title, Text, Paper, Badge, Stack, Group, Box, ActionIcon, Tooltip, Alert, Button as MButton, Modal, Menu, Avatar, Skeleton, TextInput } from '@mantine/core'
-import { IconRefresh, IconSend, IconPaperclip, IconArrowLeft } from '@tabler/icons-react'
+import { IconRefresh, IconSend, IconPaperclip, IconArrowLeft, IconTrash } from '@tabler/icons-react'
 import { api } from '../api/client'
 import { ReplyEditor } from '../components/ReplyEditor'
 import { notifications } from '@mantine/notifications'
@@ -136,6 +136,7 @@ export function TicketDetailPage({ ticketId: propId, onBack, onTicketUpdate, mai
   const signature = mailbox?.signature || ''
   const [resendOpened, { open: openResend, close: closeResend }] = useDisclosure(false)
   const [resendIdx, setResendIdx] = useState<number | null>(null)
+  const [deleteOpened, { open: openDelete, close: closeDelete }] = useDisclosure(false)
 
   useEffect(() => {
     if (id) api.tickets.get(id).then((t) => { setTicket(t); onTicketUpdate?.() }).catch(console.error)
@@ -269,18 +270,23 @@ export function TicketDetailPage({ ticketId: propId, onBack, onTicketUpdate, mai
                 </Avatar>
               </Tooltip>
             </Group>
-            <Menu shadow="md" width={160}>
-              <Menu.Target>
-                <Badge color={statusColors[ticket.status] || 'gray'} size="lg" style={{ cursor: 'pointer' }}>{ticket.status}</Badge>
-              </Menu.Target>
-              <Menu.Dropdown>
-                {(['unassigned', 'active', 'waiting', 'closed', 'parked'] as const).map(s => (
-                  <Menu.Item key={s} disabled={ticket.status === s} leftSection={<Badge color={statusColors[s]} size="xs" circle />} onClick={() => handleSetStatus(s)}>
-                    {s.charAt(0).toUpperCase() + s.slice(1)}
-                  </Menu.Item>
-                ))}
-              </Menu.Dropdown>
-            </Menu>
+            <Group gap="xs" wrap="nowrap">
+              <Menu shadow="md" width={160}>
+                <Menu.Target>
+                  <Badge color={statusColors[ticket.status] || 'gray'} size="lg" style={{ cursor: 'pointer' }}>{ticket.status}</Badge>
+                </Menu.Target>
+                <Menu.Dropdown>
+                  {(['unassigned', 'active', 'waiting', 'closed', 'parked'] as const).map(s => (
+                    <Menu.Item key={s} disabled={ticket.status === s} leftSection={<Badge color={statusColors[s]} size="xs" circle />} onClick={() => handleSetStatus(s)}>
+                      {s.charAt(0).toUpperCase() + s.slice(1)}
+                    </Menu.Item>
+                  ))}
+                </Menu.Dropdown>
+              </Menu>
+              <ActionIcon variant="subtle" color="red" onClick={openDelete}>
+                <IconTrash size={18} />
+              </ActionIcon>
+            </Group>
           </Group>
           <Group gap={4} wrap="nowrap" align="center" style={{ minWidth: 0 }}>
             <Title order={4} style={{ flexShrink: 0 }}>#{ticket.number}</Title>
@@ -464,6 +470,23 @@ export function TicketDetailPage({ ticketId: propId, onBack, onTicketUpdate, mai
       </Stack>
 
       </Box>
+
+      <Modal opened={deleteOpened} onClose={closeDelete} title="Delete ticket" centered size="sm">
+        <Text size="sm" mb="md">Are you sure you want to delete this ticket? This action cannot be undone.</Text>
+        <Group justify="flex-end" gap="sm">
+          <MButton variant="default" onClick={closeDelete}>Cancel</MButton>
+          <MButton color="red" onClick={async () => {
+            closeDelete()
+            try {
+              await api.tickets.delete(id!)
+              notifications.show({ title: 'Ticket deleted', message: 'Ticket has been removed', color: 'green' })
+              onBack?.()
+            } catch {
+              notifications.show({ title: 'Delete failed', message: 'Could not delete ticket', color: 'red' })
+            }
+          }}>Delete</MButton>
+        </Group>
+      </Modal>
 
       <Modal opened={resendOpened} onClose={closeResend} title="Re-send message" centered size="sm">
         <Text size="sm" mb="md">Are you sure you want to re-send this message?</Text>
