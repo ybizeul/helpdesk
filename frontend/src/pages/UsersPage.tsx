@@ -126,7 +126,7 @@ export function UsersPage({ mailboxes = [] }: { mailboxes?: any[] }) {
                         ? u.mailboxes.map((mid: string) => mailboxes.find((mb: any) => mb.id === mid)?.name).filter(Boolean).join(', ') || <Text c="dimmed" size="sm">–</Text>
                         : <Text c="dimmed" size="sm">–</Text>)}
                 </Table.Td>}
-                <Table.Td><InitialPill short={isMobile}>{u.role === 'agent' ? 'User' : u.role}</InitialPill></Table.Td>
+                <Table.Td><InitialPill short={isMobile} color={u.role === 'admin' ? 'orange' : 'green'}>{u.role === 'agent' ? 'User' : u.role}</InitialPill></Table.Td>
                 <Table.Td>
                   <Group gap="xs">
                     <ActionIcon variant="subtle" onClick={() => openEdit(u)}><IconEdit size={16} /></ActionIcon>
