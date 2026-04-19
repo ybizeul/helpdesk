@@ -1,7 +1,8 @@
 import { useState, useCallback, useRef, useEffect } from 'react'
 import { Routes, Route, Navigate, useNavigate, useParams } from 'react-router-dom'
-import { AppShell, Box, Burger, Group, Text } from '@mantine/core'
+import { AppShell, Box, Burger, Group, Text, Menu, Avatar, UnstyledButton } from '@mantine/core'
 import { useDisclosure, useMediaQuery } from '@mantine/hooks'
+import { IconLogout, IconUser } from '@tabler/icons-react'
 import { AppNavbar } from './components/AppNavbar'
 import { ProfileModal } from './components/ProfileModal'
 import { TicketListPage } from './pages/TicketListPage'
@@ -168,6 +169,9 @@ export default function App() {
   const [siteName, setSiteName] = useState('Helpdesk')
   const [mailboxes, setMailboxes] = useState<any[]>([])
   const isAdmin = currentUser?.role === 'admin'
+  const initials = currentUser?.name
+    ? currentUser.name.split(' ').map((w: string) => w[0]).join('').toUpperCase().slice(0, 2)
+    : '?'
 
   // When single mailbox: use its name; otherwise use the site_name setting
   const displayName = mailboxes.length === 1 ? mailboxes[0].name : siteName
@@ -242,13 +246,34 @@ export default function App() {
       padding={0}
     >
       <AppShell.Header>
-        <Group h="100%" px="md">
-          <Burger opened={navOpened} onClick={toggleNav} size="sm" hiddenFrom="sm" />
-          <Text fw={700} size="lg">{displayName}</Text>
+        <Group h="100%" px="md" justify="space-between" wrap="nowrap">
+          <Group gap="sm" wrap="nowrap">
+            <Burger opened={navOpened} onClick={toggleNav} size="sm" hiddenFrom="sm" />
+            <Text fw={700} size="lg">{displayName}</Text>
+          </Group>
+          <Menu shadow="md" width={200} position="bottom-end" withArrow>
+            <Menu.Target>
+              <UnstyledButton>
+                <Avatar size="sm" radius="xl" color="blue" src={currentUser?.avatar || null}>
+                  {currentUser?.avatar ? null : initials}
+                </Avatar>
+              </UnstyledButton>
+            </Menu.Target>
+            <Menu.Dropdown>
+              <Menu.Label>{currentUser?.name || 'User'}</Menu.Label>
+              <Menu.Item leftSection={<IconUser size={14} />} onClick={openProfile}>
+                Profile
+              </Menu.Item>
+              <Menu.Divider />
+              <Menu.Item leftSection={<IconLogout size={14} />} color="red" onClick={handleLogout}>
+                Logout
+              </Menu.Item>
+            </Menu.Dropdown>
+          </Menu>
         </Group>
       </AppShell.Header>
       <AppShell.Navbar>
-        <AppNavbar onLogout={handleLogout} onNavigate={closeNav} user={currentUser} onOpenProfile={openProfile} siteName={displayName} mailboxes={mailboxes} />
+        <AppNavbar onNavigate={closeNav} user={currentUser} mailboxes={mailboxes} />
       </AppShell.Navbar>
       <AppShell.Main style={{ overflow: 'hidden', height: '100dvh', display: 'flex', flexDirection: 'column' }}>
         <Routes>
