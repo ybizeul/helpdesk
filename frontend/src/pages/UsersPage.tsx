@@ -125,7 +125,7 @@ export function UsersPage({ mailboxes = [] }: { mailboxes?: any[] }) {
                         ? u.mailboxes.map((mid: string) => mailboxes.find((mb: any) => mb.id === mid)?.name).filter(Boolean).join(', ') || <Text c="dimmed" size="sm">–</Text>
                         : <Text c="dimmed" size="sm">–</Text>)}
                 </Table.Td>}
-                <Table.Td><Badge>{u.role}</Badge></Table.Td>
+                <Table.Td><Badge>{u.role === 'agent' ? 'User' : u.role}</Badge></Table.Td>
                 <Table.Td>
                   <Group gap="xs">
                     <ActionIcon variant="subtle" onClick={() => openEdit(u)}><IconEdit size={16} /></ActionIcon>
@@ -149,7 +149,7 @@ export function UsersPage({ mailboxes = [] }: { mailboxes?: any[] }) {
           <Stack>
             <TextInput label="Name" value={form.name} onChange={(e) => setForm({ ...form, name: e.currentTarget.value })} />
             <TextInput label="Email" value={form.email} onChange={(e) => setForm({ ...form, email: e.currentTarget.value })} required />
-            <Select label="Role" data={[{ value: 'admin', label: 'Admin' }, { value: 'agent', label: 'Agent' }]} value={form.role} onChange={(v) => setForm({ ...form, role: v || 'agent' })} />
+            <Select label="Role" data={[{ value: 'admin', label: 'Admin' }, { value: 'agent', label: 'User' }]} value={form.role} onChange={(v) => setForm({ ...form, role: v || 'agent' })} />
             <PasswordInput label={editingId ? 'New password (leave blank to keep)' : 'Password'} value={form.password} onChange={(e) => setForm({ ...form, password: e.currentTarget.value })} required={!editingId} />
             {form.role === 'agent' && mailboxes.length > 0 && (
               <Stack gap="xs">
