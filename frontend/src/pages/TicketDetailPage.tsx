@@ -98,7 +98,7 @@ function stripSignature(html: string): string {
   return html.replace(/<p>--<\/p>[\s\S]*$/, '').replace(/\n--\n[\s\S]*$/, '')
 }
 
-function MessageBody({ msg, isOutgoing }: { msg: any; isOutgoing?: boolean }) {
+function MessageBody({ msg, isOutgoing, onOpenImage }: { msg: any; isOutgoing?: boolean; onOpenImage: (src: string) => void }) {
   if (msg.html) {
     const safe = useMemo(() => {
       const html = sanitizeHtml(msg.html)
@@ -123,12 +123,12 @@ function MessageBody({ msg, isOutgoing }: { msg: any; isOutgoing?: boolean }) {
         e.stopPropagation()
         const imageUrl = img.currentSrc || img.src || img.getAttribute('src') || ''
         if (!imageUrl) return
-        openImageWindow(imageUrl)
+        onOpenImage(imageUrl)
       }
 
       node.addEventListener('click', handleClick)
       return () => node.removeEventListener('click', handleClick)
-    }, [])
+    }, [onOpenImage])
     return (
       <Box>
         <style>{`.MsoNormal { margin: 0 !important; } pre, code { background-color: light-dark(var(--mantine-color-gray-1), var(--mantine-color-dark-6)); border-radius: 4px; } code { padding: 2px 4px; font-size: 0.9em; } pre { padding: 12px; overflow-x: auto; } pre code { padding: 0; background: none; } .msg-body img { max-width: min(100%, 800px) !important; width: auto !important; height: auto !important; object-fit: contain; }`}</style>
@@ -167,6 +167,7 @@ export function TicketDetailPage({ ticketId: propId, onBack, onTicketUpdate, onN
   const [resendOpened, { open: openResend, close: closeResend }] = useDisclosure(false)
   const [resendIdx, setResendIdx] = useState<number | null>(null)
   const [deleteOpened, { open: openDelete, close: closeDelete }] = useDisclosure(false)
+  const [previewImageSrc, setPreviewImageSrc] = useState<string | null>(null)
 
   useEffect(() => {
     if (id) api.tickets.get(id).then((t) => { setTicket(t); onTicketUpdate?.() }).catch(() => onNotFound?.())
@@ -211,6 +212,15 @@ export function TicketDetailPage({ ticketId: propId, onBack, onTicketUpdate, onN
     await api.tickets.setStatus(id, status)
     api.tickets.get(id).then(setTicket)
     onTicketUpdate?.()
+  }
+
+  const handleOpenImage = (src: string) => {
+    const resolved = withAuthTokenIfNeeded(src)
+    if (isMobile) {
+      setPreviewImageSrc(resolved)
+      return
+    }
+    openImageWindow(resolved)
   }
 
   const replyCc = useMemo(() => {
@@ -476,7 +486,7 @@ export function TicketDetailPage({ ticketId: propId, onBack, onTicketUpdate, onN
                 )}
               </Group>
             )}
-            <MessageBody msg={msg} isOutgoing={isOutgoing || msg.private} />
+            <MessageBody msg={msg} isOutgoing={isOutgoing || msg.private} onOpenImage={handleOpenImage} />
             {msg.attachments?.some((att: any) => att.content_type?.startsWith('image/')) && (
               <Stack gap="xs" mt="sm">
                 {msg.attachments.map((att: any, j: number) =>
@@ -486,7 +496,7 @@ export function TicketDetailPage({ ticketId: propId, onBack, onTicketUpdate, onN
                         src={attachmentUrl(ticket.id, i, j)}
                         alt={att.filename}
                         style={{ maxWidth: 'min(100%, 800px)', width: 'auto', height: 'auto', maxHeight: '70vh', objectFit: 'contain', borderRadius: 4, cursor: 'pointer' }}
-                        onClick={() => openImageWindow(attachmentUrl(ticket.id, i, j))}
+                        onClick={() => handleOpenImage(attachmentUrl(ticket.id, i, j))}
                       />
                       <Text size="xs" c="dimmed">{att.filename}</Text>
                     </Box>
@@ -516,6 +526,22 @@ export function TicketDetailPage({ ticketId: propId, onBack, onTicketUpdate, onN
             }
           }}>Delete</MButton>
         </Group>
+      </Modal>
+
+      <Modal
+        opened={!!previewImageSrc}
+        onClose={() => setPreviewImageSrc(null)}
+        fullScreen={isMobile}
+        centered={!isMobile}
+        withCloseButton
+        title="Image preview"
+        size="xl"
+      >
+        {previewImageSrc && (
+          <Box style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: isMobile ? 'calc(100vh - 120px)' : '70vh' }}>
+            <img src={previewImageSrc} alt="preview" style={{ maxWidth: '100%', maxHeight: isMobile ? '100%' : '70vh', width: 'auto', height: 'auto', objectFit: 'contain', borderRadius: 6 }} />
+          </Box>
+        )}
       </Modal>
 
       <Modal opened={resendOpened} onClose={closeResend} title="Re-send message" centered size="sm">
