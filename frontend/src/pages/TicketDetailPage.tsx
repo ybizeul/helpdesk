@@ -80,7 +80,17 @@ function withAuthTokenIfNeeded(rawUrl: string): string {
 }
 
 function openImageWindow(src: string) {
-  window.open(withAuthTokenIfNeeded(src), '_blank', 'noopener,noreferrer')
+  const imageSrc = withAuthTokenIfNeeded(src)
+  const popup = window.open('', '_blank')
+  if (!popup) return
+
+  const escapedSrc = imageSrc
+    .replace(/&/g, '&amp;')
+    .replace(/"/g, '&quot;')
+
+  popup.document.open()
+  popup.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>Image</title><style>html,body{margin:0;height:100%;background:#111}body{display:flex;align-items:center;justify-content:center;padding:12px;box-sizing:border-box}img{max-width:100%;max-height:100%;width:auto;height:auto;object-fit:contain}.error{max-width:900px;color:#f5f5f5;background:#262626;border:1px solid #4a4a4a;border-radius:8px;padding:12px;font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,monospace;white-space:pre-wrap;word-break:break-word}</style></head><body><img id="popup-image" src="${escapedSrc}" alt="image" /><script>const img=document.getElementById('popup-image');img.addEventListener('error',()=>{document.body.innerHTML='<div class="error">Failed to load image in popup.\n\nSource:\n${escapedSrc}</div>'});</script></body></html>`)
+  popup.document.close()
 }
 
 function stripSignature(html: string): string {
