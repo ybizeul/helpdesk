@@ -64,9 +64,11 @@ function sanitizeHtml(html: string): string {
 }
 
 function openImageWindow(src: string) {
-  const html = `<!DOCTYPE html><html><head><title>Image</title><style>body{margin:0;display:flex;justify-content:center;align-items:center;min-height:100vh;background:#222}img{max-width:100%;max-height:100vh;object-fit:contain}</style></head><body><img src="${src.replace(/"/g, '&quot;')}"></body></html>`
-  const blob = new Blob([html], { type: 'text/html' })
-  window.open(URL.createObjectURL(blob), '_blank')
+  const win = window.open('', '_blank', 'noopener,noreferrer')
+  if (!win) return
+  const escapedSrc = src.replace(/"/g, '&quot;')
+  win.document.write(`<!DOCTYPE html><html><head><title>Image</title><style>body{margin:0;display:flex;justify-content:center;align-items:center;min-height:100vh;background:#222}img{max-width:100%;max-height:100vh;width:auto;height:auto;object-fit:contain}</style></head><body><img src="${escapedSrc}"></body></html>`)
+  win.document.close()
 }
 
 function stripSignature(html: string): string {
@@ -82,23 +84,31 @@ function MessageBody({ msg, isOutgoing }: { msg: any; isOutgoing?: boolean }) {
     }, [msg.html, isOutgoing])
     const refCallback = useCallback((node: HTMLDivElement | null) => {
       if (!node) return
-      node.querySelectorAll('img').forEach((img) => {
-        if (img.closest('a')) {
-          const link = img.closest('a')!
-          link.target = '_blank'
-          link.rel = 'noopener noreferrer'
-        } else {
-          img.style.cursor = 'pointer'
-          img.onclick = (e) => {
-            e.preventDefault()
-            openImageWindow(img.src)
-          }
-        }
+      node.querySelectorAll('a').forEach((link) => {
+        link.target = '_blank'
+        link.rel = 'noopener noreferrer'
       })
+      node.querySelectorAll('img').forEach((img) => {
+        img.style.cursor = 'pointer'
+      })
+
+      const handleClick = (e: MouseEvent) => {
+        const target = e.target as HTMLElement | null
+        if (!target) return
+        const img = target.closest('img') as HTMLImageElement | null
+        if (!img) return
+        e.preventDefault()
+        e.stopPropagation()
+        const link = img.closest('a') as HTMLAnchorElement | null
+        openImageWindow(link?.href || img.currentSrc || img.src)
+      }
+
+      node.addEventListener('click', handleClick)
+      return () => node.removeEventListener('click', handleClick)
     }, [safe])
     return (
       <Box>
-        <style>{`.MsoNormal { margin: 0 !important; } pre, code { background-color: light-dark(var(--mantine-color-gray-1), var(--mantine-color-dark-6)); border-radius: 4px; } code { padding: 2px 4px; font-size: 0.9em; } pre { padding: 12px; overflow-x: auto; } pre code { padding: 0; background: none; } .msg-body img { max-width: 800px; height: auto; }`}</style>
+        <style>{`.MsoNormal { margin: 0 !important; } pre, code { background-color: light-dark(var(--mantine-color-gray-1), var(--mantine-color-dark-6)); border-radius: 4px; } code { padding: 2px 4px; font-size: 0.9em; } pre { padding: 12px; overflow-x: auto; } pre code { padding: 0; background: none; } .msg-body img { max-width: min(100%, 800px) !important; width: auto !important; height: auto !important; object-fit: contain; }`}</style>
         <div className="msg-body" ref={refCallback} dangerouslySetInnerHTML={{ __html: safe }} />
       </Box>
     )
@@ -452,7 +462,7 @@ export function TicketDetailPage({ ticketId: propId, onBack, onTicketUpdate, onN
                       <img
                         src={attachmentUrl(ticket.id, i, j)}
                         alt={att.filename}
-                        style={{ maxWidth: 800, borderRadius: 4, cursor: 'pointer' }}
+                        style={{ maxWidth: 'min(100%, 800px)', width: 'auto', height: 'auto', maxHeight: '70vh', objectFit: 'contain', borderRadius: 4, cursor: 'pointer' }}
                         onClick={() => openImageWindow(attachmentUrl(ticket.id, i, j))}
                       />
                       <Text size="xs" c="dimmed">{att.filename}</Text>
