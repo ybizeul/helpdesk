@@ -111,8 +111,9 @@ function MessageBody({ msg, isOutgoing }: { msg: any; isOutgoing?: boolean }) {
         if (!img) return
         e.preventDefault()
         e.stopPropagation()
-        const link = img.closest('a') as HTMLAnchorElement | null
-        openImageWindow(link?.href || img.currentSrc || img.src)
+        const imageUrl = img.currentSrc || img.src || img.getAttribute('src') || ''
+        if (!imageUrl) return
+        openImageWindow(imageUrl)
       }
 
       node.addEventListener('click', handleClick)
