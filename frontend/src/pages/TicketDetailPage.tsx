@@ -63,12 +63,24 @@ function sanitizeHtml(html: string): string {
     .replace(/\s+on\w+\s*=\s*("[^"]*"|'[^']*'|[^\s>]*)/gi, '')
 }
 
+function withAuthTokenIfNeeded(rawUrl: string): string {
+  try {
+    const url = new URL(rawUrl, window.location.origin)
+    const isSameOrigin = url.origin === window.location.origin
+    const isApiPath = url.pathname.startsWith('/api/')
+    if (!isSameOrigin || !isApiPath) return url.toString()
+    if (url.searchParams.has('token')) return url.toString()
+    const token = localStorage.getItem('token')
+    if (!token) return url.toString()
+    url.searchParams.set('token', token)
+    return url.toString()
+  } catch {
+    return rawUrl
+  }
+}
+
 function openImageWindow(src: string) {
-  const win = window.open('', '_blank', 'noopener,noreferrer')
-  if (!win) return
-  const escapedSrc = src.replace(/"/g, '&quot;')
-  win.document.write(`<!DOCTYPE html><html><head><title>Image</title><style>body{margin:0;display:flex;justify-content:center;align-items:center;min-height:100vh;background:#222}img{max-width:100%;max-height:100vh;width:auto;height:auto;object-fit:contain}</style></head><body><img src="${escapedSrc}"></body></html>`)
-  win.document.close()
+  window.open(withAuthTokenIfNeeded(src), '_blank', 'noopener,noreferrer')
 }
 
 function stripSignature(html: string): string {
@@ -105,7 +117,7 @@ function MessageBody({ msg, isOutgoing }: { msg: any; isOutgoing?: boolean }) {
 
       node.addEventListener('click', handleClick)
       return () => node.removeEventListener('click', handleClick)
-    }, [safe])
+    }, [])
     return (
       <Box>
         <style>{`.MsoNormal { margin: 0 !important; } pre, code { background-color: light-dark(var(--mantine-color-gray-1), var(--mantine-color-dark-6)); border-radius: 4px; } code { padding: 2px 4px; font-size: 0.9em; } pre { padding: 12px; overflow-x: auto; } pre code { padding: 0; background: none; } .msg-body img { max-width: min(100%, 800px) !important; width: auto !important; height: auto !important; object-fit: contain; }`}</style>
