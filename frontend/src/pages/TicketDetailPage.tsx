@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useMemo, useCallback } from 'react'
+import React, { useEffect, useState, useMemo, useCallback, useRef } from 'react'
 import { useParams } from 'react-router-dom'
 import { Title, Text, Paper, Badge, Stack, Group, Box, ActionIcon, Tooltip, Alert, Button as MButton, Modal, Menu, Avatar, Skeleton, TextInput } from '@mantine/core'
 import { IconRefresh, IconSend, IconPaperclip, IconArrowLeft, IconTrash } from '@tabler/icons-react'
@@ -98,6 +98,12 @@ function stripSignature(html: string): string {
   return html.replace(/<p>--<\/p>[\s\S]*$/, '').replace(/\n--\n[\s\S]*$/, '')
 }
 
+function touchDistance(t1: { clientX: number; clientY: number }, t2: { clientX: number; clientY: number }): number {
+  const dx = t1.clientX - t2.clientX
+  const dy = t1.clientY - t2.clientY
+  return Math.hypot(dx, dy)
+}
+
 function MessageBody({ msg, isOutgoing, onOpenImage }: { msg: any; isOutgoing?: boolean; onOpenImage: (src: string) => void }) {
   if (msg.html) {
     const safe = useMemo(() => {
@@ -168,6 +174,14 @@ export function TicketDetailPage({ ticketId: propId, onBack, onTicketUpdate, onN
   const [resendIdx, setResendIdx] = useState<number | null>(null)
   const [deleteOpened, { open: openDelete, close: closeDelete }] = useDisclosure(false)
   const [previewImageSrc, setPreviewImageSrc] = useState<string | null>(null)
+  const [previewZoom, setPreviewZoom] = useState(1)
+  const [previewOffset, setPreviewOffset] = useState({ x: 0, y: 0 })
+  const pinchRef = useRef<{ startDistance: number; startZoom: number } | null>(null)
+  const panRef = useRef<{ startX: number; startY: number; originX: number; originY: number } | null>(null)
+  const tapMovedRef = useRef(false)
+  const lastTapRef = useRef<{ time: number; x: number; y: number } | null>(null)
+  const previewContainerRef = useRef<HTMLDivElement | null>(null)
+  const previewImageRef = useRef<HTMLImageElement | null>(null)
 
   useEffect(() => {
     if (id) api.tickets.get(id).then((t) => { setTicket(t); onTicketUpdate?.() }).catch(() => onNotFound?.())
@@ -217,10 +231,110 @@ export function TicketDetailPage({ ticketId: propId, onBack, onTicketUpdate, onN
   const handleOpenImage = (src: string) => {
     const resolved = withAuthTokenIfNeeded(src)
     if (isMobile) {
+      setPreviewZoom(1)
+      setPreviewOffset({ x: 0, y: 0 })
+      pinchRef.current = null
+      panRef.current = null
+      lastTapRef.current = null
       setPreviewImageSrc(resolved)
       return
     }
     openImageWindow(resolved)
+  }
+
+  const clampPreviewOffset = (x: number, y: number, zoom: number) => {
+    const container = previewContainerRef.current
+    const image = previewImageRef.current
+    if (!container || !image) return { x, y }
+    const maxX = Math.max(0, (image.clientWidth * zoom - container.clientWidth) / 2)
+    const maxY = Math.max(0, (image.clientHeight * zoom - container.clientHeight) / 2)
+    return {
+      x: Math.max(-maxX, Math.min(maxX, x)),
+      y: Math.max(-maxY, Math.min(maxY, y)),
+    }
+  }
+
+  const handleClosePreview = () => {
+    pinchRef.current = null
+    panRef.current = null
+    lastTapRef.current = null
+    setPreviewZoom(1)
+    setPreviewOffset({ x: 0, y: 0 })
+    setPreviewImageSrc(null)
+  }
+
+  const handlePreviewTouchStart = (e: React.TouchEvent<HTMLDivElement>) => {
+    if (e.touches.length === 2) {
+      e.preventDefault()
+      panRef.current = null
+      pinchRef.current = {
+        startDistance: touchDistance(e.touches[0], e.touches[1]),
+        startZoom: previewZoom,
+      }
+      return
+    }
+
+    if (e.touches.length === 1) {
+      const t = e.touches[0]
+      tapMovedRef.current = false
+      if (previewZoom > 1) {
+        panRef.current = {
+          startX: t.clientX,
+          startY: t.clientY,
+          originX: previewOffset.x,
+          originY: previewOffset.y,
+        }
+      }
+    }
+  }
+
+  const handlePreviewTouchMove = (e: React.TouchEvent<HTMLDivElement>) => {
+    if (e.touches.length === 2 && pinchRef.current) {
+      e.preventDefault()
+      const currentDistance = touchDistance(e.touches[0], e.touches[1])
+      const nextZoom = pinchRef.current.startZoom * (currentDistance / pinchRef.current.startDistance)
+      const boundedZoom = Math.max(1, Math.min(5, nextZoom))
+      setPreviewZoom(boundedZoom)
+      setPreviewOffset((prev) => clampPreviewOffset(prev.x, prev.y, boundedZoom))
+      return
+    }
+
+    if (e.touches.length === 1 && panRef.current && previewZoom > 1) {
+      e.preventDefault()
+      const t = e.touches[0]
+      const dx = t.clientX - panRef.current.startX
+      const dy = t.clientY - panRef.current.startY
+      if (Math.abs(dx) > 3 || Math.abs(dy) > 3) tapMovedRef.current = true
+      const next = clampPreviewOffset(panRef.current.originX + dx, panRef.current.originY + dy, previewZoom)
+      setPreviewOffset(next)
+    }
+  }
+
+  const handlePreviewTouchEnd = (e: React.TouchEvent<HTMLDivElement>) => {
+    if (e.touches.length < 2) pinchRef.current = null
+    if (e.touches.length === 0) panRef.current = null
+    if (e.changedTouches.length !== 1 || tapMovedRef.current) return
+
+    const t = e.changedTouches[0]
+    const now = Date.now()
+    const prev = lastTapRef.current
+    if (prev && now - prev.time < 300) {
+      const closeEnough = Math.hypot(t.clientX - prev.x, t.clientY - prev.y) < 24
+      if (closeEnough) {
+        setPreviewZoom((z) => {
+          const next = z > 1 ? 1 : 2.5
+          if (next === 1) {
+            setPreviewOffset({ x: 0, y: 0 })
+          } else {
+            setPreviewOffset((curr) => clampPreviewOffset(curr.x, curr.y, next))
+          }
+          return next
+        })
+        lastTapRef.current = null
+        return
+      }
+    }
+    lastTapRef.current = { time: now, x: t.clientX, y: t.clientY }
   }
 
   const replyCc = useMemo(() => {
@@ -530,7 +644,7 @@ export function TicketDetailPage({ ticketId: propId, onBack, onTicketUpdate, onN
 
       <Modal
         opened={!!previewImageSrc}
-        onClose={() => setPreviewImageSrc(null)}
+        onClose={handleClosePreview}
         fullScreen={isMobile}
         centered={!isMobile}
         withCloseButton
@@ -538,8 +652,15 @@ export function TicketDetailPage({ ticketId: propId, onBack, onTicketUpdate, onN
         size="xl"
       >
         {previewImageSrc && (
-          <Box style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: isMobile ? 'calc(100vh - 120px)' : '70vh' }}>
-            <img src={previewImageSrc} alt="preview" style={{ maxWidth: '100%', maxHeight: isMobile ? '100%' : '70vh', width: 'auto', height: 'auto', objectFit: 'contain', borderRadius: 6 }} />
+          <Box
+            ref={previewContainerRef}
+            style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: isMobile ? 'calc(100vh - 120px)' : '70vh', overflow: 'hidden', touchAction: 'none' }}
+            onTouchStart={handlePreviewTouchStart}
+            onTouchMove={handlePreviewTouchMove}
+            onTouchEnd={handlePreviewTouchEnd}
+            onTouchCancel={handlePreviewTouchEnd}
+          >
+            <img ref={previewImageRef} src={previewImageSrc} alt="preview" style={{ maxWidth: '100%', maxHeight: isMobile ? '100%' : '70vh', width: 'auto', height: 'auto', objectFit: 'contain', borderRadius: 6, transform: `translate(${previewOffset.x}px, ${previewOffset.y}px) scale(${previewZoom})`, transformOrigin: 'center center' }} />
           </Box>
         )}
       </Modal>
