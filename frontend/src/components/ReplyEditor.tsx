@@ -1,4 +1,5 @@
 import { useEditor } from '@tiptap/react'
+import { Fragment, Slice } from '@tiptap/pm/model'
 import StarterKit from '@tiptap/starter-kit'
 import Underline from '@tiptap/extension-underline'
 import Link from '@tiptap/extension-link'
@@ -11,6 +12,26 @@ import { useMediaQuery } from '@mantine/hooks'
 import '@mantine/tiptap/styles.css'
 
 const MAX_IMAGE_SIZE = 900
+
+function insertPlainTextWithLineBreaks(view: any, rawText: string): boolean {
+  const text = rawText.replace(/\r\n?/g, '\n')
+  const lines = text.split('\n')
+  const hardBreak = view.state.schema.nodes.hardBreak
+  if (!hardBreak) return false
+
+  const nodes = [] as any[]
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i]
+    if (line.length > 0) nodes.push(view.state.schema.text(line))
+    if (i < lines.length - 1) nodes.push(hardBreak.create())
+  }
+
+  if (nodes.length === 0) return true
+
+  const tr = view.state.tr.replaceSelection(new Slice(Fragment.fromArray(nodes), 0, 0)).scrollIntoView()
+  view.dispatch(tr)
+  return true
+}
 
 function resizeImage(dataUrl: string): Promise<string> {
   return new Promise((resolve) => {
@@ -54,6 +75,13 @@ export function ReplyEditor({ onSend, onSendAndClose, onAddNote, signature }: Re
     content: initialContent,
     editorProps: {
       handlePaste(view, event) {
+        const plainText = event.clipboardData?.getData('text/plain')
+        const htmlText = event.clipboardData?.getData('text/html')
+        if (plainText && !htmlText) {
+          event.preventDefault()
+          return insertPlainTextWithLineBreaks(view, plainText)
+        }
+
         const items = event.clipboardData?.items
         if (!items) return false
         for (const item of items) {
