@@ -203,7 +203,10 @@ func (h *handlers) listTickets(w http.ResponseWriter, r *http.Request) {
 			{Key: "unread", Value: -1},
 			{Key: "updated_at", Value: -1},
 		}}},
-		{{Key: "$unset", Value: "_status_order"}},
+		{{Key: "$addFields", Value: bson.M{
+			"message_count": bson.M{"$size": bson.M{"$ifNull": bson.A{"$messages", bson.A{}}}},
+		}}},
+		{{Key: "$unset", Value: bson.A{"_status_order", "messages"}}},
 	}
 
 	cursor, err := h.db.Tickets().Aggregate(ctx, pipeline)
@@ -213,15 +216,15 @@ func (h *handlers) listTickets(w http.ResponseWriter, r *http.Request) {
 	}
 	defer cursor.Close(ctx)
 
-	var tickets []models.Ticket
-	if err := cursor.All(ctx, &tickets); err != nil {
+	var results []bson.M
+	if err := cursor.All(ctx, &results); err != nil {
 		writeError(w, http.StatusInternalServerError, "DB_ERROR", err.Error())
 		return
 	}
-	if tickets == nil {
-		tickets = []models.Ticket{}
+	if results == nil {
+		results = []bson.M{}
 	}
-	writeJSON(w, http.StatusOK, tickets)
+	writeJSON(w, http.StatusOK, results)
 }
 
 func (h *handlers) createTicket(w http.ResponseWriter, r *http.Request) {
