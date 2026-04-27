@@ -205,8 +205,9 @@ func (h *handlers) listTickets(w http.ResponseWriter, r *http.Request) {
 		}}},
 		{{Key: "$addFields", Value: bson.M{
 			"message_count": bson.M{"$size": bson.M{"$ifNull": bson.A{"$messages", bson.A{}}}},
+			"id":            "$_id",
 		}}},
-		{{Key: "$unset", Value: bson.A{"_status_order", "messages"}}},
+		{{Key: "$unset", Value: bson.A{"_status_order", "messages", "_id"}}},
 	}
 
 	cursor, err := h.db.Tickets().Aggregate(ctx, pipeline)
