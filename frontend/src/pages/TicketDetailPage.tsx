@@ -443,7 +443,7 @@ export function TicketDetailPage({ ticketId: propId, onBack, onTicketUpdate, onN
             </Group>
           </Group>
           <Group gap={4} wrap="nowrap" align="center" style={{ minWidth: 0 }}>
-            <Title order={4} style={{ flexShrink: 0, cursor: 'pointer' }} onClick={() => { navigator.clipboard.writeText(`${window.location.origin}/tickets/${ticket.id}`); notifications.show({ title: 'Link copied', message: `Direct link to #${ticket.number} copied to clipboard`, color: 'blue' }) }}>#{ticket.number}</Title>
+            <Title order={4} style={{ flexShrink: 0, cursor: 'pointer' }} onClick={() => { navigator.clipboard.writeText(`${window.location.origin}/#/tickets/${ticket.number}`); notifications.show({ title: 'Link copied', message: `Direct link to #${ticket.number} copied to clipboard`, color: 'blue' }) }}>#{ticket.number}</Title>
             <TextInput
               key={ticket.id}
               defaultValue={ticket.subject}
@@ -473,7 +473,7 @@ export function TicketDetailPage({ ticketId: propId, onBack, onTicketUpdate, onN
               {isOwned && ownerUser?.avatar ? null : (isOwned ? getInitials(ownerUser?.name || '?') : 'U')}
             </Avatar>
           </Tooltip>
-          <Title order={2} style={{ flexShrink: 0, cursor: 'pointer' }} onClick={() => { navigator.clipboard.writeText(`${window.location.origin}/tickets/${ticket.id}`); notifications.show({ title: 'Link copied', message: `Direct link to #${ticket.number} copied to clipboard`, color: 'blue' }) }}>#{ticket.number}</Title>
+          <Title order={2} style={{ flexShrink: 0, cursor: 'pointer' }} onClick={() => { navigator.clipboard.writeText(`${window.location.origin}/#/tickets/${ticket.number}`); notifications.show({ title: 'Link copied', message: `Direct link to #${ticket.number} copied to clipboard`, color: 'blue' }) }}>#{ticket.number}</Title>
           <TextInput
             key={ticket.id}
             defaultValue={ticket.subject}

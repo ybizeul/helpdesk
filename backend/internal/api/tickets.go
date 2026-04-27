@@ -266,20 +266,33 @@ func (h *handlers) getTicket(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	id := r.PathValue("id")
 
-	oid, err := bson.ObjectIDFromHex(id)
-	if err != nil {
-		writeError(w, http.StatusBadRequest, "INVALID_ID", "invalid ticket ID format")
-		return
-	}
+	var t models.Ticket
+	var ok bool
 
-	t, ok := h.requireTicketAccess(w, r, oid)
-	if !ok {
+	oid, err := bson.ObjectIDFromHex(id)
+	if err == nil {
+		t, ok = h.requireTicketAccess(w, r, oid)
+		if !ok {
+			return
+		}
+	} else if num, numErr := strconv.Atoi(id); numErr == nil && num > 0 {
+		if findErr := h.db.Tickets().FindOne(ctx, bson.M{"number": num}).Decode(&t); findErr != nil {
+			writeError(w, http.StatusNotFound, "TICKET_NOT_FOUND", "ticket not found")
+			return
+		}
+		if t.MailboxID != "" && !userCanAccessMailbox(h, r, t.MailboxID) {
+			writeError(w, http.StatusForbidden, "FORBIDDEN", "no access to this ticket's mailbox")
+			return
+		}
+	} else {
+		writeError(w, http.StatusBadRequest, "INVALID_ID", "invalid ticket ID format")
 		return
 	}
 
 	// Mark as read when viewed
 	if t.Unread {
-		h.db.Tickets().UpdateByID(ctx, oid, bson.M{"$set": bson.M{"unread": false}})
+		toid, _ := bson.ObjectIDFromHex(t.ID)
+		h.db.Tickets().UpdateByID(ctx, toid, bson.M{"$set": bson.M{"unread": false}})
 		t.Unread = false
 	}
 
