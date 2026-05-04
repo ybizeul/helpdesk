@@ -138,7 +138,7 @@ function MessageBody({ msg, isOutgoing, onOpenImage }: { msg: any; isOutgoing?: 
     return (
       <Box>
         <style>{`.MsoNormal { margin: 0 !important; } pre, code { background-color: light-dark(var(--mantine-color-gray-1), var(--mantine-color-dark-6)); border-radius: 4px; } code { padding: 2px 4px; font-size: 0.9em; } pre { padding: 12px; overflow-x: auto; } pre code { padding: 0; background: none; } .msg-body img { max-width: min(100%, 800px) !important; width: auto !important; height: auto !important; object-fit: contain; }`}</style>
-        <div className="msg-body" ref={refCallback} dangerouslySetInnerHTML={{ __html: safe }} />
+        <div className="msg-body" ref={refCallback} style={{ overflowX: 'auto' }} dangerouslySetInnerHTML={{ __html: safe }} />
       </Box>
     )
   }
