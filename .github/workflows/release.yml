@@ -4,6 +4,10 @@ on:
   push:
     branches: [main]
     tags: ["v*"]
+  pull_request:
+    types: [closed]
+    branches: [main]
+  workflow_dispatch:
 
 permissions:
   contents: write
@@ -11,6 +15,9 @@ permissions:
 
 jobs:
   release:
+    if: >-
+      github.event_name != 'pull_request' ||
+      github.event.pull_request.merged == true
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -40,7 +47,7 @@ jobs:
         run: |
           if [[ "$GITHUB_REF" == refs/tags/v* ]]; then
             echo "tag=${GITHUB_REF#refs/tags/}" >> "$GITHUB_OUTPUT"
-          elif [[ "$GITHUB_REF" == refs/heads/main ]]; then
+          elif [[ "$GITHUB_REF" == refs/heads/main ]] || [[ "${{ github.event_name }}" == "pull_request" ]]; then
             echo "tag=latest" >> "$GITHUB_OUTPUT"
           else
             echo "tag=${GITHUB_REF#refs/heads/}" >> "$GITHUB_OUTPUT"
