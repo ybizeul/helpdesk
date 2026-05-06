@@ -1,10 +1,11 @@
 import { useEffect, useState, useRef, useCallback, useImperativeHandle, forwardRef } from 'react'
 import { Title, Table, Badge, Group, Text, Checkbox, Button, Tooltip, Menu, ActionIcon, Stack, Box, Avatar, Skeleton, Loader, Modal } from '@mantine/core'
-import { IconTrash, IconEye, IconEyeOff, IconCircle, IconRefresh, IconArrowMerge, IconFilter, IconArrowDown, IconMessageCircleOff } from '@tabler/icons-react'
-import { useMediaQuery } from '@mantine/hooks'
+import { IconTrash, IconEye, IconEyeOff, IconCircle, IconRefresh, IconArrowMerge, IconFilter, IconArrowDown, IconMessageCircleOff, IconPlus } from '@tabler/icons-react'
+import { useMediaQuery, useDisclosure } from '@mantine/hooks'
 import { notifications } from '@mantine/notifications'
 import { api } from '../api/client'
 import { formatDistanceToNow } from 'date-fns'
+import { NewTicketModal } from '../components/NewTicketModal'
 
 const statusColors: Record<string, string> = {
   unassigned: 'gray',
@@ -111,6 +112,7 @@ export const TicketListPage = forwardRef<TicketListHandle, TicketListPageProps>(
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all_open')
   const [fetching, setFetching] = useState(false)
   const [confirmDelete, setConfirmDelete] = useState(false)
+  const [newTicketOpened, { open: openNewTicket, close: closeNewTicket }] = useDisclosure(false)
   const knownIdsRef = useRef<Set<string> | null>(null)
   const isMobile = useMediaQuery('(max-width: 768px)')
   const canDelete = currentUser?.role === 'admin'
@@ -274,25 +276,30 @@ export const TicketListPage = forwardRef<TicketListHandle, TicketListPageProps>(
         </Group>
         <Group gap="sm">
           {isMobile && selected.size === 0 && (
-            <Menu shadow="md" width={160}>
-              <Menu.Target>
-                <ActionIcon variant={statusFilter !== 'all_open' ? 'light' : 'subtle'} color={statusFilter !== 'all_open' ? 'blue' : undefined} size="sm">
-                  <IconFilter size={14} />
-                </ActionIcon>
-              </Menu.Target>
-              <Menu.Dropdown>
-                {(['all_open', 'all', 'unassigned', 'active', 'waiting', 'closed', 'parked'] as StatusFilter[]).map((f) => (
-                  <Menu.Item
-                    key={f}
-                    fw={statusFilter === f ? 700 : undefined}
-                    leftSection={f !== 'all_open' && f !== 'all' ? <Badge size="xs" color={statusColors[f] || 'gray'} circle /> : undefined}
-                    onClick={() => setStatusFilter(f)}
-                  >
-                    {statusFilterLabels[f]}
-                  </Menu.Item>
-                ))}
-              </Menu.Dropdown>
-            </Menu>
+            <>
+              <Tooltip label="New case">
+                <ActionIcon variant="light" color="blue" size="sm" onClick={openNewTicket}><IconPlus size={14} /></ActionIcon>
+              </Tooltip>
+              <Menu shadow="md" width={160}>
+                <Menu.Target>
+                  <ActionIcon variant={statusFilter !== 'all_open' ? 'light' : 'subtle'} color={statusFilter !== 'all_open' ? 'blue' : undefined} size="sm">
+                    <IconFilter size={14} />
+                  </ActionIcon>
+                </Menu.Target>
+                <Menu.Dropdown>
+                  {(['all_open', 'all', 'unassigned', 'active', 'waiting', 'closed', 'parked'] as StatusFilter[]).map((f) => (
+                    <Menu.Item
+                      key={f}
+                      fw={statusFilter === f ? 700 : undefined}
+                      leftSection={f !== 'all_open' && f !== 'all' ? <Badge size="xs" color={statusColors[f] || 'gray'} circle /> : undefined}
+                      onClick={() => setStatusFilter(f)}
+                    >
+                      {statusFilterLabels[f]}
+                    </Menu.Item>
+                  ))}
+                </Menu.Dropdown>
+              </Menu>
+            </>
           )}
           {selected.size > 0 && (
             <>
@@ -337,6 +344,9 @@ export const TicketListPage = forwardRef<TicketListHandle, TicketListPageProps>(
                 </Menu.Dropdown>
               </Menu>
             </>
+          )}
+          {!isMobile && selected.size === 0 && (
+            <Button size="xs" leftSection={<IconPlus size={14} />} onClick={openNewTicket}>New</Button>
           )}
         </Group>
       </Group>
@@ -524,6 +534,16 @@ export const TicketListPage = forwardRef<TicketListHandle, TicketListPageProps>(
           <Button color="red" onClick={() => { setConfirmDelete(false); bulkAction('delete') }}>Delete</Button>
         </Group>
       </Modal>
+      <NewTicketModal
+        opened={newTicketOpened}
+        onClose={closeNewTicket}
+        mailboxId={mailbox?.id}
+        onCreated={(ticketId) => {
+          loadTickets()
+          onMailboxCountChange?.()
+          onSelectTicket?.(ticketId)
+        }}
+      />
     </Box>
   )
 })

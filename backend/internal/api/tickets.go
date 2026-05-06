@@ -241,6 +241,11 @@ func (h *handlers) createTicket(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if strings.TrimSpace(t.Subject) == "" {
+		writeError(w, http.StatusBadRequest, "SUBJECT_REQUIRED", "subject must not be empty")
+		return
+	}
+
 	now := time.Now()
 	t.ID = ""
 	t.Status = models.TicketStatusUnassigned
