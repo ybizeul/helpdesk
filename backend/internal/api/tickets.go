@@ -87,6 +87,17 @@ func buildReplySubject(number int, subject string) string {
 	return fmt.Sprintf("Re: %s %s", tag, bare)
 }
 
+// buildInitialSubject constructs the first outbound subject for a ticket
+// without a reply prefix while still ensuring the ticket tag is present.
+func buildInitialSubject(number int, subject string) string {
+	tag := fmt.Sprintf("[#%d]", number)
+	bare := strings.TrimSpace(subject)
+	if strings.Contains(bare, tag) {
+		return bare
+	}
+	return fmt.Sprintf("%s %s", tag, bare)
+}
+
 // buildReplyHeaders collects threading headers from a ticket for outgoing replies.
 func buildReplyHeaders(ticket models.Ticket) email.ReplyHeaders {
 	h := email.ReplyHeaders{
@@ -452,7 +463,12 @@ func (h *handlers) replyTicket(w http.ResponseWriter, r *http.Request) {
 	}
 	msg.CreatedAt = time.Now()
 	msg.To = []string{ticket.Requester.Email}
-	msg.Subject = buildReplySubject(ticket.Number, ticket.Subject)
+	isInitialOutbound := len(ticket.Messages) == 0
+	subject := buildReplySubject(ticket.Number, ticket.Subject)
+	if isInitialOutbound {
+		subject = buildInitialSubject(ticket.Number, ticket.Subject)
+	}
+	msg.Subject = subject
 
 	// Load mailbox to get email config
 	mb, _ := h.loadTicketMailbox(ctx, ticket)
@@ -480,7 +496,6 @@ func (h *handlers) replyTicket(w http.ResponseWriter, r *http.Request) {
 
 	// Send email via SMTP
 	if mb.Email.SMTPHost != "" {
-		subject := buildReplySubject(ticket.Number, ticket.Subject)
 		replyHeaders := buildReplyHeaders(ticket)
 		cc := collectCc(ticket, mb.Email)
 		generatedID, rawMsg, sendErr := email.SendReply(mb.Email, ticket.Requester.Email, cc, subject, msg.Body, msg.HTML, replyHeaders)
@@ -543,7 +558,10 @@ func (h *handlers) retrySend(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	subject := buildReplySubject(ticket.Number, ticket.Subject)
+	subject := strings.TrimSpace(msg.Subject)
+	if subject == "" {
+		subject = buildReplySubject(ticket.Number, ticket.Subject)
+	}
 	replyHeaders := buildReplyHeaders(ticket)
 	cc := collectCc(ticket, mb.Email)
 	generatedID, rawMsg, sendErr := email.SendReply(mb.Email, ticket.Requester.Email, cc, subject, msg.Body, msg.HTML, replyHeaders)
