@@ -168,6 +168,12 @@ func collectCc(ticket models.Ticket, emailCfg models.EmailSettings) []string {
 
 func formatTicketRequesterAddress(requester models.Requester) string {
 	emailAddr := strings.TrimSpace(requester.Email)
+	if emailAddr == "" {
+		return ""
+	}
+	if _, err := netmail.ParseAddress(emailAddr); err != nil {
+		return emailAddr
+	}
 	name := strings.TrimSpace(requester.Name)
 	if name == "" {
 		return emailAddr

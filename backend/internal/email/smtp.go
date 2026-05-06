@@ -6,6 +6,7 @@ import (
 	"crypto/tls"
 	"encoding/base64"
 	"fmt"
+	"log/slog"
 	"mime"
 	"net"
 	netmail "net/mail"
@@ -310,6 +311,8 @@ func smtpSend(c *smtp.Client, cfg models.EmailSettings, from, to string, cc []st
 	envelopeTo := to
 	if parsed, err := netmail.ParseAddress(to); err == nil {
 		envelopeTo = parsed.Address
+	} else if strings.TrimSpace(to) != "" {
+		slog.Warn("failed to parse To address for SMTP envelope", "to", to, "error", err)
 	}
 	if err := c.Rcpt(envelopeTo); err != nil {
 		return fmt.Errorf("smtp rcpt: %w", err)
@@ -318,6 +321,8 @@ func smtpSend(c *smtp.Client, cfg models.EmailSettings, from, to string, cc []st
 		envelopeCC := addr
 		if parsed, err := netmail.ParseAddress(addr); err == nil {
 			envelopeCC = parsed.Address
+		} else if strings.TrimSpace(addr) != "" {
+			slog.Warn("failed to parse Cc address for SMTP envelope", "cc", addr, "error", err)
 		}
 		if err := c.Rcpt(envelopeCC); err != nil {
 			return fmt.Errorf("smtp rcpt cc %s: %w", envelopeCC, err)
