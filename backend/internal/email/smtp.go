@@ -293,6 +293,16 @@ func writeBase64Wrapped(msg *strings.Builder, data []byte) {
 	}
 }
 
+func envelopeAddress(addr, field string) string {
+	if parsed, err := netmail.ParseAddress(addr); err == nil {
+		return parsed.Address
+	}
+	if strings.TrimSpace(addr) != "" {
+		slog.Warn("failed to parse recipient address for SMTP envelope", "field", field, "address", addr)
+	}
+	return addr
+}
+
 func smtpSend(c *smtp.Client, cfg models.EmailSettings, from, to string, cc []string, msg []byte) error {
 	if cfg.SMTPUser != "" && cfg.SMTPPassword != "" {
 		auth := smtp.PlainAuth("", cfg.SMTPUser, cfg.SMTPPassword, cfg.SMTPHost)
@@ -308,22 +318,12 @@ func smtpSend(c *smtp.Client, cfg models.EmailSettings, from, to string, cc []st
 	if err := c.Mail(envelopeFrom); err != nil {
 		return fmt.Errorf("smtp mail: %w", err)
 	}
-	envelopeTo := to
-	if parsed, err := netmail.ParseAddress(to); err == nil {
-		envelopeTo = parsed.Address
-	} else if strings.TrimSpace(to) != "" {
-		slog.Warn("failed to parse To address for SMTP envelope", "to", to, "error", err)
-	}
+	envelopeTo := envelopeAddress(to, "to")
 	if err := c.Rcpt(envelopeTo); err != nil {
 		return fmt.Errorf("smtp rcpt: %w", err)
 	}
 	for _, addr := range cc {
-		envelopeCC := addr
-		if parsed, err := netmail.ParseAddress(addr); err == nil {
-			envelopeCC = parsed.Address
-		} else if strings.TrimSpace(addr) != "" {
-			slog.Warn("failed to parse Cc address for SMTP envelope", "cc", addr, "error", err)
-		}
+		envelopeCC := envelopeAddress(addr, "cc")
 		if err := c.Rcpt(envelopeCC); err != nil {
 			return fmt.Errorf("smtp rcpt cc %s: %w", envelopeCC, err)
 		}

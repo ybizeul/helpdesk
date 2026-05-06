@@ -172,6 +172,7 @@ func formatTicketRequesterAddress(requester models.Requester) string {
 		return ""
 	}
 	if _, err := netmail.ParseAddress(emailAddr); err != nil {
+		slog.Warn("requester email is not RFC5322-parsable; using raw value in To header", "email", emailAddr)
 		return emailAddr
 	}
 	name := strings.TrimSpace(requester.Name)
