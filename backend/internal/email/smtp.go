@@ -307,12 +307,20 @@ func smtpSend(c *smtp.Client, cfg models.EmailSettings, from, to string, cc []st
 	if err := c.Mail(envelopeFrom); err != nil {
 		return fmt.Errorf("smtp mail: %w", err)
 	}
-	if err := c.Rcpt(to); err != nil {
+	envelopeTo := to
+	if parsed, err := netmail.ParseAddress(to); err == nil {
+		envelopeTo = parsed.Address
+	}
+	if err := c.Rcpt(envelopeTo); err != nil {
 		return fmt.Errorf("smtp rcpt: %w", err)
 	}
 	for _, addr := range cc {
-		if err := c.Rcpt(addr); err != nil {
-			return fmt.Errorf("smtp rcpt cc %s: %w", addr, err)
+		envelopeCC := addr
+		if parsed, err := netmail.ParseAddress(addr); err == nil {
+			envelopeCC = parsed.Address
+		}
+		if err := c.Rcpt(envelopeCC); err != nil {
+			return fmt.Errorf("smtp rcpt cc %s: %w", envelopeCC, err)
 		}
 	}
 	w, err := c.Data()

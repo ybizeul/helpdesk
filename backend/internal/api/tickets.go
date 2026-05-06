@@ -166,6 +166,15 @@ func collectCc(ticket models.Ticket, emailCfg models.EmailSettings) []string {
 	return nil
 }
 
+func formatTicketRequesterAddress(requester models.Requester) string {
+	emailAddr := strings.TrimSpace(requester.Email)
+	name := strings.TrimSpace(requester.Name)
+	if name == "" {
+		return emailAddr
+	}
+	return (&netmail.Address{Name: name, Address: emailAddr}).String()
+}
+
 func (h *handlers) listTickets(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 
@@ -498,7 +507,8 @@ func (h *handlers) replyTicket(w http.ResponseWriter, r *http.Request) {
 	if mb.Email.SMTPHost != "" {
 		replyHeaders := buildReplyHeaders(ticket)
 		cc := collectCc(ticket, mb.Email)
-		generatedID, rawMsg, sendErr := email.SendReply(mb.Email, ticket.Requester.Email, cc, subject, msg.Body, msg.HTML, replyHeaders)
+		to := formatTicketRequesterAddress(ticket.Requester)
+		generatedID, rawMsg, sendErr := email.SendReply(mb.Email, to, cc, subject, msg.Body, msg.HTML, replyHeaders)
 		if sendErr != nil {
 			slog.Error("failed to send reply email", "ticket", ticket.Number, "to", ticket.Requester.Email, "error", sendErr)
 			msg.SendError = sendErr.Error()
@@ -564,7 +574,8 @@ func (h *handlers) retrySend(w http.ResponseWriter, r *http.Request) {
 	}
 	replyHeaders := buildReplyHeaders(ticket)
 	cc := collectCc(ticket, mb.Email)
-	generatedID, rawMsg, sendErr := email.SendReply(mb.Email, ticket.Requester.Email, cc, subject, msg.Body, msg.HTML, replyHeaders)
+	to := formatTicketRequesterAddress(ticket.Requester)
+	generatedID, rawMsg, sendErr := email.SendReply(mb.Email, to, cc, subject, msg.Body, msg.HTML, replyHeaders)
 
 	arrayFilter := fmt.Sprintf("messages.%d.send_error", body.MessageIndex)
 	if sendErr != nil {

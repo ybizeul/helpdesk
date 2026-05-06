@@ -22,6 +22,7 @@ interface NewTicketModalProps {
 export function NewTicketModal({ opened, onClose, mailboxId, onCreated }: NewTicketModalProps) {
   const isMobile = useMediaQuery('(max-width: 768px)')
   const [subject, setSubject] = useState('')
+  const [recipientName, setRecipientName] = useState('')
   const [recipientEmail, setRecipientEmail] = useState('')
   const [loading, setLoading] = useState(false)
 
@@ -41,6 +42,7 @@ export function NewTicketModal({ opened, onClose, mailboxId, onCreated }: NewTic
 
   const handleClose = () => {
     setSubject('')
+    setRecipientName('')
     setRecipientEmail('')
     editor?.commands.clearContent()
     onClose()
@@ -53,7 +55,10 @@ export function NewTicketModal({ opened, onClose, mailboxId, onCreated }: NewTic
       const ticket = await api.tickets.create({
         subject: subject.trim(),
         mailbox_id: mailboxId,
-        requester: { email: recipientEmail.trim(), name: recipientEmail.trim().split('@')[0] },
+        requester: {
+          email: recipientEmail.trim(),
+          name: recipientName.trim() || recipientEmail.trim().split('@')[0],
+        },
       })
 
       if (editor && !editor.isEmpty) {
@@ -74,6 +79,7 @@ export function NewTicketModal({ opened, onClose, mailboxId, onCreated }: NewTic
       }
 
       setSubject('')
+      setRecipientName('')
       setRecipientEmail('')
       editor?.commands.clearContent()
       onClose()
@@ -88,6 +94,12 @@ export function NewTicketModal({ opened, onClose, mailboxId, onCreated }: NewTic
   return (
     <Modal opened={opened} onClose={handleClose} title="New Case" size="lg" fullScreen={isMobile}>
       <Stack gap="sm">
+        <TextInput
+          label="Recipient Name"
+          placeholder="Jane Doe"
+          value={recipientName}
+          onChange={(e) => setRecipientName(e.currentTarget.value)}
+        />
         <TextInput
           label="Recipient Email"
           placeholder="user@example.com"
