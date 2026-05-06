@@ -169,14 +169,21 @@ func collectCc(ticket models.Ticket, emailCfg models.EmailSettings) []string {
 func formatTicketRequesterAddress(requester models.Requester) string {
 	emailAddr := strings.TrimSpace(requester.Email)
 	if emailAddr == "" {
+		slog.Warn("requester email is empty")
 		return ""
 	}
-	if _, err := netmail.ParseAddress(emailAddr); err != nil {
-		slog.Warn("requester email is not RFC5322-parsable; using raw value in To header", "email", emailAddr)
-		return emailAddr
+	if strings.ContainsAny(emailAddr, "\r\n") {
+		slog.Warn("requester email contains invalid control characters", "email", emailAddr)
+		return ""
 	}
+	parsed, err := netmail.ParseAddress(emailAddr)
+	if err != nil {
+		slog.Warn("requester email is not RFC5322-parsable", "email", emailAddr)
+		return ""
+	}
+	emailAddr = parsed.Address
 	name := strings.TrimSpace(requester.Name)
-	if name == "" {
+	if name == "" || strings.ContainsAny(name, "\r\n") {
 		return emailAddr
 	}
 	return (&netmail.Address{Name: name, Address: emailAddr}).String()
