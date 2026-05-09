@@ -8,6 +8,7 @@ import (
 	netmail "net/mail"
 	"net/url"
 	"path"
+	"regexp"
 	"strconv"
 	"strings"
 	"time"
@@ -853,6 +854,25 @@ func (h *handlers) createOrGetHuploadShare(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
+	if manualShare, manualShareURL, ok := findHuploadShareInTicketMessages(ticket, settings.WebsiteURL); ok {
+		_, err = h.db.Tickets().UpdateByID(ctx, oid, bson.M{"$set": bson.M{
+			"hupload_share": manualShare,
+			"hupload_url":   manualShareURL,
+			"updated_at":    time.Now(),
+		}})
+		if err != nil {
+			writeError(w, http.StatusInternalServerError, "DB_ERROR", err.Error())
+			return
+		}
+
+		writeJSON(w, http.StatusOK, map[string]any{
+			"share":     manualShare,
+			"share_url": manualShareURL,
+			"reused":    true,
+		})
+		return
+	}
+
 	client := hupload.NewClient(settings.WebsiteURL, settings.APIKey)
 	share, err := client.CreateShare(ctx, hupload.CreateShareRequest{
 		Exposure:    "upload",
@@ -961,6 +981,103 @@ func filenameFromShareItemPath(p string) string {
 		return ""
 	}
 	return name
+}
+
+var urlTokenRE = regexp.MustCompile(`https?://[^\s<>"')]+`)
+
+func findHuploadShareInTicketMessages(ticket models.Ticket, websiteURL string) (string, string, bool) {
+	for i := len(ticket.Messages) - 1; i >= 0; i-- {
+		msg := ticket.Messages[i]
+		for _, content := range []string{msg.HTML, msg.Body} {
+			for _, candidate := range extractURLs(content) {
+				share, ok := parseHuploadShareFromURL(candidate, websiteURL)
+				if ok {
+					return share, buildHuploadShareURL(websiteURL, share), true
+				}
+			}
+		}
+	}
+	return "", "", false
+}
+
+func extractURLs(content string) []string {
+	matches := urlTokenRE.FindAllString(content, -1)
+	urls := make([]string, 0, len(matches))
+	for _, m := range matches {
+		clean := strings.TrimRight(m, ".,;:!?)]\"'")
+		if clean != "" {
+			urls = append(urls, clean)
+		}
+	}
+	return urls
+}
+
+func parseHuploadShareFromURL(rawURL, websiteURL string) (string, bool) {
+	candidate, err := url.Parse(rawURL)
+	if err != nil || candidate.Host == "" {
+		return "", false
+	}
+
+	base, err := url.Parse(strings.TrimSpace(websiteURL))
+	if err != nil || base.Host == "" {
+		return "", false
+	}
+
+	if !strings.EqualFold(candidate.Hostname(), base.Hostname()) || normalizePort(candidate) != normalizePort(base) {
+		return "", false
+	}
+
+	baseParts := splitPathParts(base.Path)
+	candidateParts := splitPathParts(candidate.Path)
+	if len(candidateParts) <= len(baseParts) {
+		return "", false
+	}
+	for i := range baseParts {
+		if candidateParts[i] != baseParts[i] {
+			return "", false
+		}
+	}
+
+	rest := candidateParts[len(baseParts):]
+	if len(rest) == 0 {
+		return "", false
+	}
+
+	sharePart := rest[0]
+	if rest[0] == "d" {
+		if len(rest) < 2 {
+			return "", false
+		}
+		sharePart = rest[1]
+	}
+
+	share, err := url.PathUnescape(sharePart)
+	if err != nil || strings.TrimSpace(share) == "" {
+		return "", false
+	}
+	return share, true
+}
+
+func splitPathParts(p string) []string {
+	trimmed := strings.Trim(strings.TrimSpace(p), "/")
+	if trimmed == "" {
+		return nil
+	}
+	return strings.Split(trimmed, "/")
+}
+
+func normalizePort(u *url.URL) string {
+	if p := u.Port(); p != "" {
+		return p
+	}
+	switch strings.ToLower(u.Scheme) {
+	case "http":
+		return "80"
+	case "https":
+		return "443"
+	default:
+		return ""
+	}
 }
 
 func (h *handlers) reparseEmails(w http.ResponseWriter, r *http.Request) {
