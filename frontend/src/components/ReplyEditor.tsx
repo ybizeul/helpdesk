@@ -56,6 +56,41 @@ function resizeImage(dataUrl: string): Promise<string> {
   })
 }
 
+async function blobUrlToDataUrl(blobUrl: string): Promise<string | null> {
+  try {
+    const res = await fetch(blobUrl)
+    if (!res.ok) return null
+    const blob = await res.blob()
+    return await new Promise((resolve) => {
+      const reader = new FileReader()
+      reader.onload = () => resolve(typeof reader.result === 'string' ? reader.result : null)
+      reader.onerror = () => resolve(null)
+      reader.readAsDataURL(blob)
+    })
+  } catch {
+    return null
+  }
+}
+
+async function normalizeBlobImageSources(html: string): Promise<string> {
+  if (!html.includes('blob:') || typeof window === 'undefined') return html
+
+  const parser = new DOMParser()
+  const doc = parser.parseFromString(html, 'text/html')
+  const images = Array.from(doc.querySelectorAll('img[src]'))
+
+  for (const img of images) {
+    const src = img.getAttribute('src')?.trim() || ''
+    if (!src.startsWith('blob:')) continue
+    const dataUrl = await blobUrlToDataUrl(src)
+    if (dataUrl) {
+      img.setAttribute('src', dataUrl)
+    }
+  }
+
+  return doc.body.innerHTML
+}
+
 interface ReplyEditorProps {
   onSend: (html: string, text: string) => void
   onSendAndClose?: (html: string, text: string) => void
@@ -133,25 +168,25 @@ export function ReplyEditor({ onSend, onSendAndClose, onAddNote, signature, show
     },
   })
 
-  const handleSend = () => {
+  const handleSend = async () => {
     if (!editor || editor.isEmpty) return
-    const html = editor.getHTML()
+    const html = await normalizeBlobImageSources(editor.getHTML())
     const text = editor.getText()
     editor.commands.setContent(initialContent)
     onSend(html, text)
   }
 
-  const handleSendAndClose = () => {
+  const handleSendAndClose = async () => {
     if (!editor || editor.isEmpty || !onSendAndClose) return
-    const html = editor.getHTML()
+    const html = await normalizeBlobImageSources(editor.getHTML())
     const text = editor.getText()
     editor.commands.setContent(initialContent)
     onSendAndClose(html, text)
   }
 
-  const handleAddNote = () => {
+  const handleAddNote = async () => {
     if (!editor || editor.isEmpty || !onAddNote) return
-    const html = editor.getHTML()
+    const html = await normalizeBlobImageSources(editor.getHTML())
     const text = editor.getText()
     editor.commands.setContent(initialContent)
     onAddNote(html, text)
