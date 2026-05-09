@@ -90,6 +90,17 @@ func buildReplySubject(number int, subject string) string {
 	return fmt.Sprintf("Re: %s %s", tag, bare)
 }
 
+// buildInitialSubject constructs the first outbound subject for a ticket
+// without a reply prefix while still ensuring the ticket tag is present.
+func buildInitialSubject(number int, subject string) string {
+	tag := fmt.Sprintf("[#%d]", number)
+	bare := strings.TrimSpace(subject)
+	if strings.Contains(bare, tag) {
+		return bare
+	}
+	return fmt.Sprintf("%s %s", tag, bare)
+}
+
 // buildReplyHeaders collects threading headers from a ticket for outgoing replies.
 func buildReplyHeaders(ticket models.Ticket) email.ReplyHeaders {
 	h := email.ReplyHeaders{
@@ -156,6 +167,29 @@ func collectCc(ticket models.Ticket, emailCfg models.EmailSettings) []string {
 		return cc
 	}
 	return nil
+}
+
+func formatTicketRequesterAddress(requester models.Requester) string {
+	emailAddr := strings.TrimSpace(requester.Email)
+	if emailAddr == "" {
+		slog.Warn("requester email is empty")
+		return ""
+	}
+	if strings.ContainsAny(emailAddr, "\r\n") {
+		slog.Warn("requester email contains invalid control characters", "email", emailAddr)
+		return ""
+	}
+	parsed, err := netmail.ParseAddress(emailAddr)
+	if err != nil {
+		slog.Warn("requester email is not RFC5322-parsable", "email", emailAddr)
+		return ""
+	}
+	emailAddr = parsed.Address
+	name := strings.TrimSpace(requester.Name)
+	if name == "" || strings.ContainsAny(name, "\r\n") {
+		return emailAddr
+	}
+	return (&netmail.Address{Name: name, Address: emailAddr}).String()
 }
 
 func (h *handlers) listTickets(w http.ResponseWriter, r *http.Request) {
@@ -241,6 +275,11 @@ func (h *handlers) createTicket(w http.ResponseWriter, r *http.Request) {
 
 	if t.MailboxID != "" && !userCanAccessMailbox(h, r, t.MailboxID) {
 		writeError(w, http.StatusForbidden, "FORBIDDEN", "no access to this mailbox")
+		return
+	}
+
+	if strings.TrimSpace(t.Subject) == "" {
+		writeError(w, http.StatusBadRequest, "SUBJECT_REQUIRED", "subject must not be empty")
 		return
 	}
 
@@ -452,7 +491,12 @@ func (h *handlers) replyTicket(w http.ResponseWriter, r *http.Request) {
 	}
 	msg.CreatedAt = time.Now()
 	msg.To = []string{ticket.Requester.Email}
-	msg.Subject = buildReplySubject(ticket.Number, ticket.Subject)
+	isInitialOutbound := len(ticket.Messages) == 0
+	subject := buildReplySubject(ticket.Number, ticket.Subject)
+	if isInitialOutbound {
+		subject = buildInitialSubject(ticket.Number, ticket.Subject)
+	}
+	msg.Subject = subject
 
 	// Load mailbox to get email config
 	mb, _ := h.loadTicketMailbox(ctx, ticket)
@@ -480,10 +524,10 @@ func (h *handlers) replyTicket(w http.ResponseWriter, r *http.Request) {
 
 	// Send email via SMTP
 	if mb.Email.SMTPHost != "" {
-		subject := buildReplySubject(ticket.Number, ticket.Subject)
 		replyHeaders := buildReplyHeaders(ticket)
 		cc := collectCc(ticket, mb.Email)
-		generatedID, rawMsg, sendErr := email.SendReply(mb.Email, ticket.Requester.Email, cc, subject, msg.Body, msg.HTML, replyHeaders)
+		to := formatTicketRequesterAddress(ticket.Requester)
+		generatedID, rawMsg, sendErr := email.SendReply(mb.Email, to, cc, subject, msg.Body, msg.HTML, replyHeaders)
 		if sendErr != nil {
 			slog.Error("failed to send reply email", "ticket", ticket.Number, "to", ticket.Requester.Email, "error", sendErr)
 			msg.SendError = sendErr.Error()
@@ -543,10 +587,14 @@ func (h *handlers) retrySend(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	subject := buildReplySubject(ticket.Number, ticket.Subject)
+	subject := strings.TrimSpace(msg.Subject)
+	if subject == "" {
+		subject = buildReplySubject(ticket.Number, ticket.Subject)
+	}
 	replyHeaders := buildReplyHeaders(ticket)
 	cc := collectCc(ticket, mb.Email)
-	generatedID, rawMsg, sendErr := email.SendReply(mb.Email, ticket.Requester.Email, cc, subject, msg.Body, msg.HTML, replyHeaders)
+	to := formatTicketRequesterAddress(ticket.Requester)
+	generatedID, rawMsg, sendErr := email.SendReply(mb.Email, to, cc, subject, msg.Body, msg.HTML, replyHeaders)
 
 	arrayFilter := fmt.Sprintf("messages.%d.send_error", body.MessageIndex)
 	if sendErr != nil {

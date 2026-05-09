@@ -6,6 +6,7 @@ import (
 	"crypto/tls"
 	"encoding/base64"
 	"fmt"
+	"log/slog"
 	"mime"
 	"net"
 	netmail "net/mail"
@@ -292,6 +293,21 @@ func writeBase64Wrapped(msg *strings.Builder, data []byte) {
 	}
 }
 
+func envelopeAddress(addr, field string) (string, error) {
+	trimmed := strings.TrimSpace(addr)
+	if trimmed == "" {
+		return "", fmt.Errorf("%s address is empty", field)
+	}
+	if strings.ContainsAny(trimmed, "\r\n") {
+		return "", fmt.Errorf("%s address contains invalid control characters", field)
+	}
+	parsed, err := netmail.ParseAddress(trimmed)
+	if err != nil {
+		return "", fmt.Errorf("invalid %s address: %w", field, err)
+	}
+	return parsed.Address, nil
+}
+
 func smtpSend(c *smtp.Client, cfg models.EmailSettings, from, to string, cc []string, msg []byte) error {
 	if cfg.SMTPUser != "" && cfg.SMTPPassword != "" {
 		auth := smtp.PlainAuth("", cfg.SMTPUser, cfg.SMTPPassword, cfg.SMTPHost)
@@ -307,11 +323,20 @@ func smtpSend(c *smtp.Client, cfg models.EmailSettings, from, to string, cc []st
 	if err := c.Mail(envelopeFrom); err != nil {
 		return fmt.Errorf("smtp mail: %w", err)
 	}
-	if err := c.Rcpt(to); err != nil {
+	envelopeTo, err := envelopeAddress(to, "to")
+	if err != nil {
+		return err
+	}
+	if err := c.Rcpt(envelopeTo); err != nil {
 		return fmt.Errorf("smtp rcpt: %w", err)
 	}
 	for _, addr := range cc {
-		if err := c.Rcpt(addr); err != nil {
+		envelopeCC, err := envelopeAddress(addr, "cc")
+		if err != nil {
+			slog.Warn("skipping invalid cc address", "cc", addr, "error", err)
+			continue
+		}
+		if err := c.Rcpt(envelopeCC); err != nil {
 			return fmt.Errorf("smtp rcpt cc %s: %w", addr, err)
 		}
 	}
