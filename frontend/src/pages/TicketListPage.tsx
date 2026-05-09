@@ -538,6 +538,7 @@ export const TicketListPage = forwardRef<TicketListHandle, TicketListPageProps>(
         opened={newTicketOpened}
         onClose={closeNewTicket}
         mailboxId={mailbox?.id}
+        signature={mailbox?.signature || ''}
         onCreated={(ticketId) => {
           loadTickets()
           onMailboxCountChange?.()

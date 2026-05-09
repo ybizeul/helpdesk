@@ -51,15 +51,17 @@ interface NewTicketModalProps {
   opened: boolean
   onClose: () => void
   mailboxId?: string
+  signature?: string
   onCreated?: (ticketId: string) => void
 }
 
-export function NewTicketModal({ opened, onClose, mailboxId, onCreated }: NewTicketModalProps) {
+export function NewTicketModal({ opened, onClose, mailboxId, signature, onCreated }: NewTicketModalProps) {
   const isMobile = useMediaQuery('(max-width: 768px)')
   const [subject, setSubject] = useState('')
   const [recipientName, setRecipientName] = useState('')
   const [recipientEmail, setRecipientEmail] = useState('')
   const [loading, setLoading] = useState(false)
+  const initialContent = signature ? `<p></p><p>--</p>${signature}` : ''
 
   const editor = useEditor({
     extensions: [
@@ -69,7 +71,7 @@ export function NewTicketModal({ opened, onClose, mailboxId, onCreated }: NewTic
       Image.configure({ inline: true, allowBase64: true }),
       Placeholder.configure({ placeholder: 'Write a message...' }),
     ],
-    content: '',
+    content: initialContent,
   })
 
   const emailValid = recipientEmail.trim() === '' || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(recipientEmail.trim())
@@ -79,7 +81,7 @@ export function NewTicketModal({ opened, onClose, mailboxId, onCreated }: NewTic
     setSubject('')
     setRecipientName('')
     setRecipientEmail('')
-    editor?.commands.clearContent()
+    editor?.commands.setContent(initialContent)
     onClose()
   }
 
@@ -116,7 +118,7 @@ export function NewTicketModal({ opened, onClose, mailboxId, onCreated }: NewTic
       setSubject('')
       setRecipientName('')
       setRecipientEmail('')
-      editor?.commands.clearContent()
+      editor?.commands.setContent(initialContent)
       onClose()
       onCreated?.(ticket.id)
     } catch (e: unknown) {
