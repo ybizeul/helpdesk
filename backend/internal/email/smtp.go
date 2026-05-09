@@ -1,6 +1,7 @@
 package email
 
 import (
+	"bytes"
 	"context"
 	"crypto/rand"
 	"crypto/tls"
@@ -8,6 +9,7 @@ import (
 	"fmt"
 	"log/slog"
 	"mime"
+	"mime/quotedprintable"
 	"net"
 	netmail "net/mail"
 	"net/smtp"
@@ -132,16 +134,21 @@ func SendReply(cfg models.EmailSettings, to string, cc []string, subject, textBo
 	msg.WriteString("MIME-Version: 1.0\r\n")
 
 	if len(cidParts) > 0 {
-		// multipart/related wrapping multipart/alternative + CID images
-		msg.WriteString("Content-Type: multipart/related; boundary=\"" + relBoundary + "\"\r\n")
-		msg.WriteString("\r\n")
-
-		// Start related: alternative part
-		msg.WriteString("--" + relBoundary + "\r\n")
+		// multipart/alternative with a multipart/related HTML branch.
+		// This layout is more broadly compatible across mail clients.
 		msg.WriteString("Content-Type: multipart/alternative; boundary=\"" + altBoundary + "\"\r\n")
 		msg.WriteString("\r\n")
 
-		writeAlternativeParts(&msg, altBoundary, textBody, processedHTML)
+		// Plain text alternative
+		writePlainTextPart(&msg, altBoundary, textBody)
+
+		// HTML + inline images as related content
+		msg.WriteString("--" + altBoundary + "\r\n")
+		msg.WriteString("Content-Type: multipart/related; boundary=\"" + relBoundary + "\"\r\n")
+		msg.WriteString("\r\n")
+
+		// Root HTML related part
+		writeHTMLPart(&msg, relBoundary, processedHTML)
 
 		// CID image parts
 		for _, cp := range cidParts {
@@ -156,6 +163,7 @@ func SendReply(cfg models.EmailSettings, to string, cc []string, subject, textBo
 		}
 
 		msg.WriteString("--" + relBoundary + "--\r\n")
+		msg.WriteString("--" + altBoundary + "--\r\n")
 	} else {
 		// Simple multipart/alternative (no inline images)
 		msg.WriteString("Content-Type: multipart/alternative; boundary=\"" + altBoundary + "\"\r\n")
@@ -264,21 +272,36 @@ func extractInlineImages(html string) (string, []cidAttachment) {
 }
 
 func writeAlternativeParts(msg *strings.Builder, boundary, textBody, htmlBody string) {
-	// Plain text part
-	msg.WriteString("--" + boundary + "\r\n")
-	msg.WriteString("Content-Type: text/plain; charset=\"utf-8\"\r\n")
-	msg.WriteString("Content-Transfer-Encoding: 8bit\r\n\r\n")
-	msg.WriteString(textBody + "\r\n")
+	writePlainTextPart(msg, boundary, textBody)
 
 	// HTML part
 	if htmlBody != "" {
-		msg.WriteString("--" + boundary + "\r\n")
-		msg.WriteString("Content-Type: text/html; charset=\"utf-8\"\r\n")
-		msg.WriteString("Content-Transfer-Encoding: 8bit\r\n\r\n")
-		msg.WriteString(wrapHTML(htmlBody) + "\r\n")
+		writeHTMLPart(msg, boundary, htmlBody)
 	}
 
 	msg.WriteString("--" + boundary + "--\r\n")
+}
+
+func writePlainTextPart(msg *strings.Builder, boundary, textBody string) {
+	msg.WriteString("--" + boundary + "\r\n")
+	msg.WriteString("Content-Type: text/plain; charset=\"utf-8\"\r\n")
+	msg.WriteString("Content-Transfer-Encoding: quoted-printable\r\n\r\n")
+	msg.WriteString(encodeQuotedPrintable(textBody) + "\r\n")
+}
+
+func writeHTMLPart(msg *strings.Builder, boundary, htmlBody string) {
+	msg.WriteString("--" + boundary + "\r\n")
+	msg.WriteString("Content-Type: text/html; charset=\"utf-8\"\r\n")
+	msg.WriteString("Content-Transfer-Encoding: quoted-printable\r\n\r\n")
+	msg.WriteString(encodeQuotedPrintable(wrapHTML(htmlBody)) + "\r\n")
+}
+
+func encodeQuotedPrintable(s string) string {
+	var buf bytes.Buffer
+	w := quotedprintable.NewWriter(&buf)
+	_, _ = w.Write([]byte(s))
+	_ = w.Close()
+	return strings.ReplaceAll(buf.String(), "\n", "\r\n")
 }
 
 func writeBase64Wrapped(msg *strings.Builder, data []byte) {
