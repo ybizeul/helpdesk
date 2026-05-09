@@ -1,8 +1,10 @@
 package api
 
 import (
+	"context"
 	"net/http"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/helpdesk/backend/internal/models"
@@ -33,6 +35,7 @@ func (h *handlers) getSettings(w http.ResponseWriter, r *http.Request) {
 		"website_url":        s.WebsiteURL,
 		"pushover_app_token": s.PushoverAppToken,
 		"llm":                s.LLM,
+		"hupload":            s.Hupload,
 		"auth":               s.Auth,
 		"updated_at":         s.UpdatedAt,
 		"debug":              os.Getenv("DEBUG") != "",
@@ -124,8 +127,64 @@ func (h *handlers) getPublicSettings(w http.ResponseWriter, r *http.Request) {
 		s = models.Settings{}
 	}
 	writeJSON(w, http.StatusOK, map[string]any{
-		"site_name": s.SiteName,
+		"site_name":       s.SiteName,
+		"hupload_enabled": isHuploadConfigured(s.Hupload),
 	})
+}
+
+func (h *handlers) updateHuploadSettings(w http.ResponseWriter, r *http.Request) {
+	if !requireAdmin(r) {
+		writeError(w, http.StatusForbidden, "FORBIDDEN", "admin role required")
+		return
+	}
+
+	ctx := r.Context()
+
+	var hu models.HuploadSettings
+	if err := readJSON(r, &hu); err != nil {
+		writeError(w, http.StatusBadRequest, "INVALID_JSON", err.Error())
+		return
+	}
+
+	hu.WebsiteURL = normalizeHuploadWebsiteURL(hu.WebsiteURL)
+	hu.APIKey = strings.TrimSpace(hu.APIKey)
+	hu.ShareMessage = strings.TrimSpace(hu.ShareMessage)
+
+	if (hu.WebsiteURL == "") != (hu.APIKey == "") {
+		writeError(w, http.StatusBadRequest, "HUPLOAD_INVALID_CONFIG", "website_url and api_key must both be set or both be empty")
+		return
+	}
+
+	_, err := h.db.Settings().UpdateOne(ctx,
+		bson.M{"_id": "global"},
+		bson.M{"$set": bson.M{"hupload": hu, "updated_at": time.Now()}},
+		options.UpdateOne().SetUpsert(true),
+	)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "DB_ERROR", err.Error())
+		return
+	}
+
+	w.WriteHeader(http.StatusNoContent)
+}
+
+func normalizeHuploadWebsiteURL(raw string) string {
+	return strings.TrimSuffix(strings.TrimSpace(raw), "/")
+}
+
+func isHuploadConfigured(hu models.HuploadSettings) bool {
+	return normalizeHuploadWebsiteURL(hu.WebsiteURL) != "" && strings.TrimSpace(hu.APIKey) != ""
+}
+
+func (h *handlers) getHuploadSettings(ctx context.Context) (models.HuploadSettings, bool, error) {
+	var s models.Settings
+	if err := h.db.Settings().FindOne(ctx, bson.M{"_id": "global"}).Decode(&s); err != nil {
+		return models.HuploadSettings{}, false, nil
+	}
+	s.Hupload.WebsiteURL = normalizeHuploadWebsiteURL(s.Hupload.WebsiteURL)
+	s.Hupload.APIKey = strings.TrimSpace(s.Hupload.APIKey)
+	s.Hupload.ShareMessage = strings.TrimSpace(s.Hupload.ShareMessage)
+	return s.Hupload, isHuploadConfigured(s.Hupload), nil
 }
 
 func (h *handlers) updateGeneralSettings(w http.ResponseWriter, r *http.Request) {

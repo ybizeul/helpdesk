@@ -61,6 +61,8 @@ type Ticket struct {
 	ID            string         `bson:"_id,omitempty" json:"id"`
 	Number        int            `bson:"number" json:"number"`
 	MailboxID     string         `bson:"mailbox_id,omitempty" json:"mailbox_id,omitempty"`
+	HuploadShare  string         `bson:"hupload_share,omitempty" json:"hupload_share,omitempty"`
+	HuploadURL    string         `bson:"hupload_url,omitempty" json:"hupload_url,omitempty"`
 	Subject       string         `bson:"subject" json:"subject"`
 	Status        TicketStatus   `bson:"status" json:"status"`
 	Priority      TicketPriority `bson:"priority" json:"priority"`
@@ -141,6 +143,12 @@ type LLMSettings struct {
 	Enabled  bool   `bson:"enabled" json:"enabled"`
 }
 
+type HuploadSettings struct {
+	WebsiteURL   string `bson:"website_url,omitempty" json:"website_url,omitempty"`
+	APIKey       string `bson:"api_key,omitempty" json:"api_key,omitempty"`
+	ShareMessage string `bson:"share_message,omitempty" json:"share_message,omitempty"`
+}
+
 type AuthSettings struct {
 	OIDCEnabled       bool              `bson:"oidc_enabled" json:"oidc_enabled"`
 	DisableLocalLogin bool              `bson:"disable_local_login" json:"disable_local_login"`
@@ -152,13 +160,14 @@ type AuthSettings struct {
 }
 
 type Settings struct {
-	ID               string       `bson:"_id" json:"id"`
-	SiteName         string       `bson:"site_name,omitempty" json:"site_name,omitempty"`
-	WebsiteURL       string       `bson:"website_url,omitempty" json:"website_url,omitempty"`
-	PushoverAppToken string       `bson:"pushover_app_token,omitempty" json:"pushover_app_token,omitempty"`
-	LLM              LLMSettings  `bson:"llm" json:"llm"`
-	Auth             AuthSettings `bson:"auth" json:"auth"`
-	UpdatedAt        time.Time    `bson:"updated_at" json:"updated_at"`
+	ID               string          `bson:"_id" json:"id"`
+	SiteName         string          `bson:"site_name,omitempty" json:"site_name,omitempty"`
+	WebsiteURL       string          `bson:"website_url,omitempty" json:"website_url,omitempty"`
+	PushoverAppToken string          `bson:"pushover_app_token,omitempty" json:"pushover_app_token,omitempty"`
+	LLM              LLMSettings     `bson:"llm" json:"llm"`
+	Hupload          HuploadSettings `bson:"hupload" json:"hupload"`
+	Auth             AuthSettings    `bson:"auth" json:"auth"`
+	UpdatedAt        time.Time       `bson:"updated_at" json:"updated_at"`
 }
 
 type Mailbox struct {

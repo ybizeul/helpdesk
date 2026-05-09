@@ -31,6 +31,8 @@ an area to configure OIDC and map groups to roles.
 | PUT    | /tickets/:id           | Update ticket             |
 | DELETE | /tickets/:id           | Delete ticket             |
 | POST   | /tickets/:id/reply     | Reply to a ticket         |
+| POST   | /tickets/:id/hupload/share | Create or reuse case Hupload share |
+| GET    | /tickets/:id/hupload/items | List files from case Hupload share |
 | PUT    | /tickets/:id/assign    | Assign ticket to agent    |
 | PUT    | /tickets/:id/status    | Change ticket status      |
 
@@ -53,8 +55,10 @@ an area to configure OIDC and map groups to roles.
 | Method | Path                   | Description               |
 |--------|------------------------|---------------------------|
 | GET    | /settings              | Get all settings          |
+| GET    | /settings/general/public | Get public settings (site name, hupload enabled flag) |
 | PUT    | /settings/email        | Update IMAP/SMTP config   |
 | PUT    | /settings/llm          | Update LLM endpoint config|
+| PUT    | /settings/hupload      | Update Hupload config (website URL, API key, share message) |
 | PUT    | /settings/auth         | Update auth/OIDC config   |
 
 ### Dashboard

@@ -6,11 +6,14 @@ import (
 	"log/slog"
 	"net/http"
 	netmail "net/mail"
+	"net/url"
+	"path"
 	"strconv"
 	"strings"
 	"time"
 
 	"github.com/helpdesk/backend/internal/email"
+	"github.com/helpdesk/backend/internal/hupload"
 	"github.com/helpdesk/backend/internal/models"
 	"github.com/helpdesk/backend/internal/store"
 	"go.mongodb.org/mongo-driver/v2/bson"
@@ -332,6 +335,8 @@ func (h *handlers) updateTicket(w http.ResponseWriter, r *http.Request) {
 	delete(updates, "email_thread_id")
 	delete(updates, "thread_topic")
 	delete(updates, "thread_index")
+	delete(updates, "hupload_share")
+	delete(updates, "hupload_url")
 
 	result, err := h.db.Tickets().UpdateByID(ctx, oid, bson.M{"$set": updates})
 	if err != nil {
@@ -759,6 +764,155 @@ func (h *handlers) downloadAttachment(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=%q", att.Filename))
 	w.Header().Set("Content-Length", strconv.Itoa(len(att.Data)))
 	w.Write(att.Data)
+}
+
+func (h *handlers) createOrGetHuploadShare(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	id := r.PathValue("id")
+
+	oid, err := bson.ObjectIDFromHex(id)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "INVALID_ID", "invalid ticket ID format")
+		return
+	}
+
+	ticket, ok := h.requireTicketAccess(w, r, oid)
+	if !ok {
+		return
+	}
+
+	settings, configured, err := h.getHuploadSettings(ctx)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "DB_ERROR", err.Error())
+		return
+	}
+	if !configured {
+		writeError(w, http.StatusBadRequest, "HUPLOAD_NOT_CONFIGURED", "hupload is not configured")
+		return
+	}
+
+	if ticket.HuploadShare != "" {
+		shareURL := ticket.HuploadURL
+		if shareURL == "" {
+			shareURL = buildHuploadShareURL(settings.WebsiteURL, ticket.HuploadShare)
+			_, _ = h.db.Tickets().UpdateByID(ctx, oid, bson.M{"$set": bson.M{"hupload_url": shareURL, "updated_at": time.Now()}})
+		}
+		writeJSON(w, http.StatusOK, map[string]any{
+			"share":     ticket.HuploadShare,
+			"share_url": shareURL,
+			"reused":    true,
+		})
+		return
+	}
+
+	client := hupload.NewClient(settings.WebsiteURL, settings.APIKey)
+	share, err := client.CreateShare(ctx, hupload.CreateShareRequest{
+		Exposure:    "upload",
+		Description: fmt.Sprintf("Ticket #%d %s", ticket.Number, ticket.Subject),
+		Message:     settings.ShareMessage,
+	})
+	if err != nil {
+		writeError(w, http.StatusBadGateway, "HUPLOAD_CREATE_FAILED", err.Error())
+		return
+	}
+
+	shareURL := buildHuploadShareURL(settings.WebsiteURL, share.Name)
+	_, err = h.db.Tickets().UpdateByID(ctx, oid, bson.M{"$set": bson.M{
+		"hupload_share": share.Name,
+		"hupload_url":   shareURL,
+		"updated_at":    time.Now(),
+	}})
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "DB_ERROR", err.Error())
+		return
+	}
+
+	writeJSON(w, http.StatusCreated, map[string]any{
+		"share":     share.Name,
+		"share_url": shareURL,
+		"reused":    false,
+	})
+}
+
+func (h *handlers) listHuploadItems(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	id := r.PathValue("id")
+
+	oid, err := bson.ObjectIDFromHex(id)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "INVALID_ID", "invalid ticket ID format")
+		return
+	}
+
+	ticket, ok := h.requireTicketAccess(w, r, oid)
+	if !ok {
+		return
+	}
+
+	if ticket.HuploadShare == "" {
+		writeJSON(w, http.StatusOK, map[string]any{
+			"share":     "",
+			"share_url": "",
+			"items":     []any{},
+		})
+		return
+	}
+
+	settings, configured, err := h.getHuploadSettings(ctx)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "DB_ERROR", err.Error())
+		return
+	}
+	if !configured {
+		writeError(w, http.StatusBadRequest, "HUPLOAD_NOT_CONFIGURED", "hupload is not configured")
+		return
+	}
+
+	client := hupload.NewClient(settings.WebsiteURL, settings.APIKey)
+	items, err := client.ListItems(ctx, ticket.HuploadShare)
+	if err != nil {
+		writeError(w, http.StatusBadGateway, "HUPLOAD_LIST_FAILED", err.Error())
+		return
+	}
+
+	shareURL := ticket.HuploadURL
+	if shareURL == "" {
+		shareURL = buildHuploadShareURL(settings.WebsiteURL, ticket.HuploadShare)
+	}
+
+	tableItems := make([]map[string]any, 0, len(items))
+	for _, item := range items {
+		filename := filenameFromShareItemPath(item.Path)
+		tableItems = append(tableItems, map[string]any{
+			"filename":     filename,
+			"size":         item.ItemInfo.Size,
+			"uploaded_at":  item.ItemInfo.DateModified,
+			"download_url": buildHuploadDownloadURL(settings.WebsiteURL, ticket.HuploadShare, filename),
+		})
+	}
+
+	writeJSON(w, http.StatusOK, map[string]any{
+		"share":     ticket.HuploadShare,
+		"share_url": shareURL,
+		"items":     tableItems,
+	})
+}
+
+func buildHuploadShareURL(baseURL, share string) string {
+	return strings.TrimSuffix(baseURL, "/") + "/" + url.PathEscape(share)
+}
+
+func buildHuploadDownloadURL(baseURL, share, item string) string {
+	cleanBase := strings.TrimSuffix(baseURL, "/")
+	return cleanBase + "/d/" + url.PathEscape(share) + "/" + url.PathEscape(item)
+}
+
+func filenameFromShareItemPath(p string) string {
+	name := path.Base(strings.TrimSpace(p))
+	if name == "." || name == "/" {
+		return ""
+	}
+	return name
 }
 
 func (h *handlers) reparseEmails(w http.ResponseWriter, r *http.Request) {

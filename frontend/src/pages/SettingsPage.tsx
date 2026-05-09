@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Title, Tabs, TextInput, NumberInput, Switch, Button, Stack, Group, PasswordInput, Modal, NavLink, Text, Loader, Fieldset, Code, ActionIcon, Paper } from '@mantine/core'
+import { Title, Tabs, TextInput, NumberInput, Switch, Button, Stack, Group, PasswordInput, Modal, NavLink, Text, Loader, Fieldset, Code, ActionIcon, Paper, Textarea } from '@mantine/core'
 import { notifications } from '@mantine/notifications'
 import { IconFolder, IconPlus, IconTrash } from '@tabler/icons-react'
 import { useEditor } from '@tiptap/react'
@@ -55,7 +55,7 @@ export function SettingsPage({ onSiteNameChange, mailboxes: propMailboxes = [], 
     setLoadError(null)
 
     api.settings.get().then((s: any) => {
-      setSettings(s)
+      setSettings({ ...s, hupload: s?.hupload || {} })
     }).catch((err: any) => {
       setLoadError(err?.message || 'Failed to load settings')
     }).finally(() => {
@@ -90,6 +90,19 @@ export function SettingsPage({ onSiteNameChange, mailboxes: propMailboxes = [], 
     try {
       await api.settings.updateAuth(settings.auth || {})
       notifications.show({ title: 'Saved', message: 'Authentication settings updated', color: 'green' })
+    } catch (e: any) {
+      notifications.show({ title: 'Error', message: e.message, color: 'red' })
+    }
+  }
+
+  const saveHupload = async () => {
+    try {
+      await api.settings.updateHupload({
+        website_url: settings.hupload?.website_url || '',
+        api_key: settings.hupload?.api_key || '',
+        share_message: settings.hupload?.share_message || '',
+      })
+      notifications.show({ title: 'Saved', message: 'Hupload settings updated', color: 'green' })
     } catch (e: any) {
       notifications.show({ title: 'Error', message: e.message, color: 'red' })
     }
@@ -133,6 +146,9 @@ export function SettingsPage({ onSiteNameChange, mailboxes: propMailboxes = [], 
   const updateAuth = (field: string, value: any) =>
     setSettings({ ...settings, auth: { ...settings.auth, [field]: value } })
 
+  const updateHupload = (field: string, value: any) =>
+    setSettings({ ...settings, hupload: { ...settings.hupload, [field]: value } })
+
   const callbackURL = oidcCallbackEndpoint ? new URL(oidcCallbackEndpoint, window.location.origin).toString() : ''
 
   return (
@@ -147,6 +163,7 @@ export function SettingsPage({ onSiteNameChange, mailboxes: propMailboxes = [], 
               <Tabs.Tab value="general">General</Tabs.Tab>
               <Tabs.Tab value="notifications">Notifications</Tabs.Tab>
               <Tabs.Tab value="auth">OIDC</Tabs.Tab>
+              <Tabs.Tab value="hupload">Hupload</Tabs.Tab>
               <Tabs.Tab value="llm">LLM</Tabs.Tab>
               {settings?.debug && <Tabs.Tab value="tools">Tools</Tabs.Tab>}
             </Tabs.List>
@@ -225,6 +242,33 @@ export function SettingsPage({ onSiteNameChange, mailboxes: propMailboxes = [], 
                   <Text size="xs" c="dimmed">Computed from browser URL + backend callback endpoint.</Text>
                 </Stack>
                 <Group><Button onClick={saveAuth}>Save Authentication Settings</Button></Group>
+              </Stack>
+            </Tabs.Panel>
+
+            <Tabs.Panel value="hupload" pt="md">
+              <Stack maw={700}>
+                <TextInput
+                  label="Hupload website URL"
+                  description="Base URL of your Hupload website (for example: https://hupload.example.com)."
+                  placeholder="https://hupload.example.com"
+                  value={settings.hupload?.website_url || ''}
+                  onChange={(e) => updateHupload('website_url', e.currentTarget.value)}
+                />
+                <PasswordInput
+                  label="API key"
+                  description="API key configured in Hupload auth.apiKeys."
+                  value={settings.hupload?.api_key || ''}
+                  onChange={(e) => updateHupload('api_key', e.currentTarget.value)}
+                />
+                <Textarea
+                  label="Share message (Markdown, optional)"
+                  description="Default markdown instructions shown on each created case share."
+                  placeholder="Upload logs and screenshots relevant to this ticket."
+                  minRows={4}
+                  value={settings.hupload?.share_message || ''}
+                  onChange={(e) => updateHupload('share_message', e.currentTarget.value)}
+                />
+                <Group><Button onClick={saveHupload}>Save Hupload Settings</Button></Group>
               </Stack>
             </Tabs.Panel>
 

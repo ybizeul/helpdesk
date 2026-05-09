@@ -55,6 +55,8 @@ export const api = {
     bulk: (ids: string[], action: string, extra?: Record<string, string>) => request<any>('/tickets/bulk', { method: 'POST', body: JSON.stringify({ ids, action, ...extra }) }),
     merge: (ids: string[]) => request<any>('/tickets/merge', { method: 'POST', body: JSON.stringify({ ids }) }),
     reply: (id: string, msg: any) => request<any>(`/tickets/${id}/reply`, { method: 'POST', body: JSON.stringify(msg) }),
+    createHuploadShare: (id: string) => request<{ share: string; share_url: string; reused: boolean }>(`/tickets/${id}/hupload/share`, { method: 'POST' }),
+    listHuploadItems: (id: string) => request<{ share: string; share_url: string; items: Array<{ filename: string; size: number; uploaded_at: string; download_url: string }> }>(`/tickets/${id}/hupload/items`),
     note: (id: string, msg: { body: string; html: string }) => request<void>(`/tickets/${id}/note`, { method: 'POST', body: JSON.stringify(msg) }),
     retrySend: (id: string, messageIndex: number) => request<any>(`/tickets/${id}/retry-send`, { method: 'POST', body: JSON.stringify({ message_index: messageIndex }) }),
     assign: (id: string, assigneeId: string) => request<void>(`/tickets/${id}/assign`, { method: 'PUT', body: JSON.stringify({ assignee_id: assigneeId }) }),
@@ -71,11 +73,12 @@ export const api = {
   },
   settings: {
     get: () => request<any>('/settings'),
-    getPublic: () => fetch('/api/v1/settings/general/public').then(r => r.json()) as Promise<{ site_name: string }>,
+    getPublic: () => fetch('/api/v1/settings/general/public').then(r => r.json()) as Promise<{ site_name: string; hupload_enabled?: boolean }>,
     getOIDCCallbackInfo: () => request<{ callback_endpoint: string }>('/settings/auth/oidc-callback'),
     updateGeneral: (data: { site_name: string; website_url: string }) => request<void>('/settings/general', { method: 'PUT', body: JSON.stringify(data) }),
     updateNotifications: (data: { pushover_app_token: string }) => request<void>('/settings/notifications', { method: 'PUT', body: JSON.stringify(data) }),
     updateLLM: (data: any) => request<void>('/settings/llm', { method: 'PUT', body: JSON.stringify(data) }),
+    updateHupload: (data: { website_url: string; api_key: string; share_message?: string }) => request<void>('/settings/hupload', { method: 'PUT', body: JSON.stringify(data) }),
     updateAuth: (data: any) => request<void>('/settings/auth', { method: 'PUT', body: JSON.stringify(data) }),
   },
   mailboxes: {

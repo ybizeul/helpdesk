@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useMemo, useCallback, useRef } from 'react'
 import { useParams } from 'react-router-dom'
-import { Title, Text, Paper, Badge, Stack, Group, Box, ActionIcon, Tooltip, Alert, Button as MButton, Modal, Menu, Avatar, Skeleton, TextInput } from '@mantine/core'
-import { IconRefresh, IconSend, IconPaperclip, IconArrowLeft, IconTrash } from '@tabler/icons-react'
+import { Title, Text, Paper, Badge, Stack, Group, Box, ActionIcon, Tooltip, Alert, Button as MButton, Modal, Menu, Avatar, Skeleton, TextInput, Table, Anchor } from '@mantine/core'
+import { IconRefresh, IconSend, IconPaperclip, IconArrowLeft, IconTrash, IconExternalLink } from '@tabler/icons-react'
 import { api } from '../api/client'
 import { formatDistanceToNow } from 'date-fns'
 import { ReplyEditor } from '../components/ReplyEditor'
@@ -54,6 +54,20 @@ function getInitials(name: string): string {
 
 function formatDate(d: string | Date): string {
   return formatDistanceToNow(new Date(d), { addSuffix: true })
+}
+
+function formatUploadedAt(d: string | Date): string {
+  const parsed = new Date(d)
+  if (Number.isNaN(parsed.getTime())) return ''
+  return parsed.toLocaleString()
+}
+
+function formatFileSize(size: number): string {
+  if (!Number.isFinite(size) || size < 0) return ''
+  if (size < 1024) return `${size} B`
+  if (size < 1024 * 1024) return `${(size / 1024).toFixed(1)} KB`
+  if (size < 1024 * 1024 * 1024) return `${(size / (1024 * 1024)).toFixed(1)} MB`
+  return `${(size / (1024 * 1024 * 1024)).toFixed(1)} GB`
 }
 
 function sanitizeHtml(html: string): string {
@@ -168,6 +182,10 @@ export function TicketDetailPage({ ticketId: propId, onBack, onTicketUpdate, onN
   const isMobile = useMediaQuery('(max-width: 768px)')
   const [ticket, setTicket] = useState<any>(null)
   const [users, setUsers] = useState<any[]>([])
+  const [huploadEnabled, setHuploadEnabled] = useState(false)
+  const [sharedFiles, setSharedFiles] = useState<Array<{ filename: string; size: number; uploaded_at: string; download_url: string }>>([])
+  const [sharedFilesLoading, setSharedFilesLoading] = useState(false)
+  const [shareURL, setShareURL] = useState('')
 
   const signature = mailbox?.signature || ''
   const [resendOpened, { open: openResend, close: closeResend }] = useDisclosure(false)
@@ -186,6 +204,7 @@ export function TicketDetailPage({ ticketId: propId, onBack, onTicketUpdate, onN
   useEffect(() => {
     if (id) api.tickets.get(id).then((t) => { setTicket(t); onTicketUpdate?.() }).catch(() => onNotFound?.())
     api.users.list().then(setUsers).catch(() => {})
+    api.settings.getPublic().then((s) => setHuploadEnabled(Boolean(s?.hupload_enabled))).catch(() => setHuploadEnabled(false))
   }, [id])
 
   const handleAddNote = async (html: string, text: string) => {
@@ -219,6 +238,29 @@ export function TicketDetailPage({ ticketId: propId, onBack, onTicketUpdate, onN
     }
     api.tickets.get(id).then(setTicket)
     onTicketUpdate?.()
+  }
+
+  const refreshSharedFiles = useCallback(async (ticketId: string) => {
+    setSharedFilesLoading(true)
+    try {
+      const res = await api.tickets.listHuploadItems(ticketId)
+      setSharedFiles(res.items || [])
+      setShareURL(res.share_url || '')
+    } catch (e: any) {
+      notifications.show({ title: 'Hupload', message: e.message || 'Failed to load shared files', color: 'red' })
+      setSharedFiles([])
+    } finally {
+      setSharedFilesLoading(false)
+    }
+  }, [])
+
+  const handleInsertHuploadShare = async (): Promise<string> => {
+    if (!id) throw new Error('Missing ticket id')
+    const res = await api.tickets.createHuploadShare(id)
+    setTicket((t: any) => ({ ...(t || {}), hupload_share: res.share, hupload_url: res.share_url }))
+    setShareURL(res.share_url || '')
+    await refreshSharedFiles(id)
+    return res.share_url
   }
 
   const handleSetStatus = async (status: string) => {
@@ -350,6 +392,15 @@ export function TicketDetailPage({ ticketId: propId, onBack, onTicketUpdate, onN
     }
     return []
   }, [ticket, mailbox])
+
+  useEffect(() => {
+    if (!id || !ticket?.hupload_share) {
+      setSharedFiles([])
+      setShareURL(ticket?.hupload_url || '')
+      return
+    }
+    refreshSharedFiles(id)
+  }, [id, ticket?.hupload_share, ticket?.hupload_url, refreshSharedFiles])
 
   if (!ticket) return (
     <Box style={{ display: 'flex', flexDirection: 'column', position: 'absolute', inset: 0 }}>
@@ -502,6 +553,51 @@ export function TicketDetailPage({ ticketId: propId, onBack, onTicketUpdate, onN
       <Box style={{ flex: 1, overflowY: 'auto', minHeight: 0, padding: 'var(--mantine-spacing-md)', paddingTop: 'var(--mantine-spacing-sm)', position: 'relative', zIndex: 0 }}>
 
       <Stack gap="md">
+        {ticket.hupload_share && (
+          <Paper withBorder p="md" radius="md" style={{ overflow: 'hidden' }}>
+            <Group justify="space-between" mb="sm">
+              <Group gap="xs">
+                <Text fw={600}>Shared files</Text>
+                {shareURL && (
+                  <Anchor href={shareURL} target="_blank" rel="noopener noreferrer" size="sm">
+                    Open share <IconExternalLink size={14} style={{ verticalAlign: 'text-bottom' }} />
+                  </Anchor>
+                )}
+              </Group>
+              <ActionIcon variant="light" onClick={() => id && refreshSharedFiles(id)} loading={sharedFilesLoading} aria-label="Refresh shared files">
+                <IconRefresh size={14} />
+              </ActionIcon>
+            </Group>
+            <Box style={{ overflowX: 'auto' }}>
+              <Table striped highlightOnHover withTableBorder withColumnBorders>
+                <Table.Thead>
+                  <Table.Tr>
+                    <Table.Th>Upload date</Table.Th>
+                    <Table.Th>File size</Table.Th>
+                    <Table.Th>Download link</Table.Th>
+                  </Table.Tr>
+                </Table.Thead>
+                <Table.Tbody>
+                  {sharedFiles.length === 0 ? (
+                    <Table.Tr>
+                      <Table.Td colSpan={3}>
+                        <Text size="sm" c="dimmed">No files uploaded yet.</Text>
+                      </Table.Td>
+                    </Table.Tr>
+                  ) : sharedFiles.map((file, idx) => (
+                    <Table.Tr key={`${file.filename}-${idx}`}>
+                      <Table.Td>{formatUploadedAt(file.uploaded_at)}</Table.Td>
+                      <Table.Td>{formatFileSize(file.size)}</Table.Td>
+                      <Table.Td>
+                        <Anchor href={file.download_url} target="_blank" rel="noopener noreferrer">{file.filename}</Anchor>
+                      </Table.Td>
+                    </Table.Tr>
+                  ))}
+                </Table.Tbody>
+              </Table>
+            </Box>
+          </Paper>
+        )}
         <Paper withBorder p={0} radius="md" style={{ overflow: 'hidden', marginBottom: 'var(--mantine-spacing-md)' }}>
           <Box p="xs" style={{ background: 'light-dark(var(--mantine-color-gray-1), var(--mantine-color-dark-6))' }}>
             <Text size="sm" mb={2}><Text span fw={600}>Subject:</Text> {buildReplySubject(ticket.number, ticket.subject)}</Text>
@@ -510,7 +606,14 @@ export function TicketDetailPage({ ticketId: propId, onBack, onTicketUpdate, onN
               <Text size="sm" mb={2}><Text span fw={600}>Cc:</Text> {replyCc.join(', ')}</Text>
             )}
           </Box>
-          <ReplyEditor onSend={handleSend} onSendAndClose={ticket.status !== 'closed' ? handleSendAndClose : undefined} onAddNote={handleAddNote} signature={signature} />
+          <ReplyEditor
+            onSend={handleSend}
+            onSendAndClose={ticket.status !== 'closed' ? handleSendAndClose : undefined}
+            onAddNote={handleAddNote}
+            signature={signature}
+            showHuploadControl={huploadEnabled}
+            onInsertHuploadShare={handleInsertHuploadShare}
+          />
         </Paper>
         {ticket.messages?.map((msg: any, i: number) => ({ msg, i })).reverse().map(({ msg, i }: { msg: any; i: number }) => {
           const smtpFrom = mailbox?.email?.smtp_from

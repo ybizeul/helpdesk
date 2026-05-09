@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { useEditor } from '@tiptap/react'
 import { Fragment, Slice } from '@tiptap/pm/model'
 import StarterKit from '@tiptap/starter-kit'
@@ -7,8 +8,9 @@ import Image from '@tiptap/extension-image'
 import Placeholder from '@tiptap/extension-placeholder'
 import { RichTextEditor } from '@mantine/tiptap'
 import { Button, Group, Box } from '@mantine/core'
-import { IconNotes, IconSend, IconCircleLetterCFilled } from '@tabler/icons-react'
+import { IconNotes, IconSend, IconCircleLetterCFilled, IconLink } from '@tabler/icons-react'
 import { useMediaQuery } from '@mantine/hooks'
+import { notifications } from '@mantine/notifications'
 import '@mantine/tiptap/styles.css'
 
 const MAX_IMAGE_SIZE = 900
@@ -59,11 +61,14 @@ interface ReplyEditorProps {
   onSendAndClose?: (html: string, text: string) => void
   onAddNote?: (html: string, text: string) => void
   signature?: string
+  showHuploadControl?: boolean
+  onInsertHuploadShare?: () => Promise<string>
 }
 
-export function ReplyEditor({ onSend, onSendAndClose, onAddNote, signature }: ReplyEditorProps) {
+export function ReplyEditor({ onSend, onSendAndClose, onAddNote, signature, showHuploadControl, onInsertHuploadShare }: ReplyEditorProps) {
   const isMobile = useMediaQuery('(max-width: 768px)')
   const initialContent = signature ? `<p></p><p>--</p>${signature}` : ''
+  const [isInsertingHupload, setIsInsertingHupload] = useState(false)
   const editor = useEditor({
     extensions: [
       StarterKit,
@@ -152,6 +157,20 @@ export function ReplyEditor({ onSend, onSendAndClose, onAddNote, signature }: Re
     onAddNote(html, text)
   }
 
+  const handleInsertHupload = async () => {
+    if (!editor || !onInsertHuploadShare || isInsertingHupload) return
+    try {
+      setIsInsertingHupload(true)
+      const shareURL = await onInsertHuploadShare()
+      if (!shareURL) return
+      editor.chain().focus().insertContent(`<a href="${shareURL}">${shareURL}</a>`).run()
+    } catch (e: any) {
+      notifications.show({ title: 'Hupload error', message: e?.message || 'Failed to create share URL', color: 'red' })
+    } finally {
+      setIsInsertingHupload(false)
+    }
+  }
+
   return (
     <div>
       <RichTextEditor editor={editor} styles={{ root: { border: 'none', borderRadius: 0 }, toolbar: { borderTop: '1px solid var(--mantine-color-default-border)', borderRadius: 0 } }}>
@@ -175,6 +194,18 @@ export function ReplyEditor({ onSend, onSendAndClose, onAddNote, signature }: Re
             <RichTextEditor.Code />
             <RichTextEditor.CodeBlock />
           </RichTextEditor.ControlsGroup>
+          {showHuploadControl && (
+            <RichTextEditor.ControlsGroup>
+              <RichTextEditor.Control
+                onClick={handleInsertHupload}
+                title="Insert Hupload share URL"
+                aria-label="Insert Hupload share URL"
+                disabled={isInsertingHupload}
+              >
+                <IconLink size={16} />
+              </RichTextEditor.Control>
+            </RichTextEditor.ControlsGroup>
+          )}
         </RichTextEditor.Toolbar>
         <RichTextEditor.Content />
       </RichTextEditor>

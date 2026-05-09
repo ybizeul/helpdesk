@@ -23,6 +23,8 @@ func NewRouter(db *store.DB) http.Handler {
 	mux.HandleFunc("POST /api/v1/tickets/{id}/reply", h.replyTicket)
 	mux.HandleFunc("POST /api/v1/tickets/{id}/note", h.addNote)
 	mux.HandleFunc("POST /api/v1/tickets/{id}/retry-send", h.retrySend)
+	mux.HandleFunc("POST /api/v1/tickets/{id}/hupload/share", h.createOrGetHuploadShare)
+	mux.HandleFunc("GET /api/v1/tickets/{id}/hupload/items", h.listHuploadItems)
 	mux.HandleFunc("PUT /api/v1/tickets/{id}/assign", h.assignTicket)
 	mux.HandleFunc("PUT /api/v1/tickets/{id}/claim", h.claimTicket)
 	mux.HandleFunc("PUT /api/v1/tickets/{id}/status", h.changeTicketStatus)
@@ -59,6 +61,7 @@ func NewRouter(db *store.DB) http.Handler {
 	mux.HandleFunc("PUT /api/v1/settings/general", h.updateGeneralSettings)
 	mux.HandleFunc("PUT /api/v1/settings/notifications", h.updateNotificationSettings)
 	mux.HandleFunc("PUT /api/v1/settings/llm", h.updateLLMSettings)
+	mux.HandleFunc("PUT /api/v1/settings/hupload", h.updateHuploadSettings)
 	mux.HandleFunc("PUT /api/v1/settings/auth", h.updateAuthSettings)
 
 	// Dashboard
