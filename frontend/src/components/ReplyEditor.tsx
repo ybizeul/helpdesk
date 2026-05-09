@@ -8,7 +8,7 @@ import Image from '@tiptap/extension-image'
 import Placeholder from '@tiptap/extension-placeholder'
 import { RichTextEditor } from '@mantine/tiptap'
 import { Button, Group, Box } from '@mantine/core'
-import { IconNotes, IconSend, IconCircleLetterCFilled, IconLink } from '@tabler/icons-react'
+import { IconNotes, IconSend, IconCircleLetterCFilled, IconMobiledata } from '@tabler/icons-react'
 import { useMediaQuery } from '@mantine/hooks'
 import { notifications } from '@mantine/notifications'
 import '@mantine/tiptap/styles.css'
@@ -202,7 +202,7 @@ export function ReplyEditor({ onSend, onSendAndClose, onAddNote, signature, show
                 aria-label="Insert Hupload share URL"
                 disabled={isInsertingHupload}
               >
-                <IconLink size={16} />
+                <IconMobiledata size={16} />
               </RichTextEditor.Control>
             </RichTextEditor.ControlsGroup>
           )}
