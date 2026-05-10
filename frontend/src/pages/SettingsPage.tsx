@@ -77,15 +77,6 @@ export function SettingsPage({ onSiteNameChange, mailboxes: propMailboxes = [], 
     }
   }
 
-  const saveLLM = async () => {
-    try {
-      await api.settings.updateLLM(settings.llm)
-      notifications.show({ title: 'Saved', message: 'LLM settings updated', color: 'green' })
-    } catch (e: any) {
-      notifications.show({ title: 'Error', message: e.message, color: 'red' })
-    }
-  }
-
   const saveAuth = async () => {
     try {
       await api.settings.updateAuth(settings.auth || {})
@@ -140,9 +131,6 @@ export function SettingsPage({ onSiteNameChange, mailboxes: propMailboxes = [], 
   if (loadError) return <Text c="red">{loadError}</Text>
   if (!settings) return <Text c="red">Settings unavailable</Text>
 
-  const updateLLM = (field: string, value: any) =>
-    setSettings({ ...settings, llm: { ...settings.llm, [field]: value } })
-
   const updateAuth = (field: string, value: any) =>
     setSettings({ ...settings, auth: { ...settings.auth, [field]: value } })
 
@@ -164,7 +152,6 @@ export function SettingsPage({ onSiteNameChange, mailboxes: propMailboxes = [], 
               <Tabs.Tab value="notifications">Notifications</Tabs.Tab>
               <Tabs.Tab value="auth">OIDC</Tabs.Tab>
               <Tabs.Tab value="hupload">Hupload</Tabs.Tab>
-              <Tabs.Tab value="llm">LLM</Tabs.Tab>
               {settings?.debug && <Tabs.Tab value="tools">Tools</Tabs.Tab>}
             </Tabs.List>
 
@@ -269,16 +256,6 @@ export function SettingsPage({ onSiteNameChange, mailboxes: propMailboxes = [], 
                   onChange={(e) => updateHupload('share_message', e.currentTarget.value)}
                 />
                 <Group><Button onClick={saveHupload}>Save Hupload Settings</Button></Group>
-              </Stack>
-            </Tabs.Panel>
-
-            <Tabs.Panel value="llm" pt="md">
-              <Stack maw={500}>
-                <Switch label="Enable LLM suggestions" checked={settings.llm?.enabled ?? false} onChange={(e) => updateLLM('enabled', e.currentTarget.checked)} />
-                <TextInput label="Endpoint" value={settings.llm?.endpoint || ''} onChange={(e) => updateLLM('endpoint', e.currentTarget.value)} />
-                <PasswordInput label="API Key" value={settings.llm?.api_key || ''} onChange={(e) => updateLLM('api_key', e.currentTarget.value)} />
-                <TextInput label="Model" value={settings.llm?.model || ''} onChange={(e) => updateLLM('model', e.currentTarget.value)} />
-                <Group><Button onClick={saveLLM}>Save LLM Settings</Button></Group>
               </Stack>
             </Tabs.Panel>
 
