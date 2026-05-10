@@ -24,6 +24,20 @@
         "panel": "dedicated",
         "group": "services"
       }
+    },
+    {
+      "label": "Update Screenshots",
+      "type": "shell",
+      "command": "mise run update-screenshots",
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "problemMatcher": [],
+      "presentation": {
+        "reveal": "always",
+        "panel": "dedicated",
+        "group": "tools"
+      }
     }
   ]
 }

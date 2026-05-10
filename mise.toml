@@ -28,3 +28,7 @@ run = "GITHUB_REPOSITORY_OWNER=local goreleaser release --snapshot --clean"
 description = "Build frontend into Go embed directory"
 dir = "frontend"
 run = "npm run build && rm -rf ../backend/cmd/helpdesk/dist && mv dist ../backend/cmd/helpdesk/dist"
+
+[tasks.update-screenshots]
+description = "Regenerate screenshots using isolated MongoDB/backend"
+run = "./scripts/update-screenshots.sh"
