@@ -10,6 +10,11 @@ import (
 )
 
 func (h *handlers) listUsers(w http.ResponseWriter, r *http.Request) {
+	if !requireAdmin(r) {
+		writeError(w, http.StatusForbidden, "FORBIDDEN", "admin role required")
+		return
+	}
+
 	ctx := r.Context()
 
 	cursor, err := h.db.Users().Find(ctx, bson.M{})
@@ -26,13 +31,6 @@ func (h *handlers) listUsers(w http.ResponseWriter, r *http.Request) {
 	}
 	if users == nil {
 		users = []models.User{}
-	}
-	// Strip sensitive fields for non-admin users
-	if !requireAdmin(r) {
-		for i := range users {
-			users[i].PushoverKey = ""
-			users[i].Mailboxes = nil
-		}
 	}
 	writeJSON(w, http.StatusOK, users)
 }
@@ -182,7 +180,12 @@ func (h *handlers) deleteUser(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Nullify owner_id on any tickets owned by this user.
-	h.db.Tickets().UpdateMany(ctx, bson.M{"owner_id": id}, bson.M{"$unset": bson.M{"owner_id": ""}})
+	updateResult, err := h.db.Tickets().UpdateMany(ctx, bson.M{"owner_id": id}, bson.M{"$unset": bson.M{"owner_id": ""}})
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "DB_ERROR", err.Error())
+		return
+	}
+	_ = updateResult
 
 	w.WriteHeader(http.StatusNoContent)
 }

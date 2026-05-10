@@ -1,3 +1,6 @@
+[tools]
+go = "1.25.10"
+
 [tasks.front]
 description = "Run Vite frontend dev server"
 dir = "frontend"

@@ -72,6 +72,58 @@ func normalizeOIDCDiscoveryURL(endpoint string) string {
 	return strings.TrimRight(endpoint, "/") + "/.well-known/openid-configuration"
 }
 
+func sanitizeRedirectTarget(raw string) string {
+	raw = strings.TrimSpace(raw)
+	if raw == "" {
+		return "/"
+	}
+	if strings.ContainsAny(raw, "\r\n") {
+		return "/"
+	}
+	u, err := url.Parse(raw)
+	if err != nil {
+		return "/"
+	}
+	if u.IsAbs() || u.Host != "" {
+		return "/"
+	}
+	if !strings.HasPrefix(raw, "/") || strings.HasPrefix(raw, "//") {
+		return "/"
+	}
+	return u.String()
+}
+
+func appendTokenToRedirectFragment(redirectURL, appToken string) string {
+	u, err := url.Parse(redirectURL)
+	if err != nil {
+		return "/"
+	}
+
+	fragment := u.Fragment
+	if fragment == "" {
+		u.Fragment = "token=" + url.QueryEscape(appToken)
+		return u.String()
+	}
+
+	if i := strings.Index(fragment, "?"); i >= 0 {
+		fragPath := fragment[:i]
+		q, _ := url.ParseQuery(fragment[i+1:])
+		q.Set("token", appToken)
+		u.Fragment = fragPath + "?" + q.Encode()
+		return u.String()
+	}
+
+	if strings.HasPrefix(fragment, "/") {
+		u.Fragment = fragment + "?token=" + url.QueryEscape(appToken)
+		return u.String()
+	}
+
+	q, _ := url.ParseQuery(fragment)
+	q.Set("token", appToken)
+	u.Fragment = q.Encode()
+	return u.String()
+}
+
 func randToken() (string, error) {
 	b := make([]byte, 32)
 	if _, err := rand.Read(b); err != nil {
@@ -154,10 +206,7 @@ func (h *handlers) oidcStart(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	redirectTo := "/"
-	if v := r.URL.Query().Get("redirect"); strings.HasPrefix(v, "/") {
-		redirectTo = v
-	}
+	redirectTo := sanitizeRedirectTarget(r.URL.Query().Get("redirect"))
 
 	state, err := oidcPutState(redirectTo)
 	if err != nil {
@@ -281,18 +330,11 @@ func (h *handlers) oidcCallback(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	redirectURL := stateEntry.RedirectTo
+	redirectURL := sanitizeRedirectTarget(stateEntry.RedirectTo)
 	if redirectURL == "" {
 		redirectURL = "/"
 	}
-	q := url.Values{}
-	q.Set("token", appToken)
-	target := redirectURL
-	if strings.Contains(target, "?") {
-		target += "&" + q.Encode()
-	} else {
-		target += "?" + q.Encode()
-	}
+	target := appendTokenToRedirectFragment(redirectURL, appToken)
 	http.Redirect(w, r, target, http.StatusFound)
 }
 

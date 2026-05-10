@@ -2,6 +2,8 @@ module github.com/helpdesk/backend
 
 go 1.25.0
 
+toolchain go1.25.10
+
 require (
 	github.com/coreos/go-oidc/v3 v3.18.0
 	github.com/emersion/go-imap/v2 v2.0.0-beta.8

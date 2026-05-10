@@ -309,7 +309,7 @@ func (db *DB) EnsureDefaultAdmin(ctx context.Context, initPassword string) error
 				if err != nil {
 					return err
 				}
-				slog.Info("admin password reset via INIT_PASSWORD", "email", admin.Email, "password", password)
+				slog.Info("admin password reset via INIT_PASSWORD", "email", admin.Email)
 			}
 		} else {
 			// If any admin has an empty password, generate one
@@ -325,7 +325,7 @@ func (db *DB) EnsureDefaultAdmin(ctx context.Context, initPassword string) error
 				if err != nil {
 					return err
 				}
-				slog.Info("admin password was empty, assigned new password", "email", admin.Email, "password", password)
+				slog.Info("admin password was empty and has been regenerated", "email", admin.Email)
 			}
 		}
 		return nil
@@ -351,7 +351,7 @@ func (db *DB) EnsureDefaultAdmin(ctx context.Context, initPassword string) error
 	if err != nil {
 		return err
 	}
-	slog.Info("default admin user created", "email", admin.Email, "password", password)
+	slog.Info("default admin user created", "email", admin.Email)
 	return nil
 }
 

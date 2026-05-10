@@ -14,13 +14,51 @@ import { UsersPage } from './pages/UsersPage'
 import { LoginPage } from './pages/LoginPage'
 import { setAuthToken, api } from './api/client'
 
+function tokenFromHash(hash: string): string | null {
+  if (!hash) return null
+  const frag = hash.startsWith('#') ? hash.slice(1) : hash
+  if (!frag) return null
+
+  if (frag.includes('?')) {
+    const query = frag.slice(frag.indexOf('?') + 1)
+    return new URLSearchParams(query).get('token')
+  }
+
+  return new URLSearchParams(frag).get('token')
+}
+
+function removeTokenFromHash(hash: string): string {
+  if (!hash) return hash
+  const frag = hash.startsWith('#') ? hash.slice(1) : hash
+  if (!frag) return hash
+
+  if (frag.includes('?')) {
+    const idx = frag.indexOf('?')
+    const pathPart = frag.slice(0, idx)
+    const query = new URLSearchParams(frag.slice(idx + 1))
+    if (!query.has('token')) return hash
+    query.delete('token')
+    const next = query.toString()
+    return `#${pathPart}${next ? `?${next}` : ''}`
+  }
+
+  const query = new URLSearchParams(frag)
+  if (!query.has('token')) return hash
+  query.delete('token')
+  const next = query.toString()
+  return next ? `#${next}` : ''
+}
+
+function tokenFromCurrentLocation(): string | null {
+  const url = new URL(window.location.href)
+  return url.searchParams.get('token') || tokenFromHash(url.hash)
+}
+
 function getInitialToken(): string | null {
   if (typeof window === 'undefined') return null
   const fromStorage = localStorage.getItem('token')
   if (fromStorage) return fromStorage
-
-  const url = new URL(window.location.href)
-  return url.searchParams.get('token')
+  return tokenFromCurrentLocation()
 }
 
 function TicketRedirect({ mailboxes }: { mailboxes: any[] }) {
@@ -186,7 +224,7 @@ export default function App() {
 
   useEffect(() => {
     const url = new URL(window.location.href)
-    const oidcToken = url.searchParams.get('token')
+    const oidcToken = tokenFromCurrentLocation()
     if (!oidcToken) return
 
     localStorage.setItem('token', oidcToken)
@@ -194,7 +232,9 @@ export default function App() {
     setToken(oidcToken)
 
     url.searchParams.delete('token')
-    window.history.replaceState({}, '', url.pathname + (url.search ? url.search : '') + url.hash)
+    const cleanedHash = removeTokenFromHash(url.hash)
+    const nextHash = cleanedHash || ''
+    window.history.replaceState({}, '', url.pathname + (url.search ? url.search : '') + nextHash)
   }, [])
 
   const [mailboxesLoaded, setMailboxesLoaded] = useState(false)

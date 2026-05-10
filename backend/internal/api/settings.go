@@ -2,9 +2,11 @@ package api
 
 import (
 	"context"
+	"net"
 	"net/http"
 	"os"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/helpdesk/backend/internal/models"
@@ -14,6 +16,100 @@ import (
 )
 
 const oidcCallbackAPIEndpoint = "/api/v1/auth/oidc/callback"
+
+const (
+	loginRateWindow        = 15 * time.Minute
+	loginRateBlockDuration = 15 * time.Minute
+	loginRateMaxAttempts   = 8
+)
+
+type loginRateState struct {
+	Attempts     []time.Time
+	BlockedUntil time.Time
+}
+
+var (
+	loginRatesMu sync.Mutex
+	loginRates   = map[string]loginRateState{}
+)
+
+func cleanupLoginRates(now time.Time) {
+	for key, state := range loginRates {
+		if len(state.Attempts) == 0 && now.After(state.BlockedUntil.Add(loginRateWindow)) {
+			delete(loginRates, key)
+		}
+	}
+}
+
+func loginRateKey(r *http.Request, email string) string {
+	email = strings.ToLower(strings.TrimSpace(email))
+	ip := strings.TrimSpace(r.Header.Get("X-Forwarded-For"))
+	if ip != "" {
+		if i := strings.Index(ip, ","); i >= 0 {
+			ip = strings.TrimSpace(ip[:i])
+		}
+	}
+	if ip == "" {
+		ip = strings.TrimSpace(r.Header.Get("X-Real-IP"))
+	}
+	if ip == "" {
+		host, _, err := net.SplitHostPort(strings.TrimSpace(r.RemoteAddr))
+		if err == nil {
+			ip = host
+		} else {
+			ip = strings.TrimSpace(r.RemoteAddr)
+		}
+	}
+	return email + "|" + ip
+}
+
+func loginAllowed(key string, now time.Time) bool {
+	loginRatesMu.Lock()
+	defer loginRatesMu.Unlock()
+
+	state := loginRates[key]
+	if now.Before(state.BlockedUntil) {
+		cleanupLoginRates(now)
+		return false
+	}
+
+	filtered := state.Attempts[:0]
+	for _, t := range state.Attempts {
+		if now.Sub(t) <= loginRateWindow {
+			filtered = append(filtered, t)
+		}
+	}
+	state.Attempts = filtered
+	loginRates[key] = state
+	cleanupLoginRates(now)
+	return true
+}
+
+func recordLoginFailure(key string, now time.Time) {
+	loginRatesMu.Lock()
+	defer loginRatesMu.Unlock()
+
+	state := loginRates[key]
+	filtered := state.Attempts[:0]
+	for _, t := range state.Attempts {
+		if now.Sub(t) <= loginRateWindow {
+			filtered = append(filtered, t)
+		}
+	}
+	state.Attempts = append(filtered, now)
+	if len(state.Attempts) >= loginRateMaxAttempts {
+		state.BlockedUntil = now.Add(loginRateBlockDuration)
+		state.Attempts = nil
+	}
+	loginRates[key] = state
+	cleanupLoginRates(now)
+}
+
+func recordLoginSuccess(key string) {
+	loginRatesMu.Lock()
+	defer loginRatesMu.Unlock()
+	delete(loginRates, key)
+}
 
 func (h *handlers) getSettings(w http.ResponseWriter, r *http.Request) {
 	if !requireAdmin(r) {
@@ -317,6 +413,13 @@ func (h *handlers) login(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "INVALID_JSON", err.Error())
 		return
 	}
+	body.Email = strings.TrimSpace(body.Email)
+	rateKey := loginRateKey(r, body.Email)
+	now := time.Now()
+	if !loginAllowed(rateKey, now) {
+		writeError(w, http.StatusTooManyRequests, "RATE_LIMITED", "too many login attempts, please try again later")
+		return
+	}
 
 	var settings models.Settings
 	if err := h.db.Settings().FindOne(ctx, bson.M{"_id": "global"}).Decode(&settings); err == nil {
@@ -329,14 +432,17 @@ func (h *handlers) login(w http.ResponseWriter, r *http.Request) {
 	var user models.User
 	err := h.db.Users().FindOne(ctx, bson.M{"email": body.Email}).Decode(&user)
 	if err != nil {
+		recordLoginFailure(rateKey, now)
 		writeError(w, http.StatusUnauthorized, "INVALID_CREDENTIALS", "invalid email or password")
 		return
 	}
 
 	if !store.VerifyPassword(body.Password, user.PasswordHash) {
+		recordLoginFailure(rateKey, now)
 		writeError(w, http.StatusUnauthorized, "INVALID_CREDENTIALS", "invalid email or password")
 		return
 	}
+	recordLoginSuccess(rateKey)
 
 	// Generate JWT token
 	token, err := generateToken(user.ID, user.Name, string(user.Role))

@@ -309,9 +309,22 @@ func (h *handlers) deleteMailbox(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Check that no tickets belong to this mailbox
-	count, _ := h.db.Tickets().CountDocuments(ctx, bson.M{"mailbox_id": id})
+	count, err := h.db.Tickets().CountDocuments(ctx, bson.M{"mailbox_id": id})
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "DB_ERROR", err.Error())
+		return
+	}
 	if count > 0 {
 		writeError(w, http.StatusConflict, "MAILBOX_HAS_TICKETS", "cannot delete a mailbox that has tickets")
+		return
+	}
+
+	// Remove this mailbox from all users' mailboxes arrays before deleting
+	// the mailbox itself so successful deletion never leaves stale references.
+	if _, err := h.db.Users().UpdateMany(ctx, bson.M{}, bson.M{
+		"$pull": bson.M{"mailboxes": id},
+	}); err != nil {
+		writeError(w, http.StatusInternalServerError, "DB_ERROR", err.Error())
 		return
 	}
 
@@ -324,11 +337,6 @@ func (h *handlers) deleteMailbox(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusNotFound, "MAILBOX_NOT_FOUND", "mailbox not found")
 		return
 	}
-
-	// Remove this mailbox from all users' mailboxes arrays
-	h.db.Users().UpdateMany(ctx, bson.M{}, bson.M{
-		"$pull": bson.M{"mailboxes": id},
-	})
 
 	w.WriteHeader(http.StatusNoContent)
 }

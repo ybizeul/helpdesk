@@ -27,7 +27,7 @@ export function LoginPage({ onLogin }: LoginPageProps) {
         setOIDCEnabled(!!s.enabled)
         setDisableLocalLogin(!!s.disable_local_login)
         if (s.enabled && s.disable_local_login) {
-          const redirectPath = window.location.pathname + window.location.search
+          const redirectPath = window.location.pathname + window.location.search + window.location.hash
           window.location.href = api.oidc.startUrl(redirectPath || '/')
         }
       })
@@ -69,7 +69,7 @@ export function LoginPage({ onLogin }: LoginPageProps) {
 
   const handleOIDCLogin = () => {
     setOIDCLoading(true)
-    const redirectPath = window.location.pathname + window.location.search
+    const redirectPath = window.location.pathname + window.location.search + window.location.hash
     window.location.href = api.oidc.startUrl(redirectPath || '/')
   }
 

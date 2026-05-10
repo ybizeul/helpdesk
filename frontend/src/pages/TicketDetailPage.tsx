@@ -7,6 +7,7 @@ import { formatDistanceToNow } from 'date-fns'
 import { ReplyEditor } from '../components/ReplyEditor'
 import { notifications } from '@mantine/notifications'
 import { useDisclosure, useMediaQuery } from '@mantine/hooks'
+import DOMPurify from 'dompurify'
 
 const REPLY_PREFIXES = ['Re: ', 'RE: ', 're: ', 'AW: ', 'Aw: ', 'aw: ', 'Fwd: ', 'FWD: ', 'fwd: ', 'WG: ', 'Wg: ', 'SV: ', 'Sv: ', 'VS: ', 'Vs: ', 'TR: ', 'Tr: ']
 
@@ -71,10 +72,12 @@ function formatFileSize(size: number): string {
 }
 
 function sanitizeHtml(html: string): string {
-  return html
-    .replace(/<script[\s\S]*?<\/script>/gi, '')
-    .replace(/<style[\s\S]*?<\/style>/gi, '')
-    .replace(/\s+on\w+\s*=\s*("[^"]*"|'[^']*'|[^\s>]*)/gi, '')
+  return DOMPurify.sanitize(html, {
+    USE_PROFILES: { html: true },
+    FORBID_TAGS: ['script', 'style', 'iframe', 'object', 'embed', 'form'],
+    FORBID_ATTR: ['onerror', 'onload', 'onclick', 'onmouseover', 'onfocus'],
+    ALLOWED_URI_REGEXP: /^(?:(?:https?|mailto|tel|cid|data:image\/)|[^a-z]|[a-z+.-]+(?:[^a-z+.-]|$))/i,
+  })
 }
 
 function withAuthTokenIfNeeded(rawUrl: string): string {

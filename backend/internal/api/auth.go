@@ -287,11 +287,16 @@ func authMiddleware(next http.Handler) http.Handler {
 		}
 
 		var tokenStr string
+		isAttachmentDownload := strings.HasPrefix(r.URL.Path, "/api/v1/tickets/") && strings.Contains(r.URL.Path, "/attachments/")
 		if auth := r.Header.Get("Authorization"); strings.HasPrefix(auth, "Bearer ") {
 			tokenStr = strings.TrimPrefix(auth, "Bearer ")
-		} else if t := r.URL.Query().Get("token"); t != "" {
-			tokenStr = t
-		} else {
+		} else if isAttachmentDownload {
+			if t := r.URL.Query().Get("token"); t != "" {
+				tokenStr = t
+			}
+		}
+
+		if tokenStr == "" {
 			writeError(w, http.StatusUnauthorized, "UNAUTHORIZED", "missing or invalid authorization header")
 			return
 		}

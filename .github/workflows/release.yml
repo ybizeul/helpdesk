@@ -2,7 +2,7 @@ name: Release
 
 on:
   push:
-    branches: [main]
+    branches: ["**"]
     tags: ["v*"]
   pull_request:
     types: [closed]
@@ -50,7 +50,7 @@ jobs:
           elif [[ "$GITHUB_REF" == refs/heads/main ]] || [[ "${{ github.event_name }}" == "pull_request" ]]; then
             echo "tag=latest" >> "$GITHUB_OUTPUT"
           else
-            echo "tag=${GITHUB_REF#refs/heads/}" >> "$GITHUB_OUTPUT"
+            echo "tag=dev" >> "$GITHUB_OUTPUT"
           fi
 
       - name: Run GoReleaser (tag)
