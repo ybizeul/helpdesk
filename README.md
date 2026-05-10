@@ -29,6 +29,10 @@ With Helpdesk, you can:
 	Admin and agent roles with mailbox-level access control.
 - Admin workspace:
 	Manage users, mailbox settings, authentication options, and integrations.
+- OIDC integration:
+    Use corporate authentication to log into helpdesk
+- Pushover support:
+    Pushover notifications can be configured per user
 - Hupload integration:
     [Hupload](https://github.com/ybizeul/hupload) can be integrated to generate new customer shares and display uploaded files
 
