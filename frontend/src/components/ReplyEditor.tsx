@@ -35,6 +35,15 @@ function insertPlainTextWithLineBreaks(view: any, rawText: string): boolean {
   return true
 }
 
+function isInCodeBlock(view: any): boolean {
+  const { $from } = view.state.selection
+  for (let depth = $from.depth; depth >= 0; depth--) {
+    const node = $from.node(depth)
+    if (node.type.spec.code || node.type.name === 'codeBlock') return true
+  }
+  return false
+}
+
 function resizeImage(dataUrl: string): Promise<string> {
   return new Promise((resolve) => {
     const img = new window.Image()
@@ -118,6 +127,10 @@ export function ReplyEditor({ onSend, onSendAndClose, onAddNote, signature, show
         const plainText = event.clipboardData?.getData('text/plain')
         const htmlText = event.clipboardData?.getData('text/html')
         if (plainText && !htmlText) {
+          if (isInCodeBlock(view)) {
+            // Let ProseMirror handle plain text paste in code blocks to keep raw newlines.
+            return false
+          }
           event.preventDefault()
           return insertPlainTextWithLineBreaks(view, plainText)
         }
