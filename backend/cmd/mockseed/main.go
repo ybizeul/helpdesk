@@ -104,8 +104,8 @@ func seed(ctx context.Context, db *store.DB) error {
 	}
 
 	tickets := append(
-		buildMockTickets(now, mailboxIDs[acmeMailboxSlug], userIDs, 7000, "ACME"),
-		buildMockTickets(now, mailboxIDs[marvelousMailboxSlug], userIDs, 8000, "Marvelous")...,
+		buildMockTickets(now, mailboxIDs[acmeMailboxSlug], userIDs, 7000),
+		buildMockTickets(now, mailboxIDs[marvelousMailboxSlug], userIDs, 8000)...,
 	)
 	if len(tickets) == 0 {
 		return nil
@@ -235,7 +235,7 @@ func upsertUser(ctx context.Context, db *store.DB, u seedUser, mailboxIDs map[st
 	return user.ID, nil
 }
 
-func buildMockTickets(now time.Time, mailboxID string, userIDs map[string]string, numberBase int, mailboxName string) []models.Ticket {
+func buildMockTickets(now time.Time, mailboxID string, userIDs map[string]string, numberBase int) []models.Ticket {
 	rng := rand.New(rand.NewSource(42))
 	requesters := []models.Requester{
 		{Name: "Alice Martin", Email: "alice.martin@example.com"},
@@ -247,21 +247,21 @@ func buildMockTickets(now time.Time, mailboxID string, userIDs map[string]string
 	}
 
 	subjects := []string{
-		fmt.Sprintf("Unable to reset password (%s)", mailboxName),
-		fmt.Sprintf("Invoice PDF is blank (%s)", mailboxName),
-		fmt.Sprintf("2FA code not received (%s)", mailboxName),
-		fmt.Sprintf("API request returns 500 (%s)", mailboxName),
-		fmt.Sprintf("Need access to archived reports (%s)", mailboxName),
-		fmt.Sprintf("Mobile app keeps crashing (%s)", mailboxName),
-		fmt.Sprintf("Data export missing last week (%s)", mailboxName),
-		fmt.Sprintf("Cannot upload attachment (%s)", mailboxName),
-		fmt.Sprintf("SAML SSO mapping issue (%s)", mailboxName),
-		fmt.Sprintf("Feature request: dark mode (%s)", mailboxName),
-		fmt.Sprintf("Billing address update (%s)", mailboxName),
-		fmt.Sprintf("Webhook retries too aggressive (%s)", mailboxName),
-		fmt.Sprintf("Intermittent timeout on search (%s)", mailboxName),
-		fmt.Sprintf("Wrong timezone in dashboard (%s)", mailboxName),
-		fmt.Sprintf("Need to merge duplicate accounts (%s)", mailboxName),
+		"Unable to reset password",
+		"Invoice PDF is blank",
+		"2FA code not received",
+		"API request returns 500",
+		"Need access to archived reports",
+		"Mobile app keeps crashing",
+		"Data export missing last week",
+		"Cannot upload attachment",
+		"SAML SSO mapping issue",
+		"Feature request: dark mode",
+		"Billing address update",
+		"Webhook retries too aggressive",
+		"Intermittent timeout on search",
+		"Wrong timezone in dashboard",
+		"Need to merge duplicate accounts",
 	}
 
 	statuses := []models.TicketStatus{
