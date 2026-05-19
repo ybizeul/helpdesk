@@ -507,12 +507,9 @@ func (h *handlers) replyTicket(w http.ResponseWriter, r *http.Request) {
 		msg.From = "agent"
 	}
 
-	// Set owner to the replying user if not already set
+	// Set owner to the replying user.
 	claims := ctx.Value(claimsKey).(*jwtClaims)
-	setFields := bson.M{"updated_at": time.Now(), "status": models.TicketStatusWaiting}
-	if ticket.OwnerID == "" {
-		setFields["owner_id"] = claims.Sub
-	}
+	setFields := bson.M{"updated_at": time.Now(), "status": models.TicketStatusWaiting, "owner_id": claims.Sub}
 
 	_, err = h.db.Tickets().UpdateByID(ctx, oid, bson.M{
 		"$push": bson.M{"messages": msg},
