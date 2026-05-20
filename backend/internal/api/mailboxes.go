@@ -8,6 +8,7 @@ import (
 
 	"github.com/helpdesk/backend/internal/email"
 	"github.com/helpdesk/backend/internal/models"
+	"github.com/helpdesk/backend/internal/notify"
 	"go.mongodb.org/mongo-driver/v2/bson"
 	"go.mongodb.org/mongo-driver/v2/mongo"
 )
@@ -371,6 +372,9 @@ func (h *handlers) fetchMailboxNow(w http.ResponseWriter, r *http.Request) {
 	if fetchErr != nil {
 		writeError(w, http.StatusBadGateway, "IMAP_ERROR", fetchErr.Error())
 		return
+	}
+	if result.Created > 0 || result.Updated > 0 {
+		go notify.SendUserNotifications(h.db, mb, result)
 	}
 	writeJSON(w, http.StatusOK, result)
 }
