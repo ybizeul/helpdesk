@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"mime"
+	"net/url"
 	"strings"
 
 	"github.com/emersion/go-message"
@@ -207,11 +208,36 @@ func extractFilename(e *message.Entity, params map[string]string) string {
 			if name, ok := dparams["filename"]; ok {
 				return name
 			}
+			if name, ok := dparams["filename*"]; ok {
+				return decodeRFC2231Value(name)
+			}
 		}
 	}
 	// Try Content-Type name parameter
 	if name, ok := params["name"]; ok {
 		return name
 	}
+	if name, ok := params["name*"]; ok {
+		return decodeRFC2231Value(name)
+	}
 	return ""
+}
+
+func decodeRFC2231Value(v string) string {
+	v = strings.TrimSpace(v)
+	if v == "" {
+		return ""
+	}
+	parts := strings.SplitN(v, "'", 3)
+	if len(parts) == 3 {
+		decoded, err := url.QueryUnescape(parts[2])
+		if err == nil && decoded != "" {
+			return decoded
+		}
+	}
+	decoded, err := url.QueryUnescape(v)
+	if err == nil && decoded != "" {
+		return decoded
+	}
+	return v
 }

@@ -637,7 +637,7 @@ export function TicketDetailPage({ ticketId: propId, onBack, onTicketUpdate, onN
               const attachmentPath = `/api/v1/tickets/${ticket.id}/messages/${i}/attachments/${attIdx}`
               const isRenderedInlineImage = isImage && typeof msg.html === 'string' && msg.html.includes(attachmentPath)
               if ((isImage && isInline) || isRenderedInlineImage) return false
-              return !isInline
+              return true
             })
           const headerBg = msg.private
             ? 'light-dark(var(--mantine-color-red-1), var(--mantine-color-red-7))'
