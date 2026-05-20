@@ -139,6 +139,13 @@ func collectParts(e *message.Entity, result *ParsedBody, cidMap map[string]strin
 		return
 	}
 
+	// Determine disposition and filename before deciding inline vs attachment behavior.
+	disp := strings.ToLower(e.Header.Get("Content-Disposition"))
+	isAttachment := strings.HasPrefix(disp, "attachment")
+	isInline := strings.HasPrefix(disp, "inline")
+	filename := extractFilename(e, params)
+	hasFilename := filename != ""
+
 	// Check for Content-ID (inline attachment for cid: references)
 	// Only treat non-text parts as inline resources; text/html and text/plain
 	// parts may carry a Content-ID in multipart/related messages but still
@@ -146,21 +153,15 @@ func collectParts(e *message.Entity, result *ParsedBody, cidMap map[string]strin
 	contentID := e.Header.Get("Content-Id")
 	if contentID != "" && !strings.HasPrefix(mediaType, "text/") {
 		cid := strings.TrimPrefix(strings.TrimSuffix(contentID, ">"), "<")
-		if strings.HasPrefix(mediaType, "image/") || strings.HasPrefix(mediaType, "application/") {
+		if strings.HasPrefix(mediaType, "image/") {
 			dataURI := fmt.Sprintf("data:%s;base64,%s", mediaType, base64.StdEncoding.EncodeToString(body))
 			cidMap[cid] = dataURI
+			// Inline CID images are part of the message body, not downloadable attachments.
+			if isInline || !isAttachment {
+				return
+			}
 		}
-		return
 	}
-
-	// Determine disposition
-	disp := strings.ToLower(e.Header.Get("Content-Disposition"))
-
-	// Check if this is an attachment (explicit disposition or non-text type without CID)
-	isAttachment := strings.HasPrefix(disp, "attachment")
-	isInline := strings.HasPrefix(disp, "inline")
-	filename := extractFilename(e, params)
-	hasFilename := filename != ""
 
 	switch {
 	case strings.HasPrefix(mediaType, "text/html") && !isAttachment && !hasFilename:
