@@ -37,10 +37,10 @@ type Requester struct {
 
 type MessageAttachment struct {
 	AttachmentID string `bson:"attachment_id,omitempty" json:"attachment_id,omitempty"`
-	Filename    string `bson:"filename" json:"filename"`
-	ContentType string `bson:"content_type" json:"content_type"`
-	Size        int    `bson:"size" json:"size"`
-	Data        []byte `bson:"data" json:"-"`
+	Filename     string `bson:"filename" json:"filename"`
+	ContentType  string `bson:"content_type" json:"content_type"`
+	Size         int    `bson:"size" json:"size"`
+	Data         []byte `bson:"data" json:"-"`
 }
 
 type Message struct {
