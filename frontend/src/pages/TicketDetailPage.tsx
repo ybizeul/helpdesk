@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useMemo, useCallback, useRef } from 'react'
 import { useParams } from 'react-router-dom'
 import { Title, Text, Paper, Badge, Stack, Group, Box, ActionIcon, Tooltip, Alert, Button as MButton, Modal, Menu, Avatar, Skeleton, TextInput, Table, Anchor } from '@mantine/core'
-import { IconRefresh, IconSend, IconPaperclip, IconArrowLeft, IconTrash, IconExternalLink } from '@tabler/icons-react'
+import { IconRefresh, IconSend, IconArrowLeft, IconTrash, IconExternalLink } from '@tabler/icons-react'
 import { api } from '../api/client'
 import { formatDistanceToNow } from 'date-fns'
 import { ReplyEditor } from '../components/ReplyEditor'
@@ -10,6 +10,13 @@ import { useDisclosure, useMediaQuery } from '@mantine/hooks'
 import DOMPurify from 'dompurify'
 
 const REPLY_PREFIXES = ['Re: ', 'RE: ', 're: ', 'AW: ', 'Aw: ', 'aw: ', 'Fwd: ', 'FWD: ', 'fwd: ', 'WG: ', 'Wg: ', 'SV: ', 'Sv: ', 'VS: ', 'Vs: ', 'TR: ', 'Tr: ']
+
+type TicketMessageAttachment = {
+  filename?: string
+  size?: number
+  content_type?: string
+  inline?: boolean
+}
 
 function stripReplyPrefixes(subject: string): string {
   let s = subject
@@ -622,6 +629,16 @@ export function TicketDetailPage({ ticketId: propId, onBack, onTicketUpdate, onN
           const smtpFrom = mailbox?.email?.smtp_from
           const isOutgoing = msg.from === 'agent' || (smtpFrom && msg.from === smtpFrom)
           const displayFrom = msg.from === 'agent' ? smtpFrom || 'agent' : msg.from
+          const nonInlineAttachments: Array<{ att: TicketMessageAttachment; attIdx: number }> = (msg.attachments ?? [])
+            .map((att: TicketMessageAttachment, attIdx: number) => ({ att, attIdx }))
+            .filter(({ att, attIdx }: { att: TicketMessageAttachment; attIdx: number }) => {
+              const isImage = typeof att.content_type === 'string' && att.content_type.startsWith('image/')
+              const isInline = att.inline === true
+              const attachmentPath = `/api/v1/tickets/${ticket.id}/messages/${i}/attachments/${attIdx}`
+              const isRenderedInlineImage = isImage && typeof msg.html === 'string' && msg.html.includes(attachmentPath)
+              if ((isImage && isInline) || isRenderedInlineImage) return false
+              return !isInline
+            })
           const headerBg = msg.private
             ? 'light-dark(var(--mantine-color-red-1), var(--mantine-color-red-7))'
             : 'light-dark(var(--mantine-color-gray-1), var(--mantine-color-dark-6))'
@@ -662,6 +679,21 @@ export function TicketDetailPage({ ticketId: propId, onBack, onTicketUpdate, onN
                   )}
                 </>
               )}
+              {nonInlineAttachments.length > 0 && (
+                <Group gap="xs" wrap="wrap" align="center" mt={4} mr={56}>
+                  <Text size="sm" fw={600}>Attachments:</Text>
+                  {nonInlineAttachments.map(({ att, attIdx }: { att: TicketMessageAttachment; attIdx: number }) => (
+                    <Anchor
+                      key={`${att.filename || 'attachment'}-${attIdx}`}
+                      href={attachmentUrl(ticket.id, i, attIdx)}
+                      size="sm"
+                      underline="always"
+                    >
+                      {att.filename || 'attachment'}{att.size ? ` (${formatFileSize(att.size)})` : ''}
+                    </Anchor>
+                  ))}
+                </Group>
+              )}
             </Box>
             <Box p="md">
             {msg.send_error && (
@@ -686,25 +718,6 @@ export function TicketDetailPage({ ticketId: propId, onBack, onTicketUpdate, onN
                   </Tooltip>
                 </Group>
               </Alert>
-            )}
-            {msg.attachments?.some((att: any) => !att.content_type?.startsWith('image/')) && (
-              <Group gap="xs" mb="sm">
-                <IconPaperclip size={14} style={{ opacity: 0.5 }} />
-                {msg.attachments.map((att: any, j: number) =>
-                  att.content_type?.startsWith('image/') ? null : (
-                    <MButton
-                      key={j}
-                      size="compact-xs"
-                      variant="light"
-                      component="a"
-                      href={attachmentUrl(ticket.id, i, j)}
-                      download={att.filename}
-                    >
-                      {att.filename} ({Math.round(att.size / 1024)}KB)
-                    </MButton>
-                  )
-                )}
-              </Group>
             )}
             <MessageBody msg={msg} isOutgoing={isOutgoing || msg.private} onOpenImage={handleOpenImage} />
             {msg.attachments?.some((att: any) => att.content_type?.startsWith('image/')) && (
