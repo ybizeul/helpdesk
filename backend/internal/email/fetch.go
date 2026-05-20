@@ -34,8 +34,43 @@ type FetchResult struct {
 	Events  []TicketEvent `json:"events,omitempty"`
 }
 
+func persistAttachmentBlobs(ctx context.Context, db TicketStore, ticketID, messageID string, atts []models.MessageAttachment) ([]models.MessageAttachment, error) {
+	if len(atts) == 0 {
+		return atts, nil
+	}
+
+	persisted := make([]models.MessageAttachment, len(atts))
+	for i, att := range atts {
+		persisted[i] = att
+		if len(att.Data) == 0 {
+			continue
+		}
+
+		doc := models.Attachment{
+			TicketID:    ticketID,
+			MessageID:   messageID,
+			Filename:    att.Filename,
+			ContentType: att.ContentType,
+			Size:        int64(att.Size),
+			Data:        att.Data,
+			CreatedAt:   time.Now(),
+		}
+		ins, err := db.Attachments().InsertOne(ctx, doc)
+		if err != nil {
+			return nil, err
+		}
+		if oid, ok := ins.InsertedID.(bson.ObjectID); ok {
+			persisted[i].AttachmentID = oid.Hex()
+		}
+		persisted[i].Data = nil
+	}
+
+	return persisted, nil
+}
+
 type TicketStore interface {
 	Tickets() *mongo.Collection
+	Attachments() *mongo.Collection
 	Settings() *mongo.Collection
 	Mailboxes() *mongo.Collection
 	NextTicketNumber(ctx context.Context) (int, error)
@@ -304,6 +339,13 @@ func fetchEmailsOnce(ctx context.Context, cfg models.EmailSettings, db TicketSto
 		}
 
 		if existingTicket != nil {
+			storedAttachments, err := persistAttachmentBlobs(ctx, db, existingTicket.ID, messageID, newMsg.Attachments)
+			if err != nil {
+				slog.Error("failed to persist attachment blobs", "ticket", existingTicket.ID, "error", err)
+				continue
+			}
+			newMsg.Attachments = storedAttachments
+
 			// Append message to existing ticket
 			oid, _ := bson.ObjectIDFromHex(existingTicket.ID)
 			newStatus := models.TicketStatusUnassigned
@@ -322,7 +364,7 @@ func fetchEmailsOnce(ctx context.Context, cfg models.EmailSettings, db TicketSto
 			if parsed.ThreadIndex != "" {
 				update["$set"].(bson.M)["thread_index"] = parsed.ThreadIndex
 			}
-			_, err := db.Tickets().UpdateByID(ctx, oid, update)
+			_, err = db.Tickets().UpdateByID(ctx, oid, update)
 			if err != nil {
 				slog.Error("failed to update ticket", "id", existingTicket.ID, "error", err)
 				continue
@@ -336,6 +378,13 @@ func fetchEmailsOnce(ctx context.Context, cfg models.EmailSettings, db TicketSto
 				FromEmail: from,
 			})
 		} else {
+			storedAttachments, err := persistAttachmentBlobs(ctx, db, "", messageID, newMsg.Attachments)
+			if err != nil {
+				slog.Error("failed to persist attachment blobs", "subject", subject, "error", err)
+				continue
+			}
+			newMsg.Attachments = storedAttachments
+
 			// Create a new ticket
 			// Check if the subject contains a ticket number like [#1234]
 			var num int

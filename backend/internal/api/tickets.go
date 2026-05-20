@@ -805,11 +805,31 @@ func (h *handlers) downloadAttachment(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	att := msg.Attachments[attIdx]
+	content := att.Data
+	if len(content) == 0 && att.AttachmentID != "" {
+		aid, err := bson.ObjectIDFromHex(att.AttachmentID)
+		if err == nil {
+			var stored models.Attachment
+			if err := h.db.Attachments().FindOne(r.Context(), bson.M{"_id": aid}).Decode(&stored); err == nil {
+				if att.Filename == "" {
+					att.Filename = stored.Filename
+				}
+				if att.ContentType == "" {
+					att.ContentType = stored.ContentType
+				}
+				content = stored.Data
+			}
+		}
+	}
+	if len(content) == 0 {
+		writeError(w, http.StatusNotFound, "ATTACHMENT_NOT_FOUND", "attachment content not found")
+		return
+	}
 
 	w.Header().Set("Content-Type", att.ContentType)
 	w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=%q", att.Filename))
-	w.Header().Set("Content-Length", strconv.Itoa(len(att.Data)))
-	w.Write(att.Data)
+	w.Header().Set("Content-Length", strconv.Itoa(len(content)))
+	_, _ = w.Write(content)
 }
 
 func (h *handlers) createOrGetHuploadShare(w http.ResponseWriter, r *http.Request) {

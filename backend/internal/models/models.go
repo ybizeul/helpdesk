@@ -36,6 +36,7 @@ type Requester struct {
 }
 
 type MessageAttachment struct {
+	AttachmentID string `bson:"attachment_id,omitempty" json:"attachment_id,omitempty"`
 	Filename    string `bson:"filename" json:"filename"`
 	ContentType string `bson:"content_type" json:"content_type"`
 	Size        int    `bson:"size" json:"size"`
@@ -95,9 +96,11 @@ type User struct {
 type Attachment struct {
 	ID          string    `bson:"_id,omitempty" json:"id"`
 	TicketID    string    `bson:"ticket_id" json:"ticket_id"`
+	MessageID   string    `bson:"message_id,omitempty" json:"message_id,omitempty"`
 	Filename    string    `bson:"filename" json:"filename"`
 	ContentType string    `bson:"content_type" json:"content_type"`
 	Size        int64     `bson:"size" json:"size"`
+	Data        []byte    `bson:"data,omitempty" json:"-"`
 	StoragePath string    `bson:"storage_path" json:"-"`
 	CreatedAt   time.Time `bson:"created_at" json:"created_at"`
 }
