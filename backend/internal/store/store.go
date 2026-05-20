@@ -194,6 +194,27 @@ func (db *DB) ReparseRawEmails(ctx context.Context) error {
 	return nil
 }
 
+func messageAttachmentsMatchParsed(existing []models.MessageAttachment, parsed []email.Attachment) bool {
+	if len(existing) != len(parsed) {
+		return false
+	}
+	for i := range existing {
+		if existing[i].Filename != parsed[i].Filename {
+			return false
+		}
+		if existing[i].ContentType != parsed[i].ContentType {
+			return false
+		}
+		if existing[i].Size != parsed[i].Size {
+			return false
+		}
+		if len(existing[i].Data) != len(parsed[i].Data) {
+			return false
+		}
+	}
+	return true
+}
+
 // ForceReparseRawEmails re-parses ALL messages that have raw_email stored,
 // updating body, html, attachments, and thread_topic regardless of current values.
 func (db *DB) ForceReparseRawEmails(ctx context.Context) error {
@@ -227,7 +248,7 @@ func (db *DB) ForceReparseRawEmails(ctx context.Context) error {
 				t.Messages[i].Cc = parsed.Cc
 				changed = true
 			}
-			if len(parsed.Attachments) > 0 && len(msg.Attachments) == 0 {
+			if len(parsed.Attachments) > 0 && !messageAttachmentsMatchParsed(msg.Attachments, parsed.Attachments) {
 				atts := make([]models.MessageAttachment, len(parsed.Attachments))
 				for j, a := range parsed.Attachments {
 					atts[j] = models.MessageAttachment{

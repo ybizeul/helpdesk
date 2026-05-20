@@ -159,17 +159,18 @@ func collectParts(e *message.Entity, result *ParsedBody, cidMap map[string]strin
 	isAttachment := strings.HasPrefix(disp, "attachment")
 	isInline := strings.HasPrefix(disp, "inline")
 	filename := extractFilename(e, params)
+	hasFilename := filename != ""
 
 	switch {
-	case strings.HasPrefix(mediaType, "text/html") && !isAttachment:
+	case strings.HasPrefix(mediaType, "text/html") && !isAttachment && !hasFilename:
 		if result.HTML == "" {
 			result.HTML = string(body)
 		}
-	case strings.HasPrefix(mediaType, "text/plain") && !isAttachment:
+	case strings.HasPrefix(mediaType, "text/plain") && !isAttachment && !hasFilename:
 		if result.Text == "" {
 			result.Text = string(body)
 		}
-	case (mediaType == "" || strings.HasPrefix(mediaType, "text")) && !isAttachment:
+	case (mediaType == "" || strings.HasPrefix(mediaType, "text")) && !isAttachment && !hasFilename:
 		if result.Text == "" {
 			result.Text = string(body)
 		}

@@ -1077,6 +1077,27 @@ func normalizePort(u *url.URL) string {
 	}
 }
 
+func messageAttachmentsMatchParsed(existing []models.MessageAttachment, parsed []email.Attachment) bool {
+	if len(existing) != len(parsed) {
+		return false
+	}
+	for i := range existing {
+		if existing[i].Filename != parsed[i].Filename {
+			return false
+		}
+		if existing[i].ContentType != parsed[i].ContentType {
+			return false
+		}
+		if existing[i].Size != parsed[i].Size {
+			return false
+		}
+		if len(existing[i].Data) != len(parsed[i].Data) {
+			return false
+		}
+	}
+	return true
+}
+
 func (h *handlers) reparseEmails(w http.ResponseWriter, r *http.Request) {
 	if !requireAdmin(r) {
 		writeError(w, http.StatusForbidden, "FORBIDDEN", "admin role required")
@@ -1123,7 +1144,7 @@ func (h *handlers) reparseEmails(w http.ResponseWriter, r *http.Request) {
 				ticket.Messages[i].Cc = parsed.Cc
 				changed = true
 			}
-			if len(parsed.Attachments) > 0 && len(msg.Attachments) == 0 {
+			if len(parsed.Attachments) > 0 && !messageAttachmentsMatchParsed(msg.Attachments, parsed.Attachments) {
 				var atts []models.MessageAttachment
 				for _, a := range parsed.Attachments {
 					atts = append(atts, models.MessageAttachment{
