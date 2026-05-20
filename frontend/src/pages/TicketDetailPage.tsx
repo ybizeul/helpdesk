@@ -201,6 +201,8 @@ export function TicketDetailPage({ ticketId: propId, onBack, onTicketUpdate, onN
   const [resendOpened, { open: openResend, close: closeResend }] = useDisclosure(false)
   const [resendIdx, setResendIdx] = useState<number | null>(null)
   const [deleteOpened, { open: openDelete, close: closeDelete }] = useDisclosure(false)
+  const [deleteMessageOpened, { open: openDeleteMessage, close: closeDeleteMessage }] = useDisclosure(false)
+  const [deleteMessageIdx, setDeleteMessageIdx] = useState<number | null>(null)
   const [previewImageSrc, setPreviewImageSrc] = useState<string | null>(null)
   const [previewZoom, setPreviewZoom] = useState(1)
   const [previewOffset, setPreviewOffset] = useState({ x: 0, y: 0 })
@@ -278,6 +280,21 @@ export function TicketDetailPage({ ticketId: propId, onBack, onTicketUpdate, onN
     await api.tickets.setStatus(id, status)
     api.tickets.get(id).then(setTicket)
     onTicketUpdate?.()
+  }
+
+  const confirmDeleteMessage = async () => {
+    if (!id || deleteMessageIdx === null) return
+    closeDeleteMessage()
+    try {
+      await api.tickets.deleteMessage(id, deleteMessageIdx)
+      notifications.show({ title: 'Message deleted', message: 'The message has been removed', color: 'green' })
+      api.tickets.get(id).then(setTicket)
+      onTicketUpdate?.()
+    } catch {
+      notifications.show({ title: 'Delete failed', message: 'Could not delete message', color: 'red' })
+    } finally {
+      setDeleteMessageIdx(null)
+    }
   }
 
   const handleOpenImage = (src: string) => {
@@ -648,16 +665,34 @@ export function TicketDetailPage({ ticketId: propId, onBack, onTicketUpdate, onN
               {msg.private ? (
                 <Box style={{ display: 'flex', alignItems: 'center', minHeight: 24 }}>
                   <Badge color="red" variant="filled" size="sm" style={{ '--badge-bg': 'light-dark(var(--mantine-color-red-6), white)', '--badge-color': 'light-dark(white, var(--mantine-color-red-7))' } as React.CSSProperties}>Private Note</Badge>
-                  <Text size="xs" style={{ position: 'absolute', top: '50%', transform: 'translateY(-50%)', right: 8, color: 'light-dark(var(--mantine-color-gray-6), var(--mantine-color-red-2))' }}>{formatDate(msg.created_at)}</Text>
+                  <Text size="xs" style={{ position: 'absolute', top: '50%', transform: 'translateY(-50%)', right: 40, color: 'light-dark(var(--mantine-color-gray-6), var(--mantine-color-red-2))' }}>{formatDate(msg.created_at)}</Text>
+                  <Tooltip label="Delete message">
+                    <ActionIcon
+                      variant="default"
+                      style={{ position: 'absolute', top: '50%', transform: 'translateY(-50%)', right: 8 }}
+                      onClick={() => { setDeleteMessageIdx(i); openDeleteMessage() }}
+                    >
+                      <IconTrash size={14} />
+                    </ActionIcon>
+                  </Tooltip>
                 </Box>
               ) : (
                 <>
                   <Text size="xs" c="dimmed" style={{ position: 'absolute', top: 8, right: 8 }}>{formatDate(msg.created_at)}</Text>
+                  <Tooltip label="Delete message">
+                    <ActionIcon
+                      variant="default"
+                      style={{ position: 'absolute', bottom: 8, right: 8 }}
+                      onClick={() => { setDeleteMessageIdx(i); openDeleteMessage() }}
+                    >
+                      <IconTrash size={14} />
+                    </ActionIcon>
+                  </Tooltip>
                   {isOutgoing && !msg.send_error && (
                     <Tooltip label="Re-send">
                       <ActionIcon
                         variant="default"
-                        style={{ position: 'absolute', bottom: 8, right: 8 }}
+                        style={{ position: 'absolute', bottom: 8, right: 40 }}
                         onClick={() => { setResendIdx(i); openResend() }}
                       >
                         <IconSend size={14} />
@@ -798,6 +833,14 @@ export function TicketDetailPage({ ticketId: propId, onBack, onTicketUpdate, onN
               api.tickets.get(id!).then(setTicket)
             }
           }}>Re-send</MButton>
+        </Group>
+      </Modal>
+
+      <Modal opened={deleteMessageOpened} onClose={closeDeleteMessage} title="Delete message" centered size="sm">
+        <Text size="sm" mb="md">Are you sure you want to delete this message? This action cannot be undone.</Text>
+        <Group justify="flex-end" gap="sm">
+          <MButton variant="default" onClick={() => { closeDeleteMessage(); setDeleteMessageIdx(null) }}>Cancel</MButton>
+          <MButton color="red" onClick={confirmDeleteMessage}>Delete</MButton>
         </Group>
       </Modal>
     </Box>

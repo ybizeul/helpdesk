@@ -469,6 +469,80 @@ func (h *handlers) deleteTicket(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNoContent)
 }
 
+func (h *handlers) deleteMessage(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	id := r.PathValue("id")
+
+	oid, err := bson.ObjectIDFromHex(id)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "INVALID_ID", "invalid ticket ID format")
+		return
+	}
+
+	msgIdx, err := strconv.Atoi(r.PathValue("msgIdx"))
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "INVALID_INDEX", "invalid message index")
+		return
+	}
+
+	ticket, ok := h.requireTicketAccess(w, r, oid)
+	if !ok {
+		return
+	}
+
+	if msgIdx < 0 || msgIdx >= len(ticket.Messages) {
+		writeError(w, http.StatusBadRequest, "INVALID_INDEX", "message index out of range")
+		return
+	}
+
+	msg := ticket.Messages[msgIdx]
+	newMessages := make([]models.Message, 0, len(ticket.Messages)-1)
+	newMessages = append(newMessages, ticket.Messages[:msgIdx]...)
+	newMessages = append(newMessages, ticket.Messages[msgIdx+1:]...)
+
+	updates := bson.M{
+		"messages":   newMessages,
+		"updated_at": time.Now(),
+	}
+	if len(newMessages) == 0 {
+		updates["unread"] = false
+	}
+
+	result, err := h.db.Tickets().UpdateByID(ctx, oid, bson.M{"$set": updates})
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "DB_ERROR", err.Error())
+		return
+	}
+	if result.MatchedCount == 0 {
+		writeError(w, http.StatusNotFound, "TICKET_NOT_FOUND", "ticket not found")
+		return
+	}
+
+	// Best-effort attachment cleanup for the deleted message.
+	var attachmentOIDs []bson.ObjectID
+	for _, att := range msg.Attachments {
+		if att.AttachmentID == "" {
+			continue
+		}
+		aid, err := bson.ObjectIDFromHex(att.AttachmentID)
+		if err == nil {
+			attachmentOIDs = append(attachmentOIDs, aid)
+		}
+	}
+	if len(attachmentOIDs) > 0 {
+		if _, err := h.db.Attachments().DeleteMany(ctx, bson.M{"_id": bson.M{"$in": attachmentOIDs}}); err != nil {
+			slog.Warn("failed to cleanup attachment docs by attachment IDs", "ticket", ticket.ID, "error", err)
+		}
+	}
+	if msg.MessageID != "" {
+		if _, err := h.db.Attachments().DeleteMany(ctx, bson.M{"ticket_id": ticket.ID, "message_id": msg.MessageID}); err != nil {
+			slog.Warn("failed to cleanup attachment docs by message ID", "ticket", ticket.ID, "message_id", msg.MessageID, "error", err)
+		}
+	}
+
+	w.WriteHeader(http.StatusNoContent)
+}
+
 func (h *handlers) replyTicket(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	id := r.PathValue("id")

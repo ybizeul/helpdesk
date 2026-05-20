@@ -59,6 +59,7 @@ export const api = {
     listHuploadItems: (id: string) => request<{ share: string; share_url: string; items: Array<{ filename: string; size: number; uploaded_at: string; download_url: string }> }>(`/tickets/${id}/hupload/items`),
     note: (id: string, msg: { body: string; html: string }) => request<void>(`/tickets/${id}/note`, { method: 'POST', body: JSON.stringify(msg) }),
     retrySend: (id: string, messageIndex: number) => request<any>(`/tickets/${id}/retry-send`, { method: 'POST', body: JSON.stringify({ message_index: messageIndex }) }),
+    deleteMessage: (id: string, messageIndex: number) => request<void>(`/tickets/${id}/messages/${messageIndex}`, { method: 'DELETE' }),
     assign: (id: string, assigneeId: string) => request<void>(`/tickets/${id}/assign`, { method: 'PUT', body: JSON.stringify({ assignee_id: assigneeId }) }),
     claim: (id: string) => request<void>(`/tickets/${id}/claim`, { method: 'PUT' }),
     setStatus: (id: string, status: string) => request<void>(`/tickets/${id}/status`, { method: 'PUT', body: JSON.stringify({ status }) }),
