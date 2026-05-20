@@ -81,16 +81,19 @@ type Ticket struct {
 }
 
 type User struct {
-	ID           string    `bson:"_id,omitempty" json:"id"`
-	Name         string    `bson:"name" json:"name"`
-	Email        string    `bson:"email" json:"email"`
-	Role         UserRole  `bson:"role" json:"role"`
-	Locale       string    `bson:"locale,omitempty" json:"locale,omitempty"`
-	Avatar       string    `bson:"avatar,omitempty" json:"avatar,omitempty"`
-	PushoverKey  string    `bson:"pushover_key,omitempty" json:"pushover_key,omitempty"`
-	PasswordHash string    `bson:"password_hash" json:"-"`
-	Mailboxes    []string  `bson:"mailboxes,omitempty" json:"mailboxes,omitempty"`
-	CreatedAt    time.Time `bson:"created_at" json:"created_at"`
+	ID                        string    `bson:"_id,omitempty" json:"id"`
+	Name                      string    `bson:"name" json:"name"`
+	Email                     string    `bson:"email" json:"email"`
+	Role                      UserRole  `bson:"role" json:"role"`
+	Locale                    string    `bson:"locale,omitempty" json:"locale,omitempty"`
+	Avatar                    string    `bson:"avatar,omitempty" json:"avatar,omitempty"`
+	PushoverKey               string    `bson:"pushover_key,omitempty" json:"pushover_key,omitempty"`
+	EmailNotifyNewCases       bool      `bson:"email_notify_new_cases,omitempty" json:"email_notify_new_cases,omitempty"`
+	EmailNotifyReplyToMyCases bool      `bson:"email_notify_reply_to_my_cases,omitempty" json:"email_notify_reply_to_my_cases,omitempty"`
+	EmailNotifyAnyEmail       bool      `bson:"email_notify_any_email,omitempty" json:"email_notify_any_email,omitempty"`
+	PasswordHash              string    `bson:"password_hash" json:"-"`
+	Mailboxes                 []string  `bson:"mailboxes,omitempty" json:"mailboxes,omitempty"`
+	CreatedAt                 time.Time `bson:"created_at" json:"created_at"`
 }
 
 type Attachment struct {

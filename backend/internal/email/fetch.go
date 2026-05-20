@@ -20,11 +20,13 @@ import (
 )
 
 type TicketEvent struct {
-	IsNew     bool   `json:"is_new"`
-	TicketID  string `json:"ticket_id"`
-	Number    int    `json:"number"`
-	FromName  string `json:"from_name"`
-	FromEmail string `json:"from_email"`
+	IsNew      bool   `json:"is_new"`
+	TicketID   string `json:"ticket_id"`
+	Number     int    `json:"number"`
+	FromName   string `json:"from_name"`
+	FromEmail  string `json:"from_email"`
+	OwnerID    string `json:"owner_id,omitempty"`
+	AssigneeID string `json:"assignee_id,omitempty"`
 }
 
 type FetchResult struct {
@@ -371,11 +373,13 @@ func fetchEmailsOnce(ctx context.Context, cfg models.EmailSettings, db TicketSto
 			}
 			result.Updated++
 			result.Events = append(result.Events, TicketEvent{
-				IsNew:     false,
-				TicketID:  existingTicket.ID,
-				Number:    existingTicket.Number,
-				FromName:  fromName,
-				FromEmail: from,
+				IsNew:      false,
+				TicketID:   existingTicket.ID,
+				Number:     existingTicket.Number,
+				FromName:   fromName,
+				FromEmail:  from,
+				OwnerID:    existingTicket.OwnerID,
+				AssigneeID: existingTicket.AssigneeID,
 			})
 		} else {
 			storedAttachments, err := persistAttachmentBlobs(ctx, db, "", messageID, newMsg.Attachments)

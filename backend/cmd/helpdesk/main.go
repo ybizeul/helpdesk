@@ -172,7 +172,7 @@ func pollEmails(db *store.DB, stop <-chan struct{}) {
 			} else if result.Count > 0 {
 				slog.Info("background email fetch", "mailbox", mb.Name, "created", result.Created, "updated", result.Updated)
 				if result.Created > 0 || result.Updated > 0 {
-					go sendPushoverNotifications(db, mb, result)
+					go sendUserNotifications(db, mb, result)
 				}
 			}
 
@@ -190,78 +190,113 @@ func pollEmails(db *store.DB, stop <-chan struct{}) {
 	}
 }
 
-func sendPushoverNotifications(db *store.DB, mb models.Mailbox, result *email.FetchResult) {
+func sendUserNotifications(db *store.DB, mb models.Mailbox, result *email.FetchResult) {
 	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 	defer cancel()
 
-	// Load the Pushover app token from global settings
+	// Load global settings for optional pushover and ticket URL generation.
 	var s models.Settings
-	if err := db.Settings().FindOne(ctx, bson.M{"_id": "global"}).Decode(&s); err != nil || s.PushoverAppToken == "" {
-		return
+	if err := db.Settings().FindOne(ctx, bson.M{"_id": "global"}).Decode(&s); err != nil {
+		slog.Error("notifications: failed to load settings", "error", err)
 	}
 
-	// Find users who have a pushover key and access to this mailbox
-	// Admins have access to all mailboxes; agents only if mailbox is in their list
-	filter := bson.M{"pushover_key": bson.M{"$ne": ""}}
+	// Find users with at least one notification channel configured.
+	filter := bson.M{"$or": bson.A{
+		bson.M{"pushover_key": bson.M{"$ne": ""}},
+		bson.M{"email_notify_new_cases": true},
+		bson.M{"email_notify_reply_to_my_cases": true},
+		bson.M{"email_notify_any_email": true},
+	}}
 	cur, err := db.Users().Find(ctx, filter)
 	if err != nil {
-		slog.Error("pushover: failed to query users", "error", err)
+		slog.Error("notifications: failed to query users", "error", err)
 		return
 	}
 	defer cur.Close(ctx)
 
 	var users []models.User
 	if err := cur.All(ctx, &users); err != nil {
-		slog.Error("pushover: failed to decode users", "error", err)
+		slog.Error("notifications: failed to decode users", "error", err)
 		return
 	}
 
-	// Build notifications from events
-	type pushoverMsg struct {
-		text string
-		url  string
-	}
-	var notifications []pushoverMsg
 	for _, ev := range result.Events {
 		sender := ev.FromName
 		if sender == "" {
 			sender = ev.FromEmail
 		}
-		var text string
+
+		var pushoverText string
+		var emailSubject string
+		emailText := fmt.Sprintf("Mailbox: %s\nCase: #%d\nSender: %s", mb.Name, ev.Number, ev.FromEmail)
+		emailHTML := fmt.Sprintf("<p><strong>Mailbox:</strong> %s</p><p><strong>Case:</strong> #%d</p><p><strong>Sender:</strong> %s</p>", mb.Name, ev.Number, ev.FromEmail)
 		if ev.IsNew {
-			text = fmt.Sprintf("New case in %s from %s", mb.Name, sender)
+			pushoverText = fmt.Sprintf("New case in %s from %s", mb.Name, sender)
+			emailSubject = fmt.Sprintf("[%s] New case #%d open for %s", mb.Name, ev.Number, ev.FromEmail)
 		} else {
-			text = fmt.Sprintf("%s replied to case #%d", sender, ev.Number)
+			pushoverText = fmt.Sprintf("%s replied to case #%d", sender, ev.Number)
+			emailSubject = fmt.Sprintf("[%s] New reply on #%d from %s", mb.Name, ev.Number, ev.FromEmail)
 		}
+
 		var ticketURL string
 		if s.WebsiteURL != "" {
 			ticketURL = fmt.Sprintf("%s/#/mailbox/%s/tickets/%s", strings.TrimRight(s.WebsiteURL, "/"), mb.Slug, ev.TicketID)
 		}
-		notifications = append(notifications, pushoverMsg{text: text, url: ticketURL})
-	}
-	if len(notifications) == 0 {
-		return
-	}
+		if ticketURL != "" {
+			emailText += "\nOpen case: " + ticketURL
+			emailHTML += fmt.Sprintf("<p><a href=\"%s\">Open case</a></p>", ticketURL)
+		}
 
-	for _, u := range users {
-		if u.Role != models.RoleAdmin {
-			hasAccess := false
-			for _, mid := range u.Mailboxes {
-				if mid == mb.ID {
-					hasAccess = true
-					break
+		for _, u := range users {
+			if u.Role != models.RoleAdmin {
+				hasAccess := false
+				for _, mid := range u.Mailboxes {
+					if mid == mb.ID {
+						hasAccess = true
+						break
+					}
+				}
+				if !hasAccess {
+					continue
 				}
 			}
-			if !hasAccess {
+
+			if s.PushoverAppToken != "" && u.PushoverKey != "" {
+				if err := sendPushover(s.PushoverAppToken, u.PushoverKey, pushoverText, ticketURL); err != nil {
+					slog.Error("pushover: failed to send", "user", u.Email, "error", err)
+				}
+			}
+
+			if !shouldSendEmailNotification(u, ev) || u.Email == "" {
 				continue
 			}
-		}
-		for _, n := range notifications {
-			if err := sendPushover(s.PushoverAppToken, u.PushoverKey, n.text, n.url); err != nil {
-				slog.Error("pushover: failed to send", "user", u.Email, "error", err)
+
+			if err := sendInternalNotificationEmail(mb.Email, u.Email, emailSubject, emailText, emailHTML); err != nil {
+				slog.Error("email-notification: failed to send", "user", u.Email, "mailbox", mb.Name, "error", err)
 			}
 		}
 	}
+}
+
+func shouldSendEmailNotification(u models.User, ev email.TicketEvent) bool {
+	if u.EmailNotifyAnyEmail {
+		return true
+	}
+	if ev.IsNew {
+		return u.EmailNotifyNewCases
+	}
+	if !u.EmailNotifyReplyToMyCases {
+		return false
+	}
+	return u.ID != "" && (u.ID == ev.OwnerID || u.ID == ev.AssigneeID)
+}
+
+func sendInternalNotificationEmail(cfg models.EmailSettings, to, subject, textBody, htmlBody string) error {
+	if cfg.SMTPHost == "" {
+		return fmt.Errorf("SMTP not configured")
+	}
+	_, _, err := email.SendReply(cfg, to, nil, subject, textBody, htmlBody, email.ReplyHeaders{})
+	return err
 }
 
 func sendPushover(appToken, userKey, message, ticketURL string) error {

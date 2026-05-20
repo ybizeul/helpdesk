@@ -106,6 +106,11 @@ export const api = {
   updateAvatar: (avatar: string) => request<void>('/auth/avatar', { method: 'PUT', body: JSON.stringify({ avatar }) }),
   updateLocale: (locale: string) => request<void>('/auth/locale', { method: 'PUT', body: JSON.stringify({ locale }) }),
   updatePushoverKey: (pushoverKey: string) => request<void>('/auth/pushover', { method: 'PUT', body: JSON.stringify({ pushover_key: pushoverKey }) }),
+  updateEmailNotifications: (data: {
+    email_notify_new_cases: boolean
+    email_notify_reply_to_my_cases: boolean
+    email_notify_any_email: boolean
+  }) => request<void>('/auth/email-notifications', { method: 'PUT', body: JSON.stringify(data) }),
   passkeys: {
     list: () => request<any[]>('/auth/passkeys'),
     delete: (id: string) => request<void>(`/auth/passkeys/${id}`, { method: 'DELETE' }),

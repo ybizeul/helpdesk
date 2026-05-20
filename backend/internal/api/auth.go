@@ -272,6 +272,39 @@ func (h *handlers) updatePushoverKey(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNoContent)
 }
 
+func (h *handlers) updateEmailNotifications(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	claims := ctx.Value(claimsKey).(*jwtClaims)
+
+	var body struct {
+		EmailNotifyNewCases       bool `json:"email_notify_new_cases"`
+		EmailNotifyReplyToMyCases bool `json:"email_notify_reply_to_my_cases"`
+		EmailNotifyAnyEmail       bool `json:"email_notify_any_email"`
+	}
+	if err := readJSON(r, &body); err != nil {
+		writeError(w, http.StatusBadRequest, "INVALID_JSON", err.Error())
+		return
+	}
+
+	oid, err := bson.ObjectIDFromHex(claims.Sub)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "INVALID_ID", "invalid user ID")
+		return
+	}
+
+	update := bson.M{"$set": bson.M{
+		"email_notify_new_cases":         body.EmailNotifyNewCases,
+		"email_notify_reply_to_my_cases": body.EmailNotifyReplyToMyCases,
+		"email_notify_any_email":         body.EmailNotifyAnyEmail,
+	}}
+
+	if _, err := h.db.Users().UpdateByID(ctx, oid, update); err != nil {
+		writeError(w, http.StatusInternalServerError, "DB_ERROR", err.Error())
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
+}
+
 func authMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// Skip auth for login and passkey login endpoints

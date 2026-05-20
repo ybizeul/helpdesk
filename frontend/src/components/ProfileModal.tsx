@@ -1,5 +1,5 @@
 import { useEffect, useState, useRef, useCallback } from 'react'
-import { Modal, Tabs, Stack, TextInput, PasswordInput, Button, Group, Text, Table, ActionIcon, Tooltip, Switch, Avatar, UnstyledButton, Select } from '@mantine/core'
+import { Modal, Tabs, Stack, TextInput, PasswordInput, Button, Group, Text, Table, ActionIcon, Tooltip, Switch, Avatar, UnstyledButton, Select, Checkbox } from '@mantine/core'
 import { notifications } from '@mantine/notifications'
 import { IconTrash, IconCamera } from '@tabler/icons-react'
 import { startRegistration } from '@simplewebauthn/browser'
@@ -50,7 +50,18 @@ const LOCALES = [
 interface ProfileModalProps {
   opened: boolean
   onClose: () => void
-  user: { id: string; name: string; email: string; role: string; avatar?: string; locale?: string; pushover_key?: string } | null
+  user: {
+    id: string
+    name: string
+    email: string
+    role: string
+    avatar?: string
+    locale?: string
+    pushover_key?: string
+    email_notify_new_cases?: boolean
+    email_notify_reply_to_my_cases?: boolean
+    email_notify_any_email?: boolean
+  } | null
   onAvatarChange?: (avatar: string) => void
   onLocaleChange?: (locale: string) => void
 }
@@ -64,6 +75,10 @@ export function ProfileModal({ opened, onClose, user, onAvatarChange, onLocaleCh
   const [savingLocale, setSavingLocale] = useState(false)
   const [pushoverKey, setPushoverKey] = useState<string>(user?.pushover_key ?? '')
   const [savingPushover, setSavingPushover] = useState(false)
+  const [emailNotifyNewCases, setEmailNotifyNewCases] = useState<boolean>(user?.email_notify_new_cases ?? false)
+  const [emailNotifyReplyToMyCases, setEmailNotifyReplyToMyCases] = useState<boolean>(user?.email_notify_reply_to_my_cases ?? false)
+  const [emailNotifyAnyEmail, setEmailNotifyAnyEmail] = useState<boolean>(user?.email_notify_any_email ?? false)
+  const [savingEmailNotifications, setSavingEmailNotifications] = useState(false)
 
   const [passkeys, setPasskeys] = useState<any[]>([])
   const [passkeyName, setPasskeyName] = useState('')
@@ -105,6 +120,9 @@ export function ProfileModal({ opened, onClose, user, onAvatarChange, onLocaleCh
     if (!opened) return
     setLocale(user?.locale ?? '')
     setPushoverKey(user?.pushover_key ?? '')
+    setEmailNotifyNewCases(user?.email_notify_new_cases ?? false)
+    setEmailNotifyReplyToMyCases(user?.email_notify_reply_to_my_cases ?? false)
+    setEmailNotifyAnyEmail(user?.email_notify_any_email ?? false)
     if (supportsPasskey) {
       api.passkeys.list().then(setPasskeys).catch(console.error)
     }
@@ -352,6 +370,51 @@ export function ProfileModal({ opened, onClose, user, onAvatarChange, onLocaleCh
                     notifications.show({ title: 'Error', message: e.message, color: 'red' })
                   } finally {
                     setSavingPushover(false)
+                  }
+                }}
+              >
+                Save
+              </Button>
+            </Group>
+
+            <Text fw={500} mt="md">Email notification</Text>
+            <Text size="sm" c="dimmed">Receive email notifications for inbound activity on mailboxes you can access.</Text>
+            <Checkbox
+              label="New cases"
+              checked={emailNotifyNewCases}
+              onChange={(e) => setEmailNotifyNewCases(e.currentTarget.checked)}
+            />
+            <Checkbox
+              label="Reply to my cases"
+              checked={emailNotifyReplyToMyCases}
+              onChange={(e) => setEmailNotifyReplyToMyCases(e.currentTarget.checked)}
+            />
+            <Checkbox
+              label="Any email"
+              checked={emailNotifyAnyEmail}
+              onChange={(e) => setEmailNotifyAnyEmail(e.currentTarget.checked)}
+            />
+            <Group justify="flex-end">
+              <Button
+                loading={savingEmailNotifications}
+                disabled={
+                  emailNotifyNewCases === (user?.email_notify_new_cases ?? false) &&
+                  emailNotifyReplyToMyCases === (user?.email_notify_reply_to_my_cases ?? false) &&
+                  emailNotifyAnyEmail === (user?.email_notify_any_email ?? false)
+                }
+                onClick={async () => {
+                  setSavingEmailNotifications(true)
+                  try {
+                    await api.updateEmailNotifications({
+                      email_notify_new_cases: emailNotifyNewCases,
+                      email_notify_reply_to_my_cases: emailNotifyReplyToMyCases,
+                      email_notify_any_email: emailNotifyAnyEmail,
+                    })
+                    notifications.show({ title: 'Saved', message: 'Email notification settings updated', color: 'green' })
+                  } catch (e: any) {
+                    notifications.show({ title: 'Error', message: e.message, color: 'red' })
+                  } finally {
+                    setSavingEmailNotifications(false)
                   }
                 }}
               >
