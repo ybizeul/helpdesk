@@ -301,7 +301,7 @@ func encodeQuotedPrintable(s string) string {
 	w := quotedprintable.NewWriter(&buf)
 	_, _ = w.Write([]byte(s))
 	_ = w.Close()
-	return strings.ReplaceAll(buf.String(), "\n", "\r\n")
+	return buf.String()
 }
 
 func writeBase64Wrapped(msg *strings.Builder, data []byte) {
