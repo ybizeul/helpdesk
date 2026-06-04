@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"mime"
+	"mime/quotedprintable"
 	"net/url"
 	"strings"
 
@@ -138,6 +139,9 @@ func collectParts(e *message.Entity, result *ParsedBody, cidMap map[string]strin
 	if err != nil {
 		return
 	}
+	if strings.HasPrefix(mediaType, "text/") || mediaType == "" {
+		body = decodeTransferEncoding(e.Header.Get("Content-Transfer-Encoding"), body)
+	}
 
 	// Determine disposition and filename before deciding inline vs attachment behavior.
 	disp := strings.ToLower(e.Header.Get("Content-Disposition"))
@@ -198,6 +202,24 @@ func collectParts(e *message.Entity, result *ParsedBody, cidMap map[string]strin
 			Size:        len(body),
 		})
 	}
+}
+
+func decodeTransferEncoding(encoding string, body []byte) []byte {
+	switch strings.ToLower(strings.TrimSpace(encoding)) {
+	case "quoted-printable":
+		decoded, err := io.ReadAll(quotedprintable.NewReader(strings.NewReader(string(body))))
+		if err == nil {
+			return decoded
+		}
+	case "base64":
+		clean := strings.ReplaceAll(string(body), "\r", "")
+		clean = strings.ReplaceAll(clean, "\n", "")
+		decoded, err := base64.StdEncoding.DecodeString(clean)
+		if err == nil {
+			return decoded
+		}
+	}
+	return body
 }
 
 func extractFilename(e *message.Entity, params map[string]string) string {
