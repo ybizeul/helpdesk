@@ -538,6 +538,13 @@ func (h *handlers) deleteMessage(w http.ResponseWriter, r *http.Request) {
 		if _, err := h.db.Attachments().DeleteMany(ctx, bson.M{"ticket_id": ticket.ID, "message_id": msg.MessageID}); err != nil {
 			slog.Warn("failed to cleanup attachment docs by message ID", "ticket", ticket.ID, "message_id", msg.MessageID, "error", err)
 		}
+
+		// Move the corresponding source email to the deleted mailbox so the
+		// poller doesn't import it again on the next fetch cycle.
+		go moveTicketEmails(h.db, []models.Ticket{{
+			MailboxID: ticket.MailboxID,
+			Messages:  []models.Message{msg},
+		}})
 	}
 
 	w.WriteHeader(http.StatusNoContent)
