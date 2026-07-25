@@ -221,7 +221,7 @@ export function ReplyEditor({ onSend, onSendAndClose, onAddNote, signature, show
 
   return (
     <div>
-      <RichTextEditor editor={editor} styles={{ root: { border: 'none', borderRadius: 0 }, toolbar: { borderTop: '1px solid var(--mantine-color-default-border)', borderRadius: 0 } }}>
+      <RichTextEditor editor={editor} withTypographyStyles={false} styles={{ root: { border: 'none', borderRadius: 0 }, toolbar: { borderTop: '1px solid var(--mantine-color-default-border)', borderRadius: 0 } }}>
         <RichTextEditor.Toolbar sticky stickyOffset={0}>
           <RichTextEditor.ControlsGroup>
             <RichTextEditor.Bold />
