@@ -210,50 +210,70 @@ func (h *handlers) listTickets(w http.ResponseWriter, r *http.Request) {
 
 	if s := r.URL.Query().Get("status"); s != "" {
 		filter["status"] = s
-	} else if r.URL.Query().Get("include_closed") == "" {
+	} else if ticketListExcludesClosed(s, r.URL.Query().Get("include_closed"), r.URL.Query().Get("q")) {
 		filter["status"] = bson.M{"$nin": bson.A{"closed", "parked"}}
 	}
 	if a := r.URL.Query().Get("assignee_id"); a != "" {
 		filter["assignee_id"] = a
 	}
 
-	// Use aggregation to sort: unread first, then active before waiting, then by date
-	pipeline := mongo.Pipeline{
-		{{Key: "$match", Value: filter}},
-		{{Key: "$addFields", Value: bson.M{
-			"_status_order": bson.M{"$switch": bson.M{
-				"branches": bson.A{
-					bson.M{"case": bson.M{"$eq": bson.A{"$status", "unassigned"}}, "then": 0},
-					bson.M{"case": bson.M{"$eq": bson.A{"$status", "active"}}, "then": 1},
-					bson.M{"case": bson.M{"$eq": bson.A{"$status", "waiting"}}, "then": 2},
-					bson.M{"case": bson.M{"$eq": bson.A{"$status", "closed"}}, "then": 3},
-					bson.M{"case": bson.M{"$eq": bson.A{"$status", "parked"}}, "then": 4},
-				},
-				"default": 4,
-			}},
-		}}},
-		{{Key: "$sort", Value: bson.D{
-			{Key: "_status_order", Value: 1},
-			{Key: "unread", Value: -1},
-			{Key: "updated_at", Value: -1},
-		}}},
-		{{Key: "$addFields", Value: bson.M{
-			"message_count": bson.M{"$size": bson.M{"$ifNull": bson.A{"$messages", bson.A{}}}},
-			"id":            "$_id",
-		}}},
-		{{Key: "$unset", Value: bson.A{"_status_order", "messages", "_id"}}},
+	searching, useTextScore := applyTicketSearch(filter, r.URL.Query().Get("q"))
+
+	pipeline := mongo.Pipeline{{{Key: "$match", Value: filter}}}
+	if searching {
+		sort := bson.D{{Key: "updated_at", Value: -1}}
+		if useTextScore {
+			sort = bson.D{
+				{Key: "score", Value: bson.M{"$meta": "textScore"}},
+				{Key: "updated_at", Value: -1},
+			}
+		}
+		pipeline = append(pipeline,
+			bson.D{{Key: "$sort", Value: sort}},
+			bson.D{{Key: "$limit", Value: ticketSearchLimit}},
+			bson.D{{Key: "$addFields", Value: bson.M{
+				"message_count": bson.M{"$size": bson.M{"$ifNull": bson.A{"$messages", bson.A{}}}},
+				"id":            "$_id",
+			}}},
+			bson.D{{Key: "$unset", Value: bson.A{"messages", "_id"}}},
+		)
+	} else {
+		pipeline = append(pipeline,
+			bson.D{{Key: "$addFields", Value: bson.M{
+				"_status_order": bson.M{"$switch": bson.M{
+					"branches": bson.A{
+						bson.M{"case": bson.M{"$eq": bson.A{"$status", "unassigned"}}, "then": 0},
+						bson.M{"case": bson.M{"$eq": bson.A{"$status", "active"}}, "then": 1},
+						bson.M{"case": bson.M{"$eq": bson.A{"$status", "waiting"}}, "then": 2},
+						bson.M{"case": bson.M{"$eq": bson.A{"$status", "closed"}}, "then": 3},
+						bson.M{"case": bson.M{"$eq": bson.A{"$status", "parked"}}, "then": 4},
+					},
+					"default": 4,
+				}},
+			}}},
+			bson.D{{Key: "$sort", Value: bson.D{
+				{Key: "_status_order", Value: 1},
+				{Key: "unread", Value: -1},
+				{Key: "updated_at", Value: -1},
+			}}},
+			bson.D{{Key: "$addFields", Value: bson.M{
+				"message_count": bson.M{"$size": bson.M{"$ifNull": bson.A{"$messages", bson.A{}}}},
+				"id":            "$_id",
+			}}},
+			bson.D{{Key: "$unset", Value: bson.A{"_status_order", "messages", "_id"}}},
+		)
 	}
 
 	cursor, err := h.db.Tickets().Aggregate(ctx, pipeline)
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, "DB_ERROR", err.Error())
+		writeError(w, http.StatusInternalServerError, "DB_ERROR", "failed to list tickets")
 		return
 	}
 	defer cursor.Close(ctx)
 
 	var results []bson.M
 	if err := cursor.All(ctx, &results); err != nil {
-		writeError(w, http.StatusInternalServerError, "DB_ERROR", err.Error())
+		writeError(w, http.StatusInternalServerError, "DB_ERROR", "failed to list tickets")
 		return
 	}
 	if results == nil {
