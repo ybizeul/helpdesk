@@ -304,6 +304,25 @@ func (db *DB) EnsureIndexes(ctx context.Context) error {
 		{"passkeys", mongo.IndexModel{Keys: bson.D{{Key: "credential_id", Value: 1}}, Options: options.Index().SetUnique(true)}},
 		{"mailboxes", mongo.IndexModel{Keys: bson.D{{Key: "slug", Value: 1}}, Options: options.Index().SetUnique(true)}},
 		{"tickets", mongo.IndexModel{Keys: bson.D{{Key: "mailbox_id", Value: 1}}}},
+		{"tickets", mongo.IndexModel{
+			Keys: bson.D{
+				{Key: "subject", Value: "text"},
+				{Key: "requester.name", Value: "text"},
+				{Key: "requester.email", Value: "text"},
+				{Key: "tags", Value: "text"},
+				{Key: "messages.body", Value: "text"},
+			},
+			Options: options.Index().
+				SetName("tickets_text").
+				SetDefaultLanguage("none").
+				SetWeights(map[string]int32{
+					"subject":         10,
+					"requester.email": 8,
+					"requester.name":  5,
+					"tags":            4,
+					"messages.body":   1,
+				}),
+		}},
 	}
 	for _, idx := range indexes {
 		_, err := db.database.Collection(idx.collection).Indexes().CreateOne(ctx, idx.model)

@@ -1,7 +1,7 @@
 import { useEffect, useState, useRef, useCallback, useImperativeHandle, forwardRef } from 'react'
-import { Title, Table, Badge, Group, Text, Checkbox, Button, Tooltip, Menu, ActionIcon, Stack, Box, Avatar, Skeleton, Loader, Modal } from '@mantine/core'
-import { IconTrash, IconEye, IconEyeOff, IconCircle, IconRefresh, IconArrowMerge, IconFilter, IconArrowDown, IconMessageCircleOff, IconPlus } from '@tabler/icons-react'
-import { useMediaQuery, useDisclosure } from '@mantine/hooks'
+import { Title, Table, Badge, Group, Text, Checkbox, Button, Tooltip, Menu, ActionIcon, Stack, Box, Avatar, Skeleton, Loader, Modal, TextInput, CloseButton } from '@mantine/core'
+import { IconTrash, IconEye, IconEyeOff, IconCircle, IconRefresh, IconArrowMerge, IconFilter, IconArrowDown, IconMessageCircleOff, IconPlus, IconSearch, IconSearchOff } from '@tabler/icons-react'
+import { useMediaQuery, useDisclosure, useDebouncedValue } from '@mantine/hooks'
 import { notifications } from '@mantine/notifications'
 import { api } from '../api/client'
 import { formatDistanceToNow } from 'date-fns'
@@ -107,9 +107,12 @@ export interface TicketListHandle {
 export const TicketListPage = forwardRef<TicketListHandle, TicketListPageProps>(function TicketListPage({ activeTicketId, currentUser, onSelectTicket, onDeselectTicket, mailbox, mailboxCount, onMailboxCountChange }, ref) {
   const [tickets, setTickets] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
+  const [fetchingList, setFetchingList] = useState(false)
   const [selected, setSelected] = useState<Set<string>>(new Set())
   const [usersMap, setUsersMap] = useState<Record<string, any>>({})
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all_open')
+  const [search, setSearch] = useState('')
+  const [debouncedSearch] = useDebouncedValue(search, 300)
   const [fetching, setFetching] = useState(false)
   const [confirmDelete, setConfirmDelete] = useState(false)
   const [newTicketOpened, { open: openNewTicket, close: closeNewTicket }] = useDisclosure(false)
@@ -118,17 +121,24 @@ export const TicketListPage = forwardRef<TicketListHandle, TicketListPageProps>(
   const canDelete = currentUser?.role === 'admin'
 
   const loadTickets = useCallback(() => {
-    const params = { ...getFilterParams(statusFilter), ...(mailbox?.id ? { mailbox_id: mailbox.id } : {}) }
+    const params: Record<string, string> = { ...getFilterParams(statusFilter), ...(mailbox?.id ? { mailbox_id: mailbox.id } : {}) }
+    const q = debouncedSearch.trim()
+    if (q) params.q = q
+    setFetchingList(true)
     api.tickets.list(params).then((data) => {
-      if (knownIdsRef.current !== null) {
+      if (!q && knownIdsRef.current !== null) {
         const newTickets = data.filter((t: any) => t.unread && !knownIdsRef.current!.has(t.id))
         if (newTickets.length > 0) notifyNewTickets(newTickets)
       }
       knownIdsRef.current = new Set(data.map((t: any) => t.id))
       setTickets(data)
+    }).catch((e: any) => {
+      notifications.show({ title: "Couldn't load cases", message: e.message, color: 'red' })
+    }).finally(() => {
       setLoading(false)
-    }).catch(console.error)
-  }, [statusFilter, mailbox?.id])
+      setFetchingList(false)
+    })
+  }, [statusFilter, mailbox?.id, debouncedSearch])
 
   useImperativeHandle(ref, () => ({ refresh: loadTickets }), [loadTickets])
 
@@ -218,17 +228,21 @@ export const TicketListPage = forwardRef<TicketListHandle, TicketListPageProps>(
 
   useEffect(() => {
     setLoading(true)
+  }, [statusFilter, mailbox?.id])
+
+  useEffect(() => {
     loadTickets()
     const interval = setInterval(loadTickets, 60_000)
     return () => clearInterval(interval)
   }, [loadTickets])
 
-  // If active ticket is no longer in the filtered list, deselect it
+  // If active ticket is no longer in the filtered list, deselect it (not while searching)
   useEffect(() => {
+    if (debouncedSearch.trim()) return
     if (activeTicketId && !loading && tickets.length >= 0 && !tickets.some(t => t.id === activeTicketId)) {
       onDeselectTicket?.()
     }
-  }, [tickets, activeTicketId, loading, onDeselectTicket])
+  }, [tickets, activeTicketId, loading, onDeselectTicket, debouncedSearch])
 
   const toggleSelect = (id: string) => {
     setSelected(prev => {
@@ -263,15 +277,42 @@ export const TicketListPage = forwardRef<TicketListHandle, TicketListPageProps>(
     }
   }
 
+  const searchInput = (
+    <TextInput
+      size={isMobile ? 'sm' : 'xs'}
+      radius="xl"
+      type="search"
+      autoComplete="off"
+      placeholder="Search #, subject, requester…"
+      leftSection={<IconSearch size={14} />}
+      rightSection={
+        fetchingList && debouncedSearch.trim() ? (
+          <Loader size={12} />
+        ) : search ? (
+          <CloseButton aria-label="Clear search" size="sm" onClick={() => setSearch('')} />
+        ) : null
+      }
+      rightSectionPointerEvents={search && !(fetchingList && debouncedSearch.trim()) ? 'all' : 'none'}
+      value={search}
+      onChange={(e) => setSearch(e.currentTarget.value)}
+      onKeyDown={(e) => { if (e.key === 'Escape') setSearch('') }}
+      aria-label="Search cases"
+    />
+  )
+
   return (
     <Box style={{ display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0 }}>
-      <Group justify="space-between" style={{ flexShrink: 0, padding: isMobile ? `var(--mantine-spacing-xs) var(--mantine-spacing-md)` : `0 0 var(--mantine-spacing-xs)`, borderBottom: '1px solid var(--mantine-color-default-border)' }}>
-        <Group gap="xs">
+      <Box style={{ flexShrink: 0, padding: isMobile ? `var(--mantine-spacing-xs) var(--mantine-spacing-md)` : `0 0 var(--mantine-spacing-xs)`, borderBottom: '1px solid var(--mantine-color-default-border)' }}>
+      <Group justify="space-between" wrap="nowrap" gap="sm">
+        <Group gap="xs" wrap="nowrap" style={{ flex: 1, minWidth: 0 }}>
           <Title order={2}>{isMobile && (mailboxCount || 0) > 1 && mailbox?.name ? mailbox.name : 'Cases'}</Title>
           {!isMobile && (
           <Tooltip label="Fetch emails &amp; refresh">
             <ActionIcon variant="subtle" size="sm" loading={fetching} onClick={fetchAndRefresh}><IconRefresh size={14} /></ActionIcon>
           </Tooltip>
+          )}
+          {!isMobile && (
+            <Box style={{ flex: 1, minWidth: 0, maxWidth: 280 }}>{searchInput}</Box>
           )}
         </Group>
         <Group gap="sm">
@@ -350,6 +391,13 @@ export const TicketListPage = forwardRef<TicketListHandle, TicketListPageProps>(
           )}
         </Group>
       </Group>
+      {isMobile && (
+        <Box mt="xs">{searchInput}</Box>
+      )}
+      {!!debouncedSearch.trim() && statusFilter === 'all_open' && (
+        <Text c="dimmed" size="xs" mt={4}>Includes closed and parked</Text>
+      )}
+      </Box>
       <Box
         ref={scrollRef}
         style={{ flex: 1, overflowY: tickets.length > 0 || loading ? 'auto' : 'hidden', minHeight: 0, position: 'relative', display: 'flex', flexDirection: 'column' }}
@@ -431,8 +479,9 @@ export const TicketListPage = forwardRef<TicketListHandle, TicketListPageProps>(
           })}
           {tickets.length === 0 && (
             <Stack align="center" py="xl" gap="xs">
-              <IconMessageCircleOff size={48} stroke={1.5} color="var(--mantine-color-dimmed)" />
-              <Text c="dimmed" size="sm">No cases found</Text>
+              {debouncedSearch.trim() ? <IconSearchOff size={48} stroke={1.5} color="var(--mantine-color-dimmed)" /> : <IconMessageCircleOff size={48} stroke={1.5} color="var(--mantine-color-dimmed)" />}
+              <Text c="dimmed" size="sm">{debouncedSearch.trim() ? 'No cases match your search' : 'No cases found'}</Text>
+              {debouncedSearch.trim() ? <Button variant="subtle" size="xs" onClick={() => setSearch('')}>Clear search</Button> : null}
             </Stack>
           )}
           </>
@@ -520,13 +569,17 @@ export const TicketListPage = forwardRef<TicketListHandle, TicketListPageProps>(
       </Table>
       {tickets.length === 0 && !loading && (
         <Stack align="center" justify="center" gap="xs" style={{ flex: 1 }}>
-          <IconMessageCircleOff size={48} stroke={1.5} color="var(--mantine-color-dimmed)" />
-          <Text c="dimmed" size="sm">No cases found</Text>
+          {debouncedSearch.trim() ? <IconSearchOff size={48} stroke={1.5} color="var(--mantine-color-dimmed)" /> : <IconMessageCircleOff size={48} stroke={1.5} color="var(--mantine-color-dimmed)" />}
+          <Text c="dimmed" size="sm">{debouncedSearch.trim() ? 'No cases match your search' : 'No cases found'}</Text>
+          {debouncedSearch.trim() ? <Button variant="subtle" size="xs" onClick={() => setSearch('')}>Clear search</Button> : null}
         </Stack>
       )}
       </>
       )}
       </Box>
+      {!!debouncedSearch.trim() && tickets.length === 50 && !loading && (
+        <Text c="dimmed" size="xs" ta="center" py="xs" style={{ flexShrink: 0 }}>Showing first 50 matches. Narrow your search.</Text>
+      )}
       <Modal opened={confirmDelete} onClose={() => setConfirmDelete(false)} title="Delete cases">
         <Text>Are you sure you want to delete {selected.size} selected case(s)? This action cannot be undone.</Text>
         <Group justify="flex-end" mt="lg">

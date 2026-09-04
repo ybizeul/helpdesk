@@ -25,7 +25,7 @@ an area to configure OIDC and map groups to roles.
 
 | Method | Path                   | Description               |
 |--------|------------------------|---------------------------|
-| GET    | /tickets               | List tickets (filterable) |
+| GET    | /tickets               | List tickets (filterable; `q` for search) |
 | POST   | /tickets               | Create a ticket           |
 | GET    | /tickets/:id           | Get ticket by ID          |
 | PUT    | /tickets/:id           | Update ticket             |
@@ -35,6 +35,16 @@ an area to configure OIDC and map groups to roles.
 | GET    | /tickets/:id/hupload/items | List files from case Hupload share |
 | PUT    | /tickets/:id/assign    | Assign ticket to agent    |
 | PUT    | /tickets/:id/status    | Change ticket status      |
+
+Query params for `GET /tickets`:
+
+| Param | Description |
+|-------|-------------|
+| `mailbox_id` | Restrict to one mailbox. Agents may only use a mailbox they can access. |
+| `status` | Exact status (`unassigned`, `active`, `waiting`, `closed`, `parked`). |
+| `include_closed=1` | Include closed and parked when `status` is omitted. |
+| `assignee_id` | Filter by assignee. |
+| `q` | Search subject, requester, tags, and message bodies (phrase match). Ticket `#1234` / `1234` matches by number only; values containing `@` match requester email. When `q` is set and `status` is omitted, closed and parked tickets are included. Results are capped at 50. |
 
 ### Users / Agents
 
