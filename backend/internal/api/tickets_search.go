@@ -23,7 +23,8 @@ func escapeTextSearch(q string) string {
 }
 
 func normalizeSearchQuery(raw string) string {
-	q := strings.TrimSpace(raw)
+	// MongoDB rejects $text searches that are not valid UTF-8.
+	q := strings.TrimSpace(strings.ToValidUTF8(raw, ""))
 	if utf8.RuneCountInString(q) > ticketSearchMaxLen {
 		q = string([]rune(q)[:ticketSearchMaxLen])
 	}

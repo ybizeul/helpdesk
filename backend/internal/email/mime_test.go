@@ -1,5 +1,4 @@
 package email
-package email
 
 import (
 	"strings"

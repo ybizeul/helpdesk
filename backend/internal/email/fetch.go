@@ -15,6 +15,7 @@ import (
 	"github.com/emersion/go-imap/v2"
 	"github.com/emersion/go-imap/v2/imapclient"
 	"github.com/helpdesk/backend/internal/models"
+	"github.com/helpdesk/backend/internal/textutil"
 	"go.mongodb.org/mongo-driver/v2/bson"
 	"go.mongodb.org/mongo-driver/v2/mongo"
 )
@@ -183,18 +184,19 @@ func fetchEmailsOnce(ctx context.Context, cfg models.EmailSettings, db TicketSto
 			}
 			switch data := item.(type) {
 			case imapclient.FetchItemDataEnvelope:
-				subject = data.Envelope.Subject
+				subject = textutil.ToValidUTF8(data.Envelope.Subject)
 				date = data.Envelope.Date
 				messageID = data.Envelope.MessageID
 				inReplyTo = data.Envelope.InReplyTo
 				if len(data.Envelope.From) > 0 {
 					a := data.Envelope.From[0]
-					from = fmt.Sprintf("%s@%s", a.Mailbox, a.Host)
+					// from becomes requester.email, which is text-indexed.
+					from = textutil.ToValidUTF8(fmt.Sprintf("%s@%s", a.Mailbox, a.Host))
 					dec := new(mime.WordDecoder)
 					if decoded, err := dec.DecodeHeader(a.Name); err == nil {
-						fromName = decoded
+						fromName = textutil.ToValidUTF8(decoded)
 					} else {
-						fromName = a.Name
+						fromName = textutil.ToValidUTF8(a.Name)
 					}
 				}
 				for _, a := range data.Envelope.To {

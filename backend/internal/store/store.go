@@ -12,6 +12,7 @@ import (
 
 	"github.com/helpdesk/backend/internal/email"
 	"github.com/helpdesk/backend/internal/models"
+	"github.com/helpdesk/backend/internal/textutil"
 	"go.mongodb.org/mongo-driver/v2/bson"
 	"go.mongodb.org/mongo-driver/v2/mongo"
 	"go.mongodb.org/mongo-driver/v2/mongo/options"
@@ -288,6 +289,113 @@ func (db *DB) ForceReparseRawEmails(ctx context.Context) error {
 	return nil
 }
 
+// sanitizeSentinelField records a completed repair on the global settings
+// document so the scan runs once instead of on every boot.
+const sanitizeSentinelField = "ticket_utf8_sanitized_at"
+
+// SanitizeTicketText repairs ticket text that is not valid UTF-8. MongoDB
+// refuses to build a text index over such documents, so this must run before
+// EnsureIndexes.
+func (db *DB) SanitizeTicketText(ctx context.Context) error {
+	var sentinel struct {
+		At *time.Time `bson:"ticket_utf8_sanitized_at"`
+	}
+	if err := db.Settings().FindOne(ctx, bson.M{"_id": "global"}).Decode(&sentinel); err == nil && sentinel.At != nil {
+		return nil
+	}
+
+	// Tickets carry raw MIME and attachment bytes; only text fields are needed
+	// here, and loading the rest would be a lot of memory for nothing.
+	projection := bson.M{
+		"subject":          1,
+		"thread_topic":     1,
+		"requester":        1,
+		"tags":             1,
+		"messages.subject": 1,
+		"messages.body":    1,
+		"messages.html":    1,
+		"messages.from":    1,
+	}
+	cur, err := db.Tickets().Find(ctx, bson.M{}, options.Find().SetProjection(projection))
+	if err != nil {
+		return fmt.Errorf("find tickets: %w", err)
+	}
+	defer cur.Close(ctx)
+
+	repaired, skipped := 0, 0
+	for cur.Next(ctx) {
+		var t models.Ticket
+		if err := cur.Decode(&t); err != nil {
+			slog.Warn("sanitize: decode ticket failed", "error", err)
+			skipped++
+			continue
+		}
+		set := sanitizeTicketFields(t)
+		if len(set) == 0 {
+			continue
+		}
+		oid, err := bson.ObjectIDFromHex(t.ID)
+		if err != nil {
+			slog.Warn("sanitize: bad ticket id", "ticket", t.ID, "error", err)
+			skipped++
+			continue
+		}
+		if _, err := db.Tickets().UpdateByID(ctx, oid, bson.M{"$set": set}); err != nil {
+			slog.Warn("sanitize: update failed", "ticket", t.ID, "error", err)
+			skipped++
+			continue
+		}
+		repaired++
+	}
+	if err := cur.Err(); err != nil {
+		return fmt.Errorf("iterate tickets: %w", err)
+	}
+	if repaired > 0 {
+		slog.Info("repaired invalid UTF-8 in tickets", "tickets", repaired)
+	}
+	if skipped > 0 {
+		// Leaving the sentinel unset retries the whole pass on the next boot.
+		return fmt.Errorf("%d ticket(s) could not be repaired", skipped)
+	}
+
+	_, err = db.Settings().UpdateOne(ctx,
+		bson.M{"_id": "global"},
+		bson.M{"$set": bson.M{sanitizeSentinelField: time.Now().UTC()}},
+		options.UpdateOne().SetUpsert(true),
+	)
+	if err != nil {
+		return fmt.Errorf("record sanitize sentinel: %w", err)
+	}
+	return nil
+}
+
+// sanitizeTicketFields returns the $set fields needed to make a ticket's text
+// valid UTF-8, or an empty map when it is already clean.
+func sanitizeTicketFields(t models.Ticket) bson.M {
+	set := bson.M{}
+	addString := func(field, value string) {
+		if fixed := textutil.ToValidUTF8(value); fixed != value {
+			set[field] = fixed
+		}
+	}
+
+	addString("subject", t.Subject)
+	addString("thread_topic", t.ThreadTopic)
+	addString("requester.name", t.Requester.Name)
+	addString("requester.email", t.Requester.Email)
+	if tags, changed := textutil.ToValidUTF8Slice(t.Tags); changed {
+		set["tags"] = tags
+	}
+	for i, m := range t.Messages {
+		prefix := fmt.Sprintf("messages.%d.", i)
+		addString(prefix+"subject", m.Subject)
+		addString(prefix+"body", m.Body)
+		addString(prefix+"html", m.HTML)
+		addString(prefix+"from", m.From)
+	}
+	return set
+}
+
 func (db *DB) EnsureIndexes(ctx context.Context) error {
 	indexes := []struct {
 		collection string
@@ -304,31 +412,37 @@ func (db *DB) EnsureIndexes(ctx context.Context) error {
 		{"passkeys", mongo.IndexModel{Keys: bson.D{{Key: "credential_id", Value: 1}}, Options: options.Index().SetUnique(true)}},
 		{"mailboxes", mongo.IndexModel{Keys: bson.D{{Key: "slug", Value: 1}}, Options: options.Index().SetUnique(true)}},
 		{"tickets", mongo.IndexModel{Keys: bson.D{{Key: "mailbox_id", Value: 1}}}},
-		{"tickets", mongo.IndexModel{
-			Keys: bson.D{
-				{Key: "subject", Value: "text"},
-				{Key: "requester.name", Value: "text"},
-				{Key: "requester.email", Value: "text"},
-				{Key: "tags", Value: "text"},
-				{Key: "messages.body", Value: "text"},
-			},
-			Options: options.Index().
-				SetName("tickets_text").
-				SetDefaultLanguage("none").
-				SetWeights(map[string]int32{
-					"subject":         10,
-					"requester.email": 8,
-					"requester.name":  5,
-					"tags":            4,
-					"messages.body":   1,
-				}),
-		}},
 	}
 	for _, idx := range indexes {
 		_, err := db.database.Collection(idx.collection).Indexes().CreateOne(ctx, idx.model)
 		if err != nil {
 			return fmt.Errorf("create index on %s: %w", idx.collection, err)
 		}
+	}
+
+	// The search index is best-effort: a single unindexable ticket must degrade
+	// search rather than stop the server from starting.
+	textIndex := mongo.IndexModel{
+		Keys: bson.D{
+			{Key: "subject", Value: "text"},
+			{Key: "requester.name", Value: "text"},
+			{Key: "requester.email", Value: "text"},
+			{Key: "tags", Value: "text"},
+			{Key: "messages.body", Value: "text"},
+		},
+		Options: options.Index().
+			SetName("tickets_text").
+			SetDefaultLanguage("none").
+			SetWeights(map[string]int32{
+				"subject":         10,
+				"requester.email": 8,
+				"requester.name":  5,
+				"tags":            4,
+				"messages.body":   1,
+			}),
+	}
+	if _, err := db.Tickets().Indexes().CreateOne(ctx, textIndex); err != nil {
+		slog.Error("ticket search index not built; search is unavailable", "error", err)
 	}
 	return nil
 }
@@ -515,7 +629,7 @@ func (db *DB) BackfillRequesterNames(ctx context.Context) error {
 			if err != nil || addr.Name == "" {
 				continue
 			}
-			name = addr.Name
+			name = textutil.ToValidUTF8(addr.Name)
 			break
 		}
 		if name == "" {

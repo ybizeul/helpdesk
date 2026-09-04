@@ -63,17 +63,31 @@ func main() {
 		os.Exit(1)
 	}
 
-	if err := db.EnsureIndexes(ctx); err != nil {
+	// Repairing text scans every ticket, so it gets its own budget. A failure
+	// only costs the search index, so it must not stop startup.
+	sanitizeCtx, cancelSanitize := context.WithTimeout(context.Background(), 5*time.Minute)
+	sanitizeErr := db.SanitizeTicketText(sanitizeCtx)
+	cancelSanitize()
+	if sanitizeErr != nil {
+		slog.Error("failed to sanitize ticket text; search index may not build", "error", sanitizeErr)
+	}
+
+	// The steps below are fatal, so they need a deadline of their own: the
+	// repair above may have consumed all the wall time of the connect context.
+	setupCtx, cancelSetup := context.WithTimeout(context.Background(), time.Minute)
+	defer cancelSetup()
+
+	if err := db.EnsureIndexes(setupCtx); err != nil {
 		slog.Error("failed to create indexes", "error", err)
 		os.Exit(1)
 	}
 
-	if err := db.EnsureDefaultAdmin(ctx, os.Getenv("INIT_PASSWORD")); err != nil {
+	if err := db.EnsureDefaultAdmin(setupCtx, os.Getenv("INIT_PASSWORD")); err != nil {
 		slog.Error("failed to ensure default admin", "error", err)
 		os.Exit(1)
 	}
 
-	if err := db.RunMigrations(ctx); err != nil {
+	if err := db.RunMigrations(setupCtx); err != nil {
 		slog.Error("failed to run migrations", "error", err)
 		os.Exit(1)
 	}

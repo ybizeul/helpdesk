@@ -11,6 +11,8 @@ import (
 
 	"github.com/emersion/go-message"
 	"golang.org/x/text/encoding/ianaindex"
+
+	"github.com/helpdesk/backend/internal/textutil"
 )
 
 func init() {
@@ -47,7 +49,7 @@ func ParseMIMEBody(raw []byte) ParsedBody {
 	r := strings.NewReader(string(raw))
 	entity, err := message.Read(r)
 	if err != nil {
-		return ParsedBody{Text: string(raw)}
+		return ParsedBody{Text: textutil.ToValidUTF8(string(raw))}
 	}
 
 	var result ParsedBody
@@ -56,14 +58,14 @@ func ParseMIMEBody(raw []byte) ParsedBody {
 	if subj := entity.Header.Get("Subject"); subj != "" {
 		dec := new(mime.WordDecoder)
 		if decoded, err := dec.DecodeHeader(subj); err == nil {
-			result.Subject = decoded
+			result.Subject = textutil.ToValidUTF8(decoded)
 		} else {
-			result.Subject = subj
+			result.Subject = textutil.ToValidUTF8(subj)
 		}
 	}
 
 	if topic := entity.Header.Get("Thread-Topic"); topic != "" {
-		result.ThreadTopic = topic
+		result.ThreadTopic = textutil.ToValidUTF8(topic)
 	}
 
 	if ti := entity.Header.Get("Thread-Index"); ti != "" {
@@ -170,15 +172,15 @@ func collectParts(e *message.Entity, result *ParsedBody, cidMap map[string]strin
 	switch {
 	case strings.HasPrefix(mediaType, "text/html") && !isAttachment && !hasFilename:
 		if result.HTML == "" {
-			result.HTML = string(body)
+			result.HTML = textutil.ToValidUTF8(string(body))
 		}
 	case strings.HasPrefix(mediaType, "text/plain") && !isAttachment && !hasFilename:
 		if result.Text == "" {
-			result.Text = string(body)
+			result.Text = textutil.ToValidUTF8(string(body))
 		}
 	case (mediaType == "" || strings.HasPrefix(mediaType, "text")) && !isAttachment && !hasFilename:
 		if result.Text == "" {
-			result.Text = string(body)
+			result.Text = textutil.ToValidUTF8(string(body))
 		}
 	case isInline && strings.HasPrefix(mediaType, "image/"):
 		// Inline image without Content-ID — embed directly as base64 img tag
