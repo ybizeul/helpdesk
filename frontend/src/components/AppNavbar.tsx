@@ -50,10 +50,12 @@ export function AppNavbar({ onNavigate, user, mailboxes = [] }: AppNavbarProps) 
       <div>
         {navItems.map((link) => {
           const active = location.pathname.startsWith(link.to)
+          const unread = link.unreadCount ?? 0
           return (
             <UnstyledButton
               key={link.to}
               onClick={() => handleNav(link.to)}
+              aria-label={unread > 0 ? `${link.label}, ${unread} unread` : link.label}
               style={{
                 display: 'flex', alignItems: 'center', gap: 10,
                 width: '100%', padding: '8px 12px',
@@ -66,9 +68,11 @@ export function AppNavbar({ onNavigate, user, mailboxes = [] }: AppNavbarProps) 
               <Box style={{ color: active ? 'var(--mantine-primary-color-filled)' : 'var(--mantine-color-dimmed)', display: 'flex' }}>
                 <link.icon size={18} />
               </Box>
-              <Text size="sm" fw={active ? 600 : 400} style={{ flex: 1 }}>{link.label}</Text>
-              {(link.unreadCount ?? 0) > 0 && (
-                <Badge size="sm" variant="filled" circle>{link.unreadCount}</Badge>
+              <Text size="sm" fw={active ? 600 : 400} truncate style={{ flex: 1, minWidth: 0 }}>{link.label}</Text>
+              {unread > 0 && (
+                <Badge size="sm" variant="filled" style={{ flexShrink: 0, cursor: 'inherit' }}>
+                  {unread > 99 ? '99+' : unread}
+                </Badge>
               )}
             </UnstyledButton>
           )
