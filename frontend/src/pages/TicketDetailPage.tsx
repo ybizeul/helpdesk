@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useMemo, useCallback, useRef } from 'react'
 import { useParams } from 'react-router-dom'
-import { Title, Text, Paper, Badge, Stack, Group, Box, ActionIcon, Tooltip, Alert, Button as MButton, Modal, Menu, Avatar, Skeleton, TextInput, Table, Anchor } from '@mantine/core'
-import { IconRefresh, IconSend, IconArrowLeft, IconTrash, IconExternalLink } from '@tabler/icons-react'
+import { Title, Text, Paper, Badge, Stack, Group, Box, ActionIcon, Tooltip, Alert, Button as MButton, Modal, Menu, Avatar, Skeleton, TextInput, Table, Anchor, UnstyledButton } from '@mantine/core'
+import { IconRefresh, IconSend, IconArrowLeft, IconTrash, IconExternalLink, IconCheck } from '@tabler/icons-react'
 import { api } from '../api/client'
 import { formatDistanceToNow } from 'date-fns'
 import { ReplyEditor } from '../components/ReplyEditor'
@@ -184,14 +184,26 @@ interface TicketDetailPageProps {
   onTicketUpdate?: () => void
   onNotFound?: () => void
   mailbox?: any
+  currentUser?: { role?: string } | null
 }
 
-export function TicketDetailPage({ ticketId: propId, onBack, onTicketUpdate, onNotFound, mailbox }: TicketDetailPageProps = {}) {
+interface OwnerUser {
+  id: string
+  name: string
+  email?: string
+  role: string
+  avatar?: string
+  mailboxes?: string[]
+}
+
+export function TicketDetailPage({ ticketId: propId, onBack, onTicketUpdate, onNotFound, mailbox, currentUser }: TicketDetailPageProps = {}) {
   const { id: paramId } = useParams<{ id: string }>()
   const id = propId || paramId
   const isMobile = useMediaQuery('(max-width: 768px)')
   const [ticket, setTicket] = useState<any>(null)
-  const [users, setUsers] = useState<any[]>([])
+  const [users, setUsers] = useState<OwnerUser[] | null>(null)
+  const [usersError, setUsersError] = useState(false)
+  const [assigningOwnerId, setAssigningOwnerId] = useState<string | null>(null)
   const [huploadEnabled, setHuploadEnabled] = useState(false)
   const [sharedFiles, setSharedFiles] = useState<Array<{ filename: string; size: number; uploaded_at: string; download_url: string }>>([])
   const [sharedFilesLoading, setSharedFilesLoading] = useState(false)
@@ -215,9 +227,20 @@ export function TicketDetailPage({ ticketId: propId, onBack, onTicketUpdate, onN
 
   useEffect(() => {
     if (id) api.tickets.get(id).then((t) => { setTicket(t); onTicketUpdate?.() }).catch(() => onNotFound?.())
-    api.users.list().then(setUsers).catch(() => {})
     api.settings.getPublic().then((s) => setHuploadEnabled(Boolean(s?.hupload_enabled))).catch(() => setHuploadEnabled(false))
   }, [id])
+
+  const loadUsers = useCallback(() => {
+    setUsers(null)
+    setUsersError(false)
+    api.users.list()
+      .then((result) => setUsers(result))
+      .catch(() => setUsersError(true))
+  }, [])
+
+  useEffect(() => {
+    if (currentUser?.role === 'admin') loadUsers()
+  }, [currentUser?.role, loadUsers])
 
   const handleAddNote = async (html: string, text: string) => {
     if (!id) return
@@ -456,14 +479,42 @@ export function TicketDetailPage({ ticketId: propId, onBack, onTicketUpdate, onN
     </Box>
   )
 
-  const ownerUser = users.find((u: any) => u.id === ticket.owner_id)
+  const ownerUser = users?.find((user) => user.id === ticket.owner_id)
   const isOwned = !!ticket.owner_id
 
   const handleClaim = async () => {
-    if (!id) return
-    await api.tickets.claim(id)
-    api.tickets.get(id).then(setTicket)
-    onTicketUpdate?.()
+    if (!id || assigningOwnerId) return
+    setAssigningOwnerId('self')
+    try {
+      await api.tickets.claim(id)
+      const updatedTicket = await api.tickets.get(id)
+      setTicket(updatedTicket)
+      onTicketUpdate?.()
+    } catch (error: unknown) {
+      notifications.show({ title: 'Assignment failed', message: error instanceof Error ? error.message : 'Could not claim case', color: 'red' })
+    } finally {
+      setAssigningOwnerId(null)
+    }
+  }
+
+  const handleSetOwner = async (ownerId: string) => {
+    if (!id || assigningOwnerId) return
+    setAssigningOwnerId(ownerId)
+    try {
+      await api.tickets.setOwner(id, ownerId)
+      setTicket((current: any) => ({
+        ...current,
+        owner_id: ownerId,
+        status: current.status === 'unassigned' ? 'active' : current.status,
+      }))
+      const assignedUser = users?.find((user) => user.id === ownerId)
+      notifications.show({ title: 'Owner assigned', message: assignedUser?.name || 'Case owner updated', color: 'green' })
+      onTicketUpdate?.()
+    } catch (error: unknown) {
+      notifications.show({ title: 'Assignment failed', message: error instanceof Error ? error.message : 'Could not assign owner', color: 'red' })
+    } finally {
+      setAssigningOwnerId(null)
+    }
   }
 
   const handleRename = async (newSubject: string) => {
@@ -478,6 +529,77 @@ export function TicketDetailPage({ ticketId: propId, onBack, onTicketUpdate, onN
     }
   }
 
+  const eligibleOwners = (users || [])
+    .filter((user) => user.role === 'admin' || user.mailboxes?.includes(ticket.mailbox_id))
+    .sort((a, b) => a.name.localeCompare(b.name))
+
+  const ownerAvatar = (
+    <Avatar
+      size={isMobile ? 'sm' : undefined}
+      radius="xl"
+      color={isOwned ? hashColor(ticket.owner_id) : 'gray'}
+      src={isOwned && ownerUser?.avatar ? ownerUser.avatar : null}
+    >
+      {isOwned && ownerUser?.avatar ? null : (isOwned ? getInitials(ownerUser?.name || '?') : 'U')}
+    </Avatar>
+  )
+
+  const ownerControl = currentUser?.role === 'admin' ? (
+    <Menu shadow="md" width={240} position="bottom-start" withArrow closeOnItemClick={!usersError}>
+      <Menu.Target>
+        <Tooltip label={isOwned ? `Owner: ${ownerUser?.name || 'Unknown'}` : 'Assign owner'} withArrow events={{ hover: true, focus: true, touch: false }}>
+          <UnstyledButton
+            aria-label={isOwned ? `Change owner from ${ownerUser?.name || 'unknown user'}` : 'Assign case owner'}
+            disabled={assigningOwnerId !== null}
+            style={{ display: 'flex', borderRadius: 'var(--mantine-radius-xl)', cursor: assigningOwnerId ? 'wait' : 'pointer' }}
+          >
+            {ownerAvatar}
+          </UnstyledButton>
+        </Tooltip>
+      </Menu.Target>
+      <Menu.Dropdown mah={320} style={{ overflowY: 'auto' }}>
+        <Menu.Label>Assign owner</Menu.Label>
+        {usersError ? (
+          <Menu.Item onClick={loadUsers}>Couldn&apos;t load users — retry</Menu.Item>
+        ) : users === null ? (
+          <Menu.Item disabled>Loading users…</Menu.Item>
+        ) : eligibleOwners.length === 0 ? (
+          <Menu.Item disabled>No users can access this mailbox</Menu.Item>
+        ) : eligibleOwners.map((user) => (
+          <Menu.Item
+            key={user.id}
+            disabled={user.id === ticket.owner_id || assigningOwnerId !== null}
+            leftSection={(
+              <Avatar size="sm" radius="xl" color={hashColor(user.id)} src={user.avatar || null}>
+                {user.avatar ? null : getInitials(user.name)}
+              </Avatar>
+            )}
+            rightSection={user.id === ticket.owner_id ? <IconCheck size={16} /> : null}
+            onClick={() => handleSetOwner(user.id)}
+          >
+            <Text size="sm">{user.name || user.email || 'Unnamed user'}</Text>
+            {user.email && <Text size="xs" c="dimmed">{user.email}</Text>}
+          </Menu.Item>
+        ))}
+      </Menu.Dropdown>
+    </Menu>
+  ) : currentUser?.role === 'agent' && !isOwned ? (
+    <Tooltip label="Assign to me" withArrow events={{ hover: true, focus: true, touch: false }}>
+      <UnstyledButton
+        aria-label="Assign this case to me"
+        disabled={assigningOwnerId !== null}
+        style={{ display: 'flex', borderRadius: 'var(--mantine-radius-xl)', cursor: assigningOwnerId ? 'wait' : 'pointer' }}
+        onClick={handleClaim}
+      >
+        {ownerAvatar}
+      </UnstyledButton>
+    </Tooltip>
+  ) : (
+    <Tooltip label={isOwned ? (ownerUser?.name || 'Unknown') : 'Unassigned'} withArrow>
+      <Box component="span" style={{ display: 'flex' }}>{ownerAvatar}</Box>
+    </Tooltip>
+  )
+
   return (
     <Box style={{ display: 'flex', flexDirection: 'column', position: 'absolute', inset: 0 }}>
       {isMobile ? (
@@ -489,18 +611,7 @@ export function TicketDetailPage({ ticketId: propId, onBack, onTicketUpdate, onN
                   <IconArrowLeft size={18} />
                 </ActionIcon>
               )}
-              <Tooltip label={isOwned ? (ownerUser?.name || 'Unknown') : 'Assign to me'} withArrow>
-                <Avatar
-                  size="sm"
-                  radius="xl"
-                  color={isOwned ? hashColor(ticket.owner_id) : 'gray'}
-                  src={isOwned && ownerUser?.avatar ? ownerUser.avatar : null}
-                  style={{ cursor: isOwned ? 'default' : 'pointer' }}
-                  onClick={isOwned ? undefined : handleClaim}
-                >
-                  {isOwned && ownerUser?.avatar ? null : (isOwned ? getInitials(ownerUser?.name || '?') : 'U')}
-                </Avatar>
-              </Tooltip>
+              {ownerControl}
             </Group>
             <Group gap="xs" wrap="nowrap">
               <Menu shadow="md" width={160}>
@@ -540,17 +651,7 @@ export function TicketDetailPage({ ticketId: propId, onBack, onTicketUpdate, onN
               <IconArrowLeft size={18} />
             </ActionIcon>
           )}
-          <Tooltip label={isOwned ? (ownerUser?.name || 'Unknown') : 'Assign to me'} withArrow>
-            <Avatar
-              radius="xl"
-              color={isOwned ? hashColor(ticket.owner_id) : 'gray'}
-              src={isOwned && ownerUser?.avatar ? ownerUser.avatar : null}
-              style={{ cursor: isOwned ? 'default' : 'pointer' }}
-              onClick={isOwned ? undefined : handleClaim}
-            >
-              {isOwned && ownerUser?.avatar ? null : (isOwned ? getInitials(ownerUser?.name || '?') : 'U')}
-            </Avatar>
-          </Tooltip>
+          {ownerControl}
           <Title order={2} style={{ flexShrink: 0, cursor: 'pointer' }} onClick={() => { navigator.clipboard.writeText(`${window.location.origin}/#/tickets/${ticket.number}`); notifications.show({ title: 'Link copied', message: `Direct link to #${ticket.number} copied to clipboard`, color: 'blue' }) }}>#{ticket.number}</Title>
           <TextInput
             key={ticket.id}

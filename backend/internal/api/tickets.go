@@ -2,6 +2,7 @@ package api
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
 	"net/http"
@@ -306,6 +307,7 @@ func (h *handlers) createTicket(w http.ResponseWriter, r *http.Request) {
 
 	now := time.Now()
 	t.ID = ""
+	t.OwnerID = ""
 	t.Status = models.TicketStatusUnassigned
 	t.CreatedAt = now
 	t.UpdatedAt = now
@@ -386,17 +388,7 @@ func (h *handlers) updateTicket(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	updates["updated_at"] = time.Now()
-	delete(updates, "_id")
-	delete(updates, "id")
-	delete(updates, "mailbox_id")
-	delete(updates, "messages")
-	delete(updates, "number")
-	delete(updates, "created_at")
-	delete(updates, "email_thread_id")
-	delete(updates, "thread_topic")
-	delete(updates, "thread_index")
-	delete(updates, "hupload_share")
-	delete(updates, "hupload_url")
+	removeProtectedTicketUpdates(updates)
 
 	result, err := h.db.Tickets().UpdateByID(ctx, oid, bson.M{"$set": updates})
 	if err != nil {
@@ -408,6 +400,21 @@ func (h *handlers) updateTicket(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	w.WriteHeader(http.StatusNoContent)
+}
+
+func removeProtectedTicketUpdates(updates map[string]any) {
+	delete(updates, "_id")
+	delete(updates, "id")
+	delete(updates, "mailbox_id")
+	delete(updates, "messages")
+	delete(updates, "number")
+	delete(updates, "created_at")
+	delete(updates, "email_thread_id")
+	delete(updates, "thread_topic")
+	delete(updates, "thread_index")
+	delete(updates, "hupload_share")
+	delete(updates, "hupload_url")
+	delete(updates, "owner_id")
 }
 
 func (h *handlers) renameTicket(w http.ResponseWriter, r *http.Request) {
@@ -752,11 +759,48 @@ func (h *handlers) assignTicket(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNoContent)
 }
 
-func (h *handlers) claimTicket(w http.ResponseWriter, r *http.Request) {
-	ctx := r.Context()
-	id := r.PathValue("id")
+var (
+	errOwnerNotFound      = errors.New("owner not found")
+	errOwnerMailboxAccess = errors.New("owner cannot access ticket mailbox")
+)
 
-	oid, err := bson.ObjectIDFromHex(id)
+func validateTicketOwner(user *models.User, mailboxID string) error {
+	if user == nil {
+		return errOwnerNotFound
+	}
+	if user.Role == models.RoleAdmin {
+		return nil
+	}
+	for _, id := range user.Mailboxes {
+		if id == mailboxID {
+			return nil
+		}
+	}
+	return errOwnerMailboxAccess
+}
+
+func ownerAssignmentUpdate(ownerID string, now time.Time) mongo.Pipeline {
+	return mongo.Pipeline{
+		bson.D{{Key: "$set", Value: bson.D{
+			{Key: "owner_id", Value: ownerID},
+			{Key: "updated_at", Value: now},
+			{Key: "status", Value: bson.D{{Key: "$cond", Value: bson.A{
+				bson.D{{Key: "$eq", Value: bson.A{"$status", models.TicketStatusUnassigned}}},
+				models.TicketStatusActive,
+				"$status",
+			}}}},
+		}}},
+	}
+}
+
+func (h *handlers) setTicketOwner(w http.ResponseWriter, r *http.Request) {
+	if !requireAdmin(r) {
+		writeError(w, http.StatusForbidden, "FORBIDDEN", "admin role required")
+		return
+	}
+
+	ctx := r.Context()
+	oid, err := bson.ObjectIDFromHex(r.PathValue("id"))
 	if err != nil {
 		writeError(w, http.StatusBadRequest, "INVALID_ID", "invalid ticket ID format")
 		return
@@ -767,16 +811,62 @@ func (h *handlers) claimTicket(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	var body struct {
+		OwnerID string `json:"owner_id"`
+	}
+	if err := readJSON(r, &body); err != nil {
+		writeError(w, http.StatusBadRequest, "INVALID_JSON", err.Error())
+		return
+	}
+	ownerOID, err := bson.ObjectIDFromHex(body.OwnerID)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "INVALID_OWNER", "invalid owner ID format")
+		return
+	}
+
+	var owner models.User
+	if err := h.db.Users().FindOne(ctx, bson.M{"_id": ownerOID}).Decode(&owner); err != nil {
+		if errors.Is(err, mongo.ErrNoDocuments) {
+			writeError(w, http.StatusNotFound, "USER_NOT_FOUND", "owner not found")
+			return
+		}
+		writeError(w, http.StatusInternalServerError, "DB_ERROR", "failed to load owner")
+		return
+	}
+	if err := validateTicketOwner(&owner, ticket.MailboxID); err != nil {
+		writeError(w, http.StatusBadRequest, "INVALID_OWNER", "selected user cannot access this ticket's mailbox")
+		return
+	}
+
+	result, err := h.db.Tickets().UpdateByID(ctx, oid, ownerAssignmentUpdate(body.OwnerID, time.Now()))
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "DB_ERROR", "failed to assign owner")
+		return
+	}
+	if result.MatchedCount == 0 {
+		writeError(w, http.StatusNotFound, "TICKET_NOT_FOUND", "ticket not found")
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
+}
+
+func (h *handlers) claimTicket(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	id := r.PathValue("id")
+
+	oid, err := bson.ObjectIDFromHex(id)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "INVALID_ID", "invalid ticket ID format")
+		return
+	}
+
+	if _, ok := h.requireTicketAccess(w, r, oid); !ok {
+		return
+	}
+
 	claims := ctx.Value(claimsKey).(*jwtClaims)
 
-	updateFields := bson.M{"owner_id": claims.Sub, "updated_at": time.Now()}
-	// If unassigned, transition to active
-	if ticket.Status == models.TicketStatusUnassigned {
-		updateFields["status"] = models.TicketStatusActive
-	}
-	result, err := h.db.Tickets().UpdateByID(ctx, oid, bson.M{
-		"$set": updateFields,
-	})
+	result, err := h.db.Tickets().UpdateByID(ctx, oid, ownerAssignmentUpdate(claims.Sub, time.Now()))
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "DB_ERROR", err.Error())
 		return

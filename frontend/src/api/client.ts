@@ -62,6 +62,7 @@ export const api = {
     deleteMessage: (id: string, messageIndex: number) => request<void>(`/tickets/${id}/messages/${messageIndex}`, { method: 'DELETE' }),
     assign: (id: string, assigneeId: string) => request<void>(`/tickets/${id}/assign`, { method: 'PUT', body: JSON.stringify({ assignee_id: assigneeId }) }),
     claim: (id: string) => request<void>(`/tickets/${id}/claim`, { method: 'PUT' }),
+    setOwner: (id: string, ownerId: string) => request<void>(`/tickets/${id}/owner`, { method: 'PUT', body: JSON.stringify({ owner_id: ownerId }) }),
     setStatus: (id: string, status: string) => request<void>(`/tickets/${id}/status`, { method: 'PUT', body: JSON.stringify({ status }) }),
     rename: (id: string, subject: string) => request<void>(`/tickets/${id}/subject`, { method: 'PUT', body: JSON.stringify({ subject }) }),
   },

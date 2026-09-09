@@ -27,6 +27,7 @@ func NewRouter(db *store.DB) http.Handler {
 	mux.HandleFunc("GET /api/v1/tickets/{id}/hupload/items", h.listHuploadItems)
 	mux.HandleFunc("PUT /api/v1/tickets/{id}/assign", h.assignTicket)
 	mux.HandleFunc("PUT /api/v1/tickets/{id}/claim", h.claimTicket)
+	mux.HandleFunc("PUT /api/v1/tickets/{id}/owner", h.setTicketOwner)
 	mux.HandleFunc("PUT /api/v1/tickets/{id}/status", h.changeTicketStatus)
 	mux.HandleFunc("PUT /api/v1/tickets/{id}/subject", h.renameTicket)
 	mux.HandleFunc("DELETE /api/v1/tickets/{id}/messages/{msgIdx}", h.deleteMessage)

@@ -150,7 +150,7 @@ function TicketPanes({ currentUser, mailboxes, onMailboxCountChange }: { current
         </Box>
         {id && (
           <Box style={{ position: 'absolute', inset: 0 }}>
-            <TicketDetailPage ticketId={id} onBack={() => navigate(basePath)} onTicketUpdate={refreshList} mailbox={mailbox} onNotFound={handleTicketNotFound} />
+            <TicketDetailPage ticketId={id} onBack={() => navigate(basePath)} onTicketUpdate={refreshList} mailbox={mailbox} currentUser={currentUser} onNotFound={handleTicketNotFound} />
           </Box>
         )}
       </Box>
@@ -191,7 +191,7 @@ function TicketPanes({ currentUser, mailboxes, onMailboxCountChange }: { current
             <div style={{ height: 1, width: '100%', background: 'var(--mantine-color-default-border)', transition: 'background 150ms' }} />
           </Box>
           <Box style={{ flex: 1, padding: 'var(--mantine-spacing-md)', minHeight: 0, display: 'flex', flexDirection: 'column', position: 'relative' }}>
-            <TicketDetailPage ticketId={id} onTicketUpdate={refreshList} mailbox={mailbox} onNotFound={handleTicketNotFound} />
+            <TicketDetailPage ticketId={id} onTicketUpdate={refreshList} mailbox={mailbox} currentUser={currentUser} onNotFound={handleTicketNotFound} />
           </Box>
         </>
       )}

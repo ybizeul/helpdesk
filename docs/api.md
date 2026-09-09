@@ -34,7 +34,14 @@ an area to configure OIDC and map groups to roles.
 | POST   | /tickets/:id/hupload/share | Create or reuse case Hupload share |
 | GET    | /tickets/:id/hupload/items | List files from case Hupload share |
 | PUT    | /tickets/:id/assign    | Assign ticket to agent    |
+| PUT    | /tickets/:id/claim     | Assign the current user as owner |
+| PUT    | /tickets/:id/owner     | Assign an eligible owner (administrator only) |
 | PUT    | /tickets/:id/status    | Change ticket status      |
+
+`PUT /tickets/:id/owner` accepts `{ "owner_id": "<user ObjectID>" }` and returns
+204. The selected user must be an administrator or have access to the ticket's
+mailbox. It returns `FORBIDDEN` for non-administrators, `USER_NOT_FOUND` for an
+unknown user, and `INVALID_OWNER` when the ID or mailbox eligibility is invalid.
 
 Query params for `GET /tickets`:
 
