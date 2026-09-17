@@ -1,5 +1,13 @@
+/* Mantine's editor stylesheet only styles `pre`, and withTypographyStyles={false}
+   drops the typography rules, so keep both code surfaces in sync with message bodies. */
 .ProseMirror pre {
-  background-color: light-dark(var(--mantine-color-gray-2), var(--mantine-color-dark-6)) !important;
+  background-color: light-dark(var(--mantine-color-gray-1), var(--mantine-color-dark-6)) !important;
+}
+
+.ProseMirror code {
+  background-color: light-dark(var(--mantine-color-gray-1), var(--mantine-color-dark-6));
+  border-radius: 4px;
+  padding: 2px 4px;
 }
 
 html, body, #root {
