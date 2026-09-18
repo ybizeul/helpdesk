@@ -1,13 +1,59 @@
-/* Mantine's editor stylesheet only styles `pre`, and withTypographyStyles={false}
-   drops the typography rules, so keep both code surfaces in sync with message bodies. */
-.ProseMirror pre {
+/* Rich text surfaces shared by the composers (.ProseMirror) and the message
+   display (.msg-body). Mantine styles these inconsistently: the tiptap
+   stylesheet only covers `pre`, `withTypographyStyles` covers blockquote/code
+   with different colors, and sanitized email HTML brings its own inline
+   styles. Keep every rule below applied to both selectors. */
+.ProseMirror blockquote,
+.msg-body blockquote {
+  margin: var(--mantine-spacing-sm) 0 !important;
+  padding: var(--mantine-spacing-xs) var(--mantine-spacing-md) !important;
+  font-size: inherit;
   background-color: light-dark(var(--mantine-color-gray-1), var(--mantine-color-dark-6)) !important;
+  border-inline-start: 3px solid light-dark(var(--mantine-color-gray-5), var(--mantine-color-dark-3)) !important;
+  border-block: none !important;
+  border-inline-end: none !important;
+  border-radius: 4px;
 }
 
-.ProseMirror code {
+.ProseMirror code,
+.msg-body code {
   background-color: light-dark(var(--mantine-color-gray-1), var(--mantine-color-dark-6));
+  color: inherit;
+  border: 1px solid light-dark(var(--mantine-color-gray-3), var(--mantine-color-dark-4));
   border-radius: 4px;
-  padding: 2px 4px;
+  padding: 1px 4px;
+  font-family: var(--mantine-font-family-monospace);
+  font-size: 0.875em;
+}
+
+.ProseMirror pre,
+.msg-body pre {
+  background-color: light-dark(var(--mantine-color-gray-1), var(--mantine-color-dark-6)) !important;
+  border: 1px solid light-dark(var(--mantine-color-gray-3), var(--mantine-color-dark-4)) !important;
+  border-radius: 4px !important;
+  padding: 12px !important;
+  overflow-x: auto;
+  font-family: var(--mantine-font-family-monospace);
+}
+
+.ProseMirror pre code,
+.msg-body pre code {
+  background: none;
+  border: none;
+  border-radius: 0;
+  padding: 0;
+  font-size: var(--mantine-font-size-sm);
+}
+
+.msg-body .MsoNormal {
+  margin: 0 !important;
+}
+
+.msg-body img {
+  max-width: min(100%, 800px) !important;
+  width: auto !important;
+  height: auto !important;
+  object-fit: contain;
 }
 
 html, body, #root {

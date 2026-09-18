@@ -216,14 +216,73 @@ func SendReply(cfg models.EmailSettings, to string, cc []string, subject, textBo
 	return messageID, msgBytes, nil
 }
 
-func wrapHTML(body string) string {
-	return `<!DOCTYPE html><html><head><meta charset="utf-8"></head><body><style>
-pre, code { background-color: #f5f5f5; border-radius: 4px; }
-code { padding: 2px 4px; font-size: 0.9em; }
-pre { padding: 12px; overflow-x: auto; }
-pre code { padding: 0; background: none; }
+// Colors mirror the Mantine tokens used by the web UI (gray-1/gray-3/gray-5 in
+// light mode, dark-6/dark-4/dark-3 in dark mode) so a reply looks the same in
+// the composer, the ticket view and the recipient's inbox.
+const (
+	blockquoteStyle = "margin:8px 0;padding:8px 16px;background-color:#f1f3f5;border-left:3px solid #adb5bd;border-radius:4px;"
+	codeStyle       = "background-color:#f1f3f5;border:1px solid #dee2e6;border-radius:4px;padding:1px 4px;font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,monospace;font-size:0.875em;"
+	preStyle        = "background-color:#f1f3f5;border:1px solid #dee2e6;border-radius:4px;padding:12px;overflow-x:auto;font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,monospace;"
+	preCodeStyle    = "background:none;border:none;border-radius:0;padding:0;font-family:inherit;font-size:inherit;"
+)
+
+// emailCSS only has to cover clients that honour <style>; the inline
+// attributes added by applyInlineStyles carry the light-mode appearance
+// everywhere else. Dark-mode rules need !important to beat those attributes.
+const emailCSS = `
+blockquote { margin: 8px 0; padding: 8px 16px; background-color: #f1f3f5; border-left: 3px solid #adb5bd; border-radius: 4px; }
+code { background-color: #f1f3f5; border: 1px solid #dee2e6; border-radius: 4px; padding: 1px 4px; font-size: 0.875em; }
+pre { background-color: #f1f3f5; border: 1px solid #dee2e6; border-radius: 4px; padding: 12px; overflow-x: auto; }
+pre code { background: none; border: none; border-radius: 0; padding: 0; font-size: inherit; }
 img { max-width: 100%; height: auto; }
-</style>` + body + `</body></html>`
+@media (prefers-color-scheme: dark) {
+  blockquote { background-color: #2e2e2e !important; border-left-color: #696969 !important; color: #c9c9c9 !important; }
+  code, pre { background-color: #2e2e2e !important; border-color: #424242 !important; color: #c9c9c9 !important; }
+  pre code { background: none !important; border: none !important; }
+}
+`
+
+var (
+	preBlockRegex  = regexp.MustCompile(`(?is)<pre(\s[^>]*)?>.*?</pre>`)
+	openTagRegexes = map[string]*regexp.Regexp{
+		"pre":        regexp.MustCompile(`(?is)<pre(\s[^>]*)?>`),
+		"code":       regexp.MustCompile(`(?is)<code(\s[^>]*)?>`),
+		"blockquote": regexp.MustCompile(`(?is)<blockquote(\s[^>]*)?>`),
+	}
+)
+
+// addStyleAttr adds style to every opening tag of the given name that does not
+// already carry one, leaving author-supplied styles untouched.
+func addStyleAttr(html, tag, style string) string {
+	return openTagRegexes[tag].ReplaceAllStringFunc(html, func(match string) string {
+		if strings.Contains(strings.ToLower(match), "style=") {
+			return match
+		}
+		return match[:len(match)-1] + ` style="` + style + `">`
+	})
+}
+
+// applyInlineStyles inlines the code and quote styles onto the elements
+// themselves, because Gmail and Outlook drop or mangle <style> blocks.
+func applyInlineStyles(html string) string {
+	// Code blocks first: the <code> inside a <pre> must reset rather than
+	// repeat the surrounding box, and styling it here makes the generic
+	// <code> pass below skip it.
+	html = preBlockRegex.ReplaceAllStringFunc(html, func(block string) string {
+		block = addStyleAttr(block, "code", preCodeStyle)
+		return addStyleAttr(block, "pre", preStyle)
+	})
+	html = addStyleAttr(html, "pre", preStyle)
+	html = addStyleAttr(html, "code", codeStyle)
+	return addStyleAttr(html, "blockquote", blockquoteStyle)
+}
+
+func wrapHTML(body string) string {
+	return `<!DOCTYPE html><html><head><meta charset="utf-8">` +
+		`<meta name="color-scheme" content="light dark">` +
+		`<meta name="supported-color-schemes" content="light dark">` +
+		`<style>` + emailCSS + `</style></head><body>` +
+		applyInlineStyles(body) + `</body></html>`
 }
 
 type cidAttachment struct {
