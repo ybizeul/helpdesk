@@ -1,0 +1,6 @@
+{
+  "go.goroot": "~/.local/share/mise/installs/go/latest",
+  "go.toolsEnvVars": {
+    "PATH": "${env:HOME}/.local/share/mise/shims:${env:PATH}"
+  }
+}
