@@ -1,3 +1,22 @@
+/* Don't use light-dark() in this file: Lightning CSS (Vite's CSS transformer)
+   polyfills it into a pair of --lightningcss-light/--lightningcss-dark vars
+   that it only defines next to a static `color-scheme` declaration. Mantine
+   declares `color-scheme: var(--mantine-color-scheme)`, so the definitions
+   never land and every polyfilled declaration ships with two values, which
+   browsers drop. Key off Mantine's resolved scheme attribute instead. */
+:root,
+:root[data-mantine-color-scheme='light'] {
+  --hd-code-bg: var(--mantine-color-gray-1);
+  --hd-code-border: var(--mantine-color-gray-3);
+  --hd-quote-bar: var(--mantine-color-gray-5);
+}
+
+:root[data-mantine-color-scheme='dark'] {
+  --hd-code-bg: var(--mantine-color-dark-6);
+  --hd-code-border: var(--mantine-color-dark-4);
+  --hd-quote-bar: var(--mantine-color-dark-3);
+}
+
 /* Rich text surfaces shared by the composers (.ProseMirror) and the message
    display (.msg-body). Mantine styles these inconsistently: the tiptap
    stylesheet only covers `pre`, `withTypographyStyles` covers blockquote/code
@@ -8,8 +27,8 @@
   margin: var(--mantine-spacing-sm) 0 !important;
   padding: var(--mantine-spacing-xs) var(--mantine-spacing-md) !important;
   font-size: inherit;
-  background-color: light-dark(var(--mantine-color-gray-1), var(--mantine-color-dark-6)) !important;
-  border-inline-start: 3px solid light-dark(var(--mantine-color-gray-5), var(--mantine-color-dark-3)) !important;
+  background-color: var(--hd-code-bg) !important;
+  border-inline-start: 3px solid var(--hd-quote-bar) !important;
   border-block: none !important;
   border-inline-end: none !important;
   border-radius: 4px;
@@ -17,9 +36,9 @@
 
 .ProseMirror code,
 .msg-body code {
-  background-color: light-dark(var(--mantine-color-gray-1), var(--mantine-color-dark-6));
+  background-color: var(--hd-code-bg);
   color: inherit;
-  border: 1px solid light-dark(var(--mantine-color-gray-3), var(--mantine-color-dark-4));
+  border: 1px solid var(--hd-code-border);
   border-radius: 4px;
   padding: 1px 4px;
   font-family: var(--mantine-font-family-monospace);
@@ -28,8 +47,8 @@
 
 .ProseMirror pre,
 .msg-body pre {
-  background-color: light-dark(var(--mantine-color-gray-1), var(--mantine-color-dark-6)) !important;
-  border: 1px solid light-dark(var(--mantine-color-gray-3), var(--mantine-color-dark-4)) !important;
+  background-color: var(--hd-code-bg) !important;
+  border: 1px solid var(--hd-code-border) !important;
   border-radius: 4px !important;
   padding: 12px !important;
   overflow-x: auto;
