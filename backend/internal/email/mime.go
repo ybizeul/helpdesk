@@ -16,13 +16,31 @@ import (
 )
 
 func init() {
-	message.CharsetReader = func(charset string, r io.Reader) (io.Reader, error) {
-		enc, err := ianaindex.IANA.Encoding(charset)
-		if err != nil || enc == nil {
-			return r, nil
-		}
-		return enc.NewDecoder().Reader(r), nil
+	message.CharsetReader = charsetReader
+}
+
+func charsetReader(charset string, r io.Reader) (io.Reader, error) {
+	enc, err := ianaindex.IANA.Encoding(charset)
+	if err != nil || enc == nil {
+		return r, nil
 	}
+	return enc.NewDecoder().Reader(r), nil
+}
+
+// decodeHeader decodes RFC 2047 encoded-words (e.g. "=?Windows-1252?Q?caf=E9?=")
+// found in mail headers. The stdlib decoder only knows UTF-8, ISO-8859-1 and
+// US-ASCII, so charsets such as Windows-1252 need CharsetReader to resolve.
+// Headers that are not encoded, or that fail to decode, are returned as-is.
+func decodeHeader(s string) string {
+	if s == "" {
+		return ""
+	}
+	dec := &mime.WordDecoder{CharsetReader: charsetReader}
+	decoded, err := dec.DecodeHeader(s)
+	if err != nil {
+		return textutil.ToValidUTF8(s)
+	}
+	return textutil.ToValidUTF8(decoded)
 }
 
 type Attachment struct {
@@ -56,16 +74,11 @@ func ParseMIMEBody(raw []byte) ParsedBody {
 	cidMap := make(map[string]string) // cid -> data URI
 
 	if subj := entity.Header.Get("Subject"); subj != "" {
-		dec := new(mime.WordDecoder)
-		if decoded, err := dec.DecodeHeader(subj); err == nil {
-			result.Subject = textutil.ToValidUTF8(decoded)
-		} else {
-			result.Subject = textutil.ToValidUTF8(subj)
-		}
+		result.Subject = decodeHeader(subj)
 	}
 
 	if topic := entity.Header.Get("Thread-Topic"); topic != "" {
-		result.ThreadTopic = textutil.ToValidUTF8(topic)
+		result.ThreadTopic = decodeHeader(topic)
 	}
 
 	if ti := entity.Header.Get("Thread-Index"); ti != "" {

@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"io"
 	"log/slog"
-	"mime"
 	"net"
 	"regexp"
 	"strconv"
@@ -184,7 +183,7 @@ func fetchEmailsOnce(ctx context.Context, cfg models.EmailSettings, db TicketSto
 			}
 			switch data := item.(type) {
 			case imapclient.FetchItemDataEnvelope:
-				subject = textutil.ToValidUTF8(data.Envelope.Subject)
+				subject = decodeHeader(data.Envelope.Subject)
 				date = data.Envelope.Date
 				messageID = data.Envelope.MessageID
 				inReplyTo = data.Envelope.InReplyTo
@@ -192,12 +191,7 @@ func fetchEmailsOnce(ctx context.Context, cfg models.EmailSettings, db TicketSto
 					a := data.Envelope.From[0]
 					// from becomes requester.email, which is text-indexed.
 					from = textutil.ToValidUTF8(fmt.Sprintf("%s@%s", a.Mailbox, a.Host))
-					dec := new(mime.WordDecoder)
-					if decoded, err := dec.DecodeHeader(a.Name); err == nil {
-						fromName = textutil.ToValidUTF8(decoded)
-					} else {
-						fromName = textutil.ToValidUTF8(a.Name)
-					}
+					fromName = decodeHeader(a.Name)
 				}
 				for _, a := range data.Envelope.To {
 					to = append(to, fmt.Sprintf("%s@%s", a.Mailbox, a.Host))
